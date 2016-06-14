@@ -1,12 +1,24 @@
 
 class RicherSeq[T](val seq: Seq[T]) {
   def findMap[U](f: T => Option[U]): Option[U] = seq.iterator.map(f).find(_.nonEmpty).flatten
+  def filterNotFirst(f: T => Boolean): Seq[T] = {
+    var filtering = true
+    seq.filterNot { x => if(filtering && f(x)) { filtering = false; true } else false }
+  }
 }
 class RicherList[T](val list: List[T]) {
   def findMap[U](f: T => Option[U]): Option[U] = list.iterator.map(f).find(_.nonEmpty).flatten
+  def filterNotFirst(f: T => Boolean): List[T] = {
+    var filtering = true
+    list.filterNot { x => if(filtering && f(x)) { filtering = false; true } else false }
+  }
 }
 class RicherArray[T](val arr: Array[T]) {
   def findMap[U](f: T => Option[U]): Option[U] = arr.iterator.map(f).find(_.nonEmpty).flatten
+  def filterNotFirst(f: T => Boolean): Array[T] = {
+    var filtering = true
+    arr.filterNot { x => if(filtering && f(x)) { filtering = false; true } else false }
+  }
 }
 
 class RicherMap[T,U](val map: Map[T,U]) {

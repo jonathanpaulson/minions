@@ -1,10 +1,20 @@
-import scala.util.Try
+import scala.util.{Try,Success,Failure}
 import RichImplicits._
+import scala.collection.immutable.Vector
 
 /**
  * The board and various (often mutable) data structures and types relating directly to it.
  */
 
+//TODO use this
+/*
+sealed trait Action
+case class PlayerAction(action: PlayerAction) extends Event
+case class GeneralAction(action: GeneralAction) extends Event
+*/
+
+//TODO this won't work - because pieceids will change depending on the order of spawning pieces
+//we need something different... I guess we need to target all pieces by location and index in stack instead?
 /**
  * Action:
  * A single action taken by a player.
@@ -12,11 +22,11 @@ import RichImplicits._
  * on the board. That is, it should be meaningful to ask whether an action would be legal
  * on a different board, or if the order of actions were rearranged, etc.
  */
-sealed trait Action
-case class Movements(movements: List[Movement]) extends Action
-case class Attack(pieceId: Int, targetLoc: Loc, targetId: Int) extends Action
-case class Spawn(pieceId: Int, spawnLoc: Loc, spawnStats: PieceStats) extends Action
-case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends Action
+sealed trait PlayerAction
+case class Movements(movements: List[Movement]) extends PlayerAction
+case class Attack(pieceId: Int, targetLoc: Loc, targetId: Int) extends PlayerAction
+case class Spawn(pieceId: Int, spawnLoc: Loc, spawnStats: PieceStats) extends PlayerAction
+case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
 
 //Path should include the starting location of the piece.
 case class Movement(pieceId: Int, path: Array[Loc])
@@ -32,6 +42,33 @@ case class PlayedSpellOrAbility(
   val loc0: Loc,
   //Spell ids that were discarded to power this spell or ability, if it was a sorcery
   val discardingId: Option[Int]
+)
+
+/**
+ * Message:
+ * A line in a log of notable events that happened in the board up to this point
+ */
+case class Message(
+  val message: String,
+  val mtype: MessageType,
+  val timeLeft: Double
+)
+/** MessageType:
+ *  Extra metadata about what kind of message it is
+ */
+sealed trait MessageType
+case class ActionMsgType(side: Side) extends MessageType
+case class ExternalMsgType(side: Side) extends MessageType
+case object TurnChangeMsgType extends MessageType
+case object InternalEventMsgType extends MessageType
+
+/** Tile:
+ *  A single tile on the board
+ *  Possibly enchanted due to spells. Later in list -> spells were played later.
+ */
+case class Tile(
+  val terrain: Terrain,
+  var modsWithDuration: List[PieceModWithDuration]
 )
 
 /**
@@ -107,12 +144,17 @@ object Board {
       pieces = Plane.create(tiles.xSize,tiles.ySize,tiles.topology,List()),
       pieceById = Map(),
       nextPieceId = 0,
-      turnNumber = 0,
+      turnNumber = -1, //Indicates that the game hasn't started yet
       reinforcements = SideArray.create(List()),
       spells = SideArray.create(Map()),
       nextSpellId = 0,
       side = S0,
-      revActionsThisTurn = List()
+      actionsThisTurn = Vector(),
+      actionsTotal = Vector(),
+      messages = Vector(),
+      mana = SideArray.create(0),
+      totalMana = SideArray.create(0),
+      totalCosts = SideArray.create(0)
     )
   }
 }
@@ -127,7 +169,7 @@ class Board private (
   var pieceById: Map[Int,Piece],
   var nextPieceId: Int, //Counter for assigning per-board unique ids to pieces
 
-  //Number of turns completed
+  //Number of turns completed, or -1 if game unstarted
   var turnNumber: Int,
 
   //List of all reinforcement pieces in hand
@@ -140,12 +182,31 @@ class Board private (
   //Current side to move
   var side: Side,
 
-  //List of all actions taken by the side to move this turn, later actions in list taken earlier
-  var revActionsThisTurn: List[Action]
+  //All actions taken by the side to move this turn
+  var actionsThisTurn: Vector[List[PlayerAction]],  //TODO this needs to include external additions
+  //All actions over the whole history of the board
+  var actionsTotal: Vector[List[PlayerAction]], //TODO this needs to include external additions
+
+  //Messages for external display to user as a result of events
+  var messages: Vector[Message],
+  //Accumulated mana from spires and rebate for costs for units that died, this turn.
+  //(Only clears at the beginning of a side's turn)
+  val mana: SideArray[Int],
+  //Same, but never clears - summed over the whole board's lifetime.
+  val totalMana: SideArray[Int],
+  //Total cost of units added to reinforcements of this board over the board's lifetime
+  val totalCosts: SideArray[Int]
 ) {
-  val xSize = tiles.xSize
-  val ySize = tiles.ySize
-  val topology = tiles.topology
+  val xSize: Int = tiles.xSize
+  val ySize: Int = tiles.ySize
+  val topology: PlaneTopology = tiles.topology
+
+  //Transient, used only for message logging and is set by external code prior to calling
+  //functions to modify board state
+  var timeLeft: Double = 0.0
+  def setTimeLeft(t: Double) = {
+    timeLeft = t
+  }
 
   def copy(): Board = {
     val newBoard = new Board(
@@ -158,14 +219,176 @@ class Board private (
       spells = spells.copy(),
       nextSpellId = nextSpellId,
       side = side,
-      revActionsThisTurn = revActionsThisTurn
+      actionsThisTurn = actionsThisTurn,
+      actionsTotal = actionsTotal,
+      messages = messages,
+      mana = mana,
+      totalMana = totalMana,
+      totalCosts = totalCosts
     )
     val newPieceById = pieceById.mapValues { piece => piece.copy(newBoard) }
     newBoard.pieces.transform { pieceList => pieceList.map { piece => newPieceById(piece.id) } }
     newBoard
   }
 
-  def tryLegality(action: Action): Try[Unit] = Try {
+  //Check whether a sequence of actions would be legal
+  def tryLegality(actions: Seq[PlayerAction]): Try[Unit] = {
+    val list = actions.toList
+    list match {
+      case Nil => Success(())
+      case action :: Nil => tryLegalitySingle(list.head)
+      case _ =>
+        val board = this.copy()
+        def loop(list: List[PlayerAction]): Try[Unit] = {
+          list match {
+            case Nil => Success(())
+            case action :: Nil => board.tryLegalitySingle(list.head)
+            case action :: rest =>
+              board.doActionSingle(action) match {
+                case Success(()) => loop(rest)
+                case Failure(err) => Failure(err)
+              }
+          }
+        }
+        loop(list)
+    }
+  }
+
+  //Perform a sequence of actions, stopping on before the first illegal action, if any
+  def doActions(actions: Seq[PlayerAction]): Try[Unit] = {
+    var goodActions: List[PlayerAction] = List()
+    val error = actions.findMap { action =>
+      doActionSingle(action) match {
+        case Success(()) => goodActions = action :: goodActions; None
+        case Failure(err) => Some(Failure(err))
+      }
+    }
+    goodActions = goodActions.reverse
+    actionsThisTurn = actionsThisTurn :+ goodActions
+    actionsTotal = actionsTotal :+ goodActions
+    error.getOrElse(Success())
+  }
+
+  //End the current turn and begin the next turn. Called also at the start of the game just after setup
+  def beginNextTurn(): Unit = {
+    //Count and accumulate mana, except on the start of game. Wailing units do generate mana
+    var newMana = 0
+    if(turnNumber != -1)
+    {
+      pieceById.values.foreach { piece =>
+        if(piece.side == side)
+          newMana += piece.curStats.extraMana + (if(tiles(piece.loc).terrain == ManaSpire) 1 else 0)
+      }
+    }
+
+    //Wailing units that attacked die
+    val attackedWailings = pieceById.iterator.filter { case (pieceId,piece) =>
+      piece.curStats.isWailing && piece.hasAttacked
+    }
+    attackedWailings.toList.foreach { case (_pieceId,piece) => killPiece(piece) }
+
+    //Heal damage, reset piece state, decay modifiers
+    pieceById.values.foreach { piece =>
+      piece.damage = 0
+      piece.actState = nextGoodActState(piece,Moving(0))
+      piece.hasMoved = false
+      piece.hasAttacked = false
+      piece.hasFreeSpawned = false
+      piece.modsWithDuration = piece.modsWithDuration.flatMap(_.decay)
+    }
+    //Decay tile modifiers
+    tiles.foreach { tile => tile.modsWithDuration = tile.modsWithDuration.flatMap(_.decay) }
+
+    mana(side) += newMana
+    totalMana(side) += newMana
+
+    if(turnNumber == -1) {
+      val message = "New board started"
+      addMessage(message,TurnChangeMsgType)
+    }
+    if(turnNumber != -1) {
+      //TODO put team or player names into here?
+      val message = "%s turn ended, generated %d mana (board lifetime %d, costs %d, net %d)".format(
+        side.toString(),newMana,totalMana(side),totalCosts(side),totalMana(side) - totalCosts(side)
+      )
+      addMessage(message,TurnChangeMsgType)
+    }
+
+    //Flip turn
+    side = side.opp
+    turnNumber += 1
+
+    //Clear mana for the side to move
+    mana(side) = 0
+  }
+
+  def addReinforcement(side: Side, pieceStats: PieceStats): Unit = {
+    //TODO
+  }
+
+  def addSpell(side: Side, spell: Spell): Unit = {
+    //TODO
+  }
+
+  //Directly spawn a piece if it possible to do so. Exposed for use to set up initial boards.
+  def spawnPieceInitial(side: Side, pieceStats: PieceStats, loc: Loc): Try[Unit] = {
+    if(turnNumber != -1)
+      Failure(new Exception("Can only spawn pieces initially before the game has started"))
+    else
+      spawnPieceInternal(side,pieceStats,loc)
+  }
+
+  //HELPER FUNCTIONS -------------------------------------------------------------------------------------
+  private def addMessage(message: String, mtype: MessageType) = {
+    messages = messages :+ Message(message,mtype,timeLeft)
+  }
+
+  private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {
+    tile.terrain match {
+      case Wall => false
+      case Ground | ManaSpire | Spawner(_,_) => true
+      case Water => pieceStats.isFlying
+    }
+  }
+  private def canSwarmTogether(pieceStats: PieceStats, otherStats: PieceStats): Boolean = {
+    pieceStats.swarmMax > 1 && otherStats.swarmMax > 1 && pieceStats.name == otherStats.name
+  }
+
+  //None means unlimited
+  private def numAttacksLimit(attackEffect: Option[TargetEffect], hasFlurry: Boolean): Option[Int] = {
+    attackEffect match {
+      case None => Some(0)
+      case Some(Kill | Unsummon | Enchant(_) | TransformInto(_)) => if(hasFlurry) None else Some(1)
+      case Some(Damage(n)) => if(hasFlurry) Some(n) else Some(1)
+    }
+  }
+
+  //Raises an exception to indicate illegality. Used in tryLegality.
+  private def trySpellTargetLegalityExn(spell: Spell, played: PlayedSpellOrAbility): Unit = {
+    def failUnless(b: Boolean, message: String) =
+      if(!b) throw new Exception(message)
+    def failIf(b: Boolean, message: String) =
+      if(b) throw new Exception(message)
+    def fail(message: String) =
+      throw new Exception(message)
+
+    spell match {
+      case (spell: TargetedSpell) =>
+        pieceById.get(played.target0) match {
+          case None => fail("No target specified for spell")
+          case Some(target) => failUnless(spell.canTarget(side,target), spell.targetError)
+        }
+      case (spell: TileSpell) =>
+        failUnless(tiles.inBounds(played.loc0), "Target location not in bounds")
+        failUnless(spell.canTarget(side,tiles(played.loc0),pieces(played.loc0)), spell.targetError)
+      case (spell: NoEffectSpell) =>
+        ()
+    }
+  }
+
+  //TODO implement eldrich and fix next good act state
+  //Check if a single action is legal
+  private def tryLegalitySingle(action: PlayerAction): Try[Unit] = Try {
     def failUnless(b: Boolean, message: String) =
       if(!b) throw new Exception(message)
     def failIf(b: Boolean, message: String) =
@@ -269,7 +492,7 @@ class Board private (
                 //Quick termination and slightly more specific err message
                 failIf(!pieceStats.hasFlurry && numAttacks > 0, "Piece already attacked")
                 //Fuller check
-                numAttacksLimit(pieceStats,pieceStats.hasFlurry).foreach { limit =>
+                numAttacksLimit(pieceStats.attackEffect,pieceStats.hasFlurry).foreach { limit =>
                   failIf(numAttacks >= limit, "Piece already assigned all of its attacks")
                 }
               case Spawning | DoneActing =>
@@ -287,7 +510,7 @@ class Board private (
               case Some(TransformInto(_)) => failIf(targetStats.isNecromancer, "Necromancers cannot be transformed")
             }
 
-            failIf(pieceStats.isWailing && targetStats.isNecromancer, "Wailing pieces cannot to hurt necromancers")
+            failIf(pieceStats.isWailing && targetStats.isNecromancer, "Wailing pieces cannot hurt necromancers")
             failIf(!pieceStats.canHurtNecromancer && targetStats.isNecromancer, "Piece not allowed to hurt necromancer")
         }
 
@@ -388,24 +611,8 @@ class Board private (
     }
   }
 
-
-case class Movements(movements: List[Movement]) extends Action
-case class Attack(pieceId: Int, targetLoc: Loc, targetId: Int) extends Action
-case class Spawn(pieceId: Int, spawnLoc: Loc, spawnStats: PieceStats) extends Action
-case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends Action
-
-case class PlayedSpellOrAbility(
-  val pieceIdAndKey: Option[(Int,String)], //Some if it was a piece, (pieceId, key of ability)
-  val spellId: Option[Int], //Some if it was a spell
-  val target0: Int,
-  val target1: Int,
-  val loc0: Loc,
-  //Spell ids that were discarded to power this spell or ability, if it was a sorcery
-  val discardingId: Option[Int]
-)
-
-
-  def doAction(action:Action): Try[Unit] = tryLegality(action).map { case () =>
+  //Perform a single action, doing nothing if it isn't legal
+  private def doActionSingle(action:PlayerAction): Try[Unit] = tryLegalitySingle(action).map { case () =>
     action match {
       case Movements(movements) =>
         movements.foreach { movement =>
@@ -417,20 +624,45 @@ case class PlayedSpellOrAbility(
           piece.loc = dest
           piece.hasMoved = true
           piece.actState = piece.actState match {
-            case Moving(steps) =>
-              val newSteps = steps + movement.path.length - 1
-              nextGoodActState(piece,Moving(newSteps))
+            case Moving(n) => nextGoodActState(piece,Moving(n + movement.path.length - 1))
             case Attacking(_) | Spawning | DoneActing => assertUnreachable()
           }
         }
       case Attack(pieceId, targetLoc, targetId) =>
+        val piece = pieceById(pieceId)
+        val target = pieceById(targetId)
+        val stats = piece.curStats
+        val attackEffect = stats.attackEffect.get match {
+          case Damage(n) => if(stats.hasFlurry) Damage(n) else Damage(1) //flurry hits 1 at a time
+          case x => x
+        }
+        applyEffect(attackEffect,target)
+        piece.hasAttacked = true
+        piece.actState = piece.actState match {
+          case Moving(_) => nextGoodActState(piece,Attacking(1))
+          case Attacking(n) => nextGoodActState(piece,Attacking(n+1))
+          case Spawning | DoneActing => assertUnreachable()
+        }
+        if(stats.hasBlink)
+          blinkPiece(piece)
+
       case Spawn(pieceId, spawnLoc, spawnStats) =>
+        val piece = pieceById(pieceId)
+        if(!piece.hasFreeSpawned && piece.curStats.freeSpawn.contains(spawnStats))
+          piece.hasFreeSpawned = true
+        else {
+          var first = true
+          reinforcements(side).filterNotFirst { stats => stats == spawnStats }
+        }
+        spawnPieceInternal(side,spawnStats,spawnLoc)
+
       case SpellsAndAbilities(spellsAndAbilities) =>
+        //TODO
     }
   }
 
   //Find the next good act state of a piece >= the one specified that makes sense given its stats
-  def nextGoodActState(piece: Piece, actState: ActState): ActState = {
+  private def nextGoodActState(piece: Piece, actState: ActState): ActState = {
     val stats = piece.curStats
     def loop(actState: ActState): ActState = {
       actState match {
@@ -441,82 +673,99 @@ case class PlayedSpellOrAbility(
         case Attacking(numAttacks) =>
           if(stats.attackEffect.isEmpty ||
              stats.attackRange <= 0 ||
-             (!stats.hasFlurry && numAttacks > 0) ||
-             (stats.hasFlurry && numAttacks > stats.attackEffect
-
-
-    while(state < DoneActing)
-    state match {
-      case Moving(steps) =>
-        if
-  }
-
-  def wouldBeLegal(actions: Seq[Action]): Boolean = {
-    //TODO
-  }
-
-  def endTurn(): Unit = {
-    //TODO
-  }
-
-  def addReinforcement(side: Side, pieceStats: PieceStats): Unit = {
-    //TODO
-  }
-
-  def addSpell(side: Side, spell: Spell): Unit = {
-    //TODO
-  }
-
-  def initialSpawn(side: Side, pieceStats: PieceStats, loc: Loc): Unit = {
-    //TODO
-  }
-
-
-  //HELPER FUNCTIONS -------------------------------------------------------------------------------------
-
-  private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {
-    tile.terrain match {
-      case Wall => false
-      case Ground | ManaSpire | Spawner(_,_) => true
-      case Water => pieceStats.isFlying
+             stats.isLumbering && piece.hasMoved ||
+             numAttacksLimit(stats.attackEffect, stats.hasFlurry).exists { limit => numAttacks >= limit })
+            loop(Spawning)
+          else
+            Attacking(numAttacks)
+        case Moving(numSteps) =>
+          if(numSteps >= stats.moveRange)
+            loop(Attacking(0))
+          else
+            Moving(numSteps)
+      }
     }
-  }
-  private def canSwarmTogether(pieceStats: PieceStats, otherStats: PieceStats): Boolean = {
-    pieceStats.swarmMax > 1 && otherStats.swarmMax > 1 && pieceStats.name == otherStats.name
+    loop(actState)
   }
 
-  //None means unlimited
-  private def numAttacksLimit(attackEffect: TargetEffect, hasFlurry: Boolean): Option[Int] = {
-    attackEffect match {
-      case None => Some(0)
-      case Some(Kill | Unsummon | Enchant(_) | TransformInto(_)) => if(hasFlurry) None else Some(1)
-      case Some(Damage(n)) => if(hasFlurry) Some(n) else Some(1)
+  private def applyEffect(effect: TargetEffect, piece: Piece): Unit = {
+    effect match {
+      case Damage(n) =>
+        piece.damage += n
+        killIfEnoughDamage(piece)
+      case Unsummon =>
+        unsummonPiece(piece)
+      case Kill =>
+        killPiece(piece)
+      case Enchant(modWithDuration) =>
+        piece.modsWithDuration = piece.modsWithDuration :+ modWithDuration
+      case TransformInto(newStats) =>
+        removeFromBoard(piece)
+        spawnPieceInternal(piece.side,newStats,piece.loc)
     }
   }
 
-  //Raises an exception to indicate illegality. Used in tryLegality.
-  private def trySpellTargetLegalityExn(spell: Spell, played: PlayedSpellOrAbility): Unit = {
-    def failUnless(b: Boolean, message: String) =
-      if(!b) throw new Exception(message)
-    def failIf(b: Boolean, message: String) =
-      if(b) throw new Exception(message)
-    def fail(message: String) =
-      throw new Exception(message)
-
-    spell match {
-      case (spell: TargetedSpell) =>
-        pieceById.get(played.target0) match {
-          case None => fail("No target specified for spell")
-          case Some(target) => failUnless(spell.canTarget(side,target), spell.targetError)
-        }
-      case (spell: TileSpell) =>
-        failUnless(tiles.inBounds(played.loc0), "Target location not in bounds")
-        failUnless(spell.canTarget(side,tiles(played.loc0),pieces(played.loc0)), spell.targetError)
-      case (spell: NoEffectSpell) =>
-        ()
-    }
+  //Kill a piece if it has enough accumulated damage
+  private def killIfEnoughDamage(piece: Piece): Unit = {
+    val stats = piece.curStats
+    if(piece.damage >= stats.defense)
+      killPiece(piece)
   }
 
+  //Kill a piece, for any reason
+  private def killPiece(piece: Piece): Unit = {
+    removeFromBoard(piece)
+    val stats = piece.curStats
+
+    //Rebate mana
+    mana(piece.side) += stats.rebate
+    totalMana(piece.side) += stats.rebate
+    var rebateMessage = ""
+    if(stats.rebate != 0)
+      rebateMessage = "(rebate " + stats.rebate + ")"
+
+    //Death spawn
+    var deathSpawnMessage = ""
+    stats.deathSpawn.foreach { deathSpawn =>
+      spawnPieceInternal(piece.side,deathSpawn,piece.loc) match {
+        case Success(()) => deathSpawnMessage = " (deathspawn: " + deathSpawn.name + ")"
+        case Failure(err) => deathSpawnMessage = " (deathspawn prevented: " + err.getMessage + ")"
+      }
+    }
+
+    val message = "Killed %s on %s%s%s".format(stats.name,piece.loc.toString(),rebateMessage,deathSpawnMessage)
+    addMessage(message,ActionMsgType(side))
+  }
+
+  private def unsummonPiece(piece: Piece): Unit = {
+    removeFromBoard(piece)
+    addReinforcementInternal(piece.side,piece.baseStats)
+    val stats = piece.curStats
+    val message = "Unsummoned %s on %s".format(stats.name,piece.loc.toString())
+    addMessage(message,ActionMsgType(side))
+  }
+
+  private def blinkPiece(piece: Piece): Unit = {
+    removeFromBoard(piece)
+    addReinforcementInternal(piece.side,piece.baseStats)
+    val stats = piece.curStats
+    val message = "Blinked %s on %s after attack".format(stats.name,piece.loc.toString())
+    addMessage(message,ActionMsgType(side))
+  }
+  private def removeFromBoard(piece: Piece): Unit = {
+    pieces(piece.loc) = pieces(piece.loc).filterNot { p => p.id == piece.id }
+    pieceById = pieceById - piece.id
+  }
+
+  //Unlike addReinforcement, doesn't log an event and doesn't produce messages
+  private def addReinforcementInternal(side: Side, pieceStats: PieceStats): Unit = {
+    //TODO
+  }
+
+  //Doesn't log an event and doesn't produce messages, but does check for legality of spawn
+  private def spawnPieceInternal(side: Side, pieceStats: PieceStats, loc: Loc): Try[Unit] = {
+    //TODO
+  }
 }
 
 

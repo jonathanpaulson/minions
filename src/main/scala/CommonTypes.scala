@@ -113,8 +113,18 @@ case class PieceMod(
  */
 case class PieceModWithDuration(
   val mod: PieceMod,
-  val turnsLeft: Int //Counts down on EACH side's turn
-)
+  val turnsLeft: Option[Int] //Counts down on EACH side's turn. None = Permanent
+) {
+  //Decay turnsLeft by one turn, returning None if the PieceMod decays away entirely.
+  def decay: Option[PieceModWithDuration] = {
+    turnsLeft match {
+      case None => Some(this)
+      case Some(turnsLeft) =>
+        if(turnsLeft <= 1) None
+        else Some(PieceModWithDuration(mod,Some(turnsLeft-1)))
+    }
+  }
+}
 
 /**
  * PieceAbility:
@@ -257,29 +267,43 @@ case object Water extends Terrain
 case object ManaSpire extends Terrain
 case class Spawner(side:Side, pieceStats:PieceStats) extends Terrain
 
-/** Tile:
- *  A single tile on the board
- *  Possibly enchanted due to spells. Later in list -> spells were played later.
- */
-case class Tile(
-  val terrain: Terrain,
-  val modsWithDuration: List[PieceModWithDuration]
-)
-
 /**
  * Loc, Vec:
  * Basic integer points and vectors
  */
-case class Loc(x:Int, y:Int) {
-  def +(v: Vec) = Loc(x+v.dx, y+v.dy)
-  def -(l: Loc) = Vec(x-l.x, y-l.y)
-  def compare(that: Loc): Int = Ordering[(Int,Int)].compare((x,y),(that.x,that.y))
-}
 case class Vec(dx: Int, dy:Int) extends Ordered[Vec] {
   def +(v: Vec) = Vec(dx+v.dx, dy+v.dy)
   def -(v: Vec) = Vec(dx-v.dx, dy-v.dy)
   def +(l: Loc) = Loc(dx+l.x, dy+l.y)
   def compare(that: Vec): Int = Ordering[(Int,Int)].compare((dx,dy),(that.dx,that.dy))
+}
+
+case class Loc(x:Int, y:Int) {
+  def +(v: Vec) = Loc(x+v.dx, y+v.dy)
+  def -(l: Loc) = Vec(x-l.x, y-l.y)
+  def compare(that: Loc): Int = Ordering[(Int,Int)].compare((x,y),(that.x,that.y))
+
+  override def toString: String = {
+    Loc.xCoordString(x) + Loc.yCoordString(y)
+  }
+}
+object Loc {
+  def xCoordString(x: Int): String = {
+    if(x < 0)
+      x.toString()
+    else {
+      var xx = x+1
+      var s = ""
+      while(xx > 0) {
+        s = s + ('a' + (xx % 26)).toChar
+        xx = xx / 26
+      }
+      s
+    }
+  }
+  def yCoordString(y: Int): String = {
+    y.toString()
+  }
 }
 
 /**
