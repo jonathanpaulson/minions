@@ -2,19 +2,37 @@ import scala.util.{Try,Success,Failure}
 import RichImplicits._
 import scala.collection.immutable.Vector
 
+//TODO should try to organize this a code bit more
+
 /**
  * The board and various (often mutable) data structures and types relating directly to it.
  */
 
-//TODO use this
+//TODO think about how to incorporate generaling actions
 /*
 sealed trait Action
 case class PlayerAction(action: PlayerAction) extends Event
 case class GeneralAction(action: GeneralAction) extends Event
 */
 
-//TODO this won't work - because pieceids will change depending on the order of spawning pieces
-//we need something different... I guess we need to target all pieces by location and index in stack instead?
+/**
+ * PieceSpec:
+ * Identifies a single piece on the board uniquely on a given turn, and in a way that
+ * should be robust to reordering of actions within that turn.
+ */
+sealed trait PieceSpec
+//Piece was present at start of turn and has this id
+case class StartedTurnWithID(pieceId: Int) extends PieceSpec
+//Piece spawned this turn - (piece's name, spawning location, nth spawn at that location)
+case class SpawnedThisTurn(name: String, spawnLoc: Loc, nthAtLoc: Int) extends PieceSpec
+with Ordered[SpawnedThisTurn] {
+  def compare(that: SpawnedThisTurn): Int =
+    Ordering[(String,Int,Int,Int)].compare(
+        (name,spawnLoc.x,spawnLoc.y,nthAtLoc),
+        (that.name,that.spawnLoc.x,that.spawnLoc.y,that.nthAtLoc)
+    )
+}
+
 /**
  * Action:
  * A single action taken by a player.
@@ -24,21 +42,21 @@ case class GeneralAction(action: GeneralAction) extends Event
  */
 sealed trait PlayerAction
 case class Movements(movements: List[Movement]) extends PlayerAction
-case class Attack(pieceId: Int, targetLoc: Loc, targetId: Int) extends PlayerAction
-case class Spawn(pieceId: Int, spawnLoc: Loc, spawnStats: PieceStats) extends PlayerAction
+case class Attack(pieceSpec: PieceSpec, targetLoc: Loc, targetSpec: PieceSpec) extends PlayerAction
+case class Spawn(pieceSpec: PieceSpec, spawnLoc: Loc, spawnStats: PieceStats) extends PlayerAction
 case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
 
-//Path should include the starting location of the piece.
-case class Movement(pieceId: Int, path: Array[Loc])
+//Path should also include the starting location of the piece.
+case class Movement(pieceSpec: PieceSpec, path: Array[Loc])
 
 //Data for a played spell or piece ability.
 //Since different spells and abilities affect different things and have different numbers
 //of targets, not all fields may be applicable.
 case class PlayedSpellOrAbility(
-  val pieceIdAndKey: Option[(Int,String)], //Some if it was a piece, (pieceId, key of ability)
+  val pieceSpecAndKey: Option[(PieceSpec,String)], //Some if it was a piece, (pieceId, key of ability)
   val spellId: Option[Int], //Some if it was a spell
-  val target0: Int,
-  val target1: Int,
+  val target0: PieceSpec,
+  val target1: PieceSpec,
   val loc0: Loc,
   //Spell ids that were discarded to power this spell or ability, if it was a sorcery
   val discardingId: Option[Int]
@@ -76,7 +94,7 @@ case class Tile(
  * A single piece on the board.
  */
 object Piece {
-  def create(side: Side, baseStats: PieceStats, id: Int, loc: Loc, board: Board): Piece = {
+  def create(side: Side, baseStats: PieceStats, id: Int, loc: Loc, nthAtLoc: Int, board: Board): Piece = {
     new Piece(
       side = side,
       baseStats = baseStats,
@@ -85,10 +103,11 @@ object Piece {
       board = board,
       modsWithDuration = List(),
       damage = 0,
-      actState = Moving(0),
+      actState = DoneActing,
       hasMoved = false,
       hasAttacked = false,
-      hasFreeSpawned = false
+      hasFreeSpawned = false,
+      spawnedThisTurn = Some(SpawnedThisTurn(baseStats.name,loc,nthAtLoc))
     )
   }
 }
@@ -107,7 +126,9 @@ class Piece private (
   //Indicates what this piece actually DID do this turn so far.
   var hasMoved: Boolean,
   var hasAttacked: Boolean,
-  var hasFreeSpawned: Boolean
+  var hasFreeSpawned: Boolean,
+  //If the piece was newly spawned this turn
+  var spawnedThisTurn: Option[SpawnedThisTurn]
 ) {
   def copy(newBoard: Board) = {
     new Piece(
@@ -121,7 +142,8 @@ class Piece private (
       hasMoved = hasMoved,
       actState = actState,
       hasAttacked = hasAttacked,
-      hasFreeSpawned = hasFreeSpawned
+      hasFreeSpawned = hasFreeSpawned,
+      spawnedThisTurn = spawnedThisTurn
     )
   }
 
@@ -144,6 +166,8 @@ object Board {
       pieces = Plane.create(tiles.xSize,tiles.ySize,tiles.topology,List()),
       pieceById = Map(),
       nextPieceId = 0,
+      piecesSpawnedThisTurn = Map(),
+      numPiecesSpawnedThisTurnAt = Map(),
       turnNumber = -1, //Indicates that the game hasn't started yet
       reinforcements = SideArray.create(List()),
       spells = SideArray.create(Map()),
@@ -157,7 +181,18 @@ object Board {
       totalCosts = SideArray.create(0)
     )
   }
+
+  //Some local functions that it's nice to have in scope
+  object Imports {
+    def failUnless(b: Boolean, message: String) =
+      if(!b) throw new Exception(message)
+    def failIf(b: Boolean, message: String) =
+      if(b) throw new Exception(message)
+    def fail(message: String) =
+      throw new Exception(message)
+  }
 }
+import Board.Imports._
 
 class Board private (
   //Tiles of the board
@@ -168,6 +203,10 @@ class Board private (
   //Map of all pieces currently on the board by pieceId.
   var pieceById: Map[Int,Piece],
   var nextPieceId: Int, //Counter for assigning per-board unique ids to pieces
+
+  //Map of pieces spawned this turn
+  var piecesSpawnedThisTurn: Map[SpawnedThisTurn,Piece],
+  var numPiecesSpawnedThisTurnAt: Map[Loc,Int],
 
   //Number of turns completed, or -1 if game unstarted
   var turnNumber: Int,
@@ -183,9 +222,9 @@ class Board private (
   var side: Side,
 
   //All actions taken by the side to move this turn
-  var actionsThisTurn: Vector[List[PlayerAction]],  //TODO this needs to include external additions
+  var actionsThisTurn: Vector[List[PlayerAction]],
   //All actions over the whole history of the board
-  var actionsTotal: Vector[List[PlayerAction]], //TODO this needs to include external additions
+  var actionsTotal: Vector[List[PlayerAction]],
 
   //Messages for external display to user as a result of events
   var messages: Vector[Message],
@@ -212,9 +251,11 @@ class Board private (
     val newBoard = new Board(
       tiles = tiles.copy(),
       pieces = pieces.copy(),
-      pieceById = Map(),
-      nextPieceId,
-      turnNumber,
+      pieceById = Map(), //Set below after construction
+      nextPieceId = nextPieceId,
+      piecesSpawnedThisTurn = Map(), //Set below after construction
+      numPiecesSpawnedThisTurnAt = numPiecesSpawnedThisTurnAt,
+      turnNumber = turnNumber,
       reinforcements = reinforcements.copy(),
       spells = spells.copy(),
       nextSpellId = nextSpellId,
@@ -227,6 +268,9 @@ class Board private (
       totalCosts = totalCosts
     )
     val newPieceById = pieceById.mapValues { piece => piece.copy(newBoard) }
+    val newPiecesSpawnedThisTurn = piecesSpawnedThisTurn.mapValues { piece => newPieceById(piece.id) }
+    newBoard.pieceById = newPieceById
+    newBoard.piecesSpawnedThisTurn = newPiecesSpawnedThisTurn
     newBoard.pieces.transform { pieceList => pieceList.map { piece => newPieceById(piece.id) } }
     newBoard
   }
@@ -294,6 +338,7 @@ class Board private (
       piece.hasMoved = false
       piece.hasAttacked = false
       piece.hasFreeSpawned = false
+      piece.spawnedThisTurn = None
       piece.modsWithDuration = piece.modsWithDuration.flatMap(_.decay)
     }
     //Decay tile modifiers
@@ -318,8 +363,10 @@ class Board private (
     side = side.opp
     turnNumber += 1
 
-    //Clear mana for the side to move
+    //Clear mana for the side to move, and other board state
     mana(side) = 0
+    piecesSpawnedThisTurn = Map()
+    numPiecesSpawnedThisTurnAt = Map()
   }
 
   def addReinforcement(side: Side, pieceStats: PieceStats): Unit = {
@@ -339,8 +386,20 @@ class Board private (
   }
 
   //HELPER FUNCTIONS -------------------------------------------------------------------------------------
-  private def addMessage(message: String, mtype: MessageType) = {
+  private def addMessage(message: String, mtype: MessageType): Unit = {
     messages = messages :+ Message(message,mtype,timeLeft)
+  }
+
+  private def findPiece(spec: PieceSpec): Option[Piece] = {
+    spec match {
+      case StartedTurnWithID(pieceId) =>
+        pieceById.get(pieceId).flatMap { piece =>
+          if(piece.spawnedThisTurn.nonEmpty) None
+          else Some(piece)
+        }
+      case (spawnedThisTurn: SpawnedThisTurn) =>
+        piecesSpawnedThisTurn.get(spawnedThisTurn)
+    }
   }
 
   private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {
@@ -365,16 +424,9 @@ class Board private (
 
   //Raises an exception to indicate illegality. Used in tryLegality.
   private def trySpellTargetLegalityExn(spell: Spell, played: PlayedSpellOrAbility): Unit = {
-    def failUnless(b: Boolean, message: String) =
-      if(!b) throw new Exception(message)
-    def failIf(b: Boolean, message: String) =
-      if(b) throw new Exception(message)
-    def fail(message: String) =
-      throw new Exception(message)
-
     spell match {
       case (spell: TargetedSpell) =>
-        pieceById.get(played.target0) match {
+        findPiece(played.target0) match {
           case None => fail("No target specified for spell")
           case Some(target) => failUnless(spell.canTarget(side,target), spell.targetError)
         }
@@ -386,21 +438,31 @@ class Board private (
     }
   }
 
-  //TODO implement eldrich and fix next good act state
+  //Raises an exception to indicate illegality. Doesn't test reinforcements (since other things can
+  //cause spawns, such as death spawns, this functions handles the most general tests).
+  private def trySpawnLegality(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc) {
+    failUnless(tiles.inBounds(spawnLoc), "Spawn location not in bounds")
+
+    failUnless(pieces(spawnLoc).forall { other => other.side == spawnSide },
+        "Cannot spawn on to spaces with enemies")
+    failUnless(canWalkOnTile(spawnStats,tiles(spawnLoc)), "Non-flying pieces cannot spawn over obstacles")
+
+    //Count pieces for swarm
+    var minSwarmMax = spawnStats.swarmMax
+    pieces(spawnLoc).foreach { other =>
+      failUnless(canSwarmTogether(other.curStats,spawnStats), "Piece would spawn in same space as other pieces")
+      minSwarmMax = Math.min(minSwarmMax,other.curStats.swarmMax)
+    }
+    failIf(pieces(spawnLoc).length + 1 > minSwarmMax, "Would exceed maximum allowed swarming pieces in same space")
+  }
+
   //Check if a single action is legal
   private def tryLegalitySingle(action: PlayerAction): Try[Unit] = Try {
-    def failUnless(b: Boolean, message: String) =
-      if(!b) throw new Exception(message)
-    def failIf(b: Boolean, message: String) =
-      if(b) throw new Exception(message)
-    def fail(message: String) =
-      throw new Exception(message)
-
     action match {
       case Movements(movements) =>
         def isMovingNow(piece: Piece) = movements.exists { case Movement(id,_) => piece.id == id }
-        def pieceIfMovingTo(pieceId: Int, path: Array[Loc], dest: Loc): Option[Piece] =
-          if(path.length > 0 && path.last == dest) pieceById.get(pieceId)
+        def pieceIfMovingTo(pieceSpec: PieceSpec, path: Array[Loc], dest: Loc): Option[Piece] =
+          if(path.length > 0 && path.last == dest) findPiece(pieceSpec)
           else None
 
         //Check basic properties of the set of movements
@@ -408,7 +470,7 @@ class Board private (
         failIf(pieceIdsMoved.distinct.length != movements.length, "More than one movement for the same piece")
         failIf(movements.isEmpty, "Empty set of movements")
 
-        movements.foreach { case Movement(pieceId,path) =>
+        movements.foreach { case Movement(pieceSpec,path) =>
           //Check basic properties of path
           failUnless(path.length > 1, "Empty or trivial movement path")
           failUnless(path(0) != path.last, "Circular movement path")
@@ -416,7 +478,7 @@ class Board private (
           failUnless((1 to (path.length - 1)).forall { idx => topology.distance(path.last,path(idx)) == 1 },
               "Movement path locations not all adjacent")
 
-          pieceById.get(pieceId) match {
+          findPiece(pieceSpec) match {
             case None => fail("Moving a nonexistent or dead piece")
             case Some(piece) =>
               val dest = path.last
@@ -457,9 +519,9 @@ class Board private (
                   minSwarmMax = Math.min(minSwarmMax,other.curStats.swarmMax)
                 }
               }
-              movements.foreach { case Movement(otherId,otherPath) =>
-                if(otherId != pieceId) {
-                  pieceIfMovingTo(otherId,otherPath,dest).foreach { other =>
+              movements.foreach { case Movement(otherSpec,otherPath) =>
+                if(pieceSpec != otherSpec) {
+                  pieceIfMovingTo(otherSpec,otherPath,dest).foreach { other =>
                     failUnless(canSwarmTogether(other.curStats,pieceStats), "Piece would end in same space as other pieces")
                     piecesOnFinalSquare += 1
                     minSwarmMax = Math.min(minSwarmMax,other.curStats.swarmMax)
@@ -470,8 +532,8 @@ class Board private (
           }
         }
 
-      case Attack(pieceId, targetLoc, targetId) =>
-        (pieceById.get(pieceId),pieceById.get(targetId)) match {
+      case Attack(pieceSpec, targetLoc, targetSpec) =>
+        (findPiece(pieceSpec),findPiece(targetSpec)) match {
           case (None, _) => fail("Attacking with a nonexistent or dead piece")
           case (Some(_),None) => fail("Attacking a nonexistent or dead piece")
           case (Some(piece),Some(target)) =>
@@ -514,24 +576,23 @@ class Board private (
             failIf(!pieceStats.canHurtNecromancer && targetStats.isNecromancer, "Piece not allowed to hurt necromancer")
         }
 
-      case Spawn(pieceId, spawnLoc, spawnStats) =>
-        pieceById.get(pieceId) match {
+      case Spawn(pieceSpec, spawnLoc, spawnStats) =>
+        findPiece(pieceSpec) match {
           case None => fail("Spawning using a nonexistent or dead piece")
           case Some(piece) =>
             val pieceStats = piece.curStats
             failUnless(piece.side == side, "Piece controlled by other side")
-            failUnless(pieceStats.spawnRange > 0, "Piece cannot spawn")
-            failUnless(tiles.inBounds(spawnLoc), "Spawn location not in bounds")
-            failUnless(topology.distance(piece.loc,spawnLoc) <= pieceStats.spawnRange, "Spawn range not large enough")
+            failIf(pieceStats.spawnRange <= 0 && !spawnStats.isEldritch, "Piece cannot spawn")
+
+            //A bunch of tests that don't depend on the spawner or on reinforcements state
+            trySpawnLegality(side, spawnStats, spawnLoc)
+
+            failUnless(topology.distance(piece.loc,spawnLoc) <= Math.max(pieceStats.spawnRange,1), "Spawn range not large enough")
 
             val isFreeSpawn = !piece.hasFreeSpawned && pieceStats.freeSpawn.contains(spawnStats)
             failUnless(isFreeSpawn || reinforcements(side).contains(spawnStats), "No such piece in reinforcements")
 
             failUnless(piece.actState <= Spawning, "Piece cannot spawn any more this turn")
-
-            failUnless(pieces(spawnLoc).forall { other => other.side == piece.side },
-                "Cannot spawn on to spaces with enemies")
-            failUnless(canWalkOnTile(spawnStats,tiles(spawnLoc)), "Non-flying pieces cannot spawn over obstacles")
         }
 
       case SpellsAndAbilities(spellsAndAbilities) =>
@@ -541,11 +602,11 @@ class Board private (
 
         //Check that all spells and abilities are targeted legally
         spellsAndAbilities.foreach { played =>
-          (played.pieceIdAndKey, played.spellId) match {
+          (played.pieceSpecAndKey, played.spellId) match {
             case (None, None) => fail("Spell or ability did not specify piece ability or spell id")
             case (Some(_), Some(_)) => fail("Spell or ability specifies both piece ability and spell id")
-            case (Some((pieceId,key)),None) =>
-              pieceById.get(pieceId) match {
+            case (Some((pieceSpec,key)),None) =>
+              findPiece(pieceSpec) match {
                 case None => fail("Using ability of a nonexistent or dead piece")
                 case Some(piece) =>
                   failUnless(piece.side == side, "Piece controlled by other side")
@@ -556,7 +617,7 @@ class Board private (
                       failUnless(ability.isUsableNow(piece), ability.unusableError)
                     case Some(ability:TargetedAbility) =>
                       failUnless(ability.isUsableNow(piece), ability.unusableError)
-                      pieceById.get(played.target0) match {
+                      findPiece(played.target0) match {
                         case None => fail("No target specified for ability")
                         case Some(target) => failUnless(ability.canTarget(piece,target), ability.targetError)
                       }
@@ -573,9 +634,9 @@ class Board private (
         //Check discard/sorcery constraints
         var discardIds: Map[Int,Int] = Map()
         spellsAndAbilities.foreach { played =>
-          val isSorcery: Boolean = (played.pieceIdAndKey, played.spellId) match {
-            case (Some((pieceId,key)),None) =>
-              pieceById(pieceId).curStats.abilities(key).isSorcery
+          val isSorcery: Boolean = (played.pieceSpecAndKey, played.spellId) match {
+            case (Some((pieceSpec,key)),None) =>
+              findPiece(pieceSpec).get.curStats.abilities(key).isSorcery
             case (None, Some(spellId)) =>
               spells(side)(spellId).spellType match {
                 case Sorcery => true
@@ -616,7 +677,7 @@ class Board private (
     action match {
       case Movements(movements) =>
         movements.foreach { movement =>
-          val piece = pieceById(movement.pieceId)
+          val piece = findPiece(movement.pieceSpec).get
           val src = movement.path(0)
           val dest = movement.path.last
           pieces(src) = pieces(src).filterNot { p => p.id == piece.id }
@@ -628,9 +689,9 @@ class Board private (
             case Attacking(_) | Spawning | DoneActing => assertUnreachable()
           }
         }
-      case Attack(pieceId, targetLoc, targetId) =>
-        val piece = pieceById(pieceId)
-        val target = pieceById(targetId)
+      case Attack(pieceSpec, targetLoc, targetSpec) =>
+        val piece = findPiece(pieceSpec).get
+        val target = findPiece(targetSpec).get
         val stats = piece.curStats
         val attackEffect = stats.attackEffect.get match {
           case Damage(n) => if(stats.hasFlurry) Damage(n) else Damage(1) //flurry hits 1 at a time
@@ -646,15 +707,20 @@ class Board private (
         if(stats.hasBlink)
           blinkPiece(piece)
 
-      case Spawn(pieceId, spawnLoc, spawnStats) =>
-        val piece = pieceById(pieceId)
+      case Spawn(pieceSpec, spawnLoc, spawnStats) =>
+        val piece = findPiece(pieceSpec).get
         if(!piece.hasFreeSpawned && piece.curStats.freeSpawn.contains(spawnStats))
           piece.hasFreeSpawned = true
         else {
           var first = true
           reinforcements(side).filterNotFirst { stats => stats == spawnStats }
         }
-        spawnPieceInternal(side,spawnStats,spawnLoc)
+        spawnPieceInternal(side,spawnStats,spawnLoc) match {
+          case Success(()) => ()
+          case Failure(_) => assertUnreachable()
+        }
+        val message = "Spawned %s on %s".format(spawnStats.name,spawnLoc.toString())
+        addMessage(message,ActionMsgType(side))
 
       case SpellsAndAbilities(spellsAndAbilities) =>
         //TODO
@@ -667,9 +733,7 @@ class Board private (
     def loop(actState: ActState): ActState = {
       actState match {
         case DoneActing => DoneActing
-        case Spawning =>
-          if(stats.spawnRange <= 0) DoneActing
-          else                      Spawning
+        case Spawning => Spawning
         case Attacking(numAttacks) =>
           if(stats.attackEffect.isEmpty ||
              stats.attackRange <= 0 ||
@@ -755,6 +819,7 @@ class Board private (
   private def removeFromBoard(piece: Piece): Unit = {
     pieces(piece.loc) = pieces(piece.loc).filterNot { p => p.id == piece.id }
     pieceById = pieceById - piece.id
+    piece.spawnedThisTurn.foreach { spawnedThisTurn => piecesSpawnedThisTurn - spawnedThisTurn }
   }
 
   //Unlike addReinforcement, doesn't log an event and doesn't produce messages
@@ -763,8 +828,17 @@ class Board private (
   }
 
   //Doesn't log an event and doesn't produce messages, but does check for legality of spawn
-  private def spawnPieceInternal(side: Side, pieceStats: PieceStats, loc: Loc): Try[Unit] = {
-    //TODO
+  private def spawnPieceInternal(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Try[Unit] = Try {
+    //A bunch of tests that don't depend on the spawner or on reinforcements state
+    trySpawnLegality(spawnSide, spawnStats, spawnLoc)
+
+    val nthAtLoc = numPiecesSpawnedThisTurnAt.get(spawnLoc).getOrElse(0)
+    val piece = Piece.create(spawnSide, spawnStats, nextPieceId, spawnLoc, nthAtLoc, this)
+    pieces(spawnLoc) = pieces(spawnLoc) :+ piece
+    pieceById += (piece.id -> piece)
+    nextPieceId += 1
+    piecesSpawnedThisTurn += (piece.spawnedThisTurn.get -> piece)
+    numPiecesSpawnedThisTurnAt += (spawnLoc -> nthAtLoc)
   }
 }
 

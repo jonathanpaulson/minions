@@ -265,6 +265,7 @@ case object Wall extends Terrain
 case object Ground extends Terrain
 case object Water extends Terrain
 case object ManaSpire extends Terrain
+//TODO implement this
 case class Spawner(side:Side, pieceStats:PieceStats) extends Terrain
 
 /**
