@@ -7,3 +7,4 @@ project/project/
 target/
 bin/
 .ensime_cache
+src/main/scala/*.class

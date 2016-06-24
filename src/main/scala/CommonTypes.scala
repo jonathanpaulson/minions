@@ -152,7 +152,7 @@ case class SelfEnchantAbility(
   val key: String,  //MUST be a UNIQUE key for different modifiers!
   val name: String,
   val desc: String,
-  val isSorcery: String,
+  val isSorcery: Boolean,
   val isUsableNow: Piece => Boolean,
   val unusableError: String, //Error message when not usable now
   val mod: PieceMod
@@ -165,7 +165,7 @@ case class TargetedAbility(
   val key: String,  //MUST be a UNIQUE key for different modifiers!
   val name: String,
   val desc: String,
-  val isSorcery: String,
+  val isSorcery: Boolean,
   val isUsableNow: Piece => Boolean,
   val unusableError: String, //Error message when not usable now
   val canTarget: (Piece, Piece) => Boolean, //(piece, target)
