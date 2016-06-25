@@ -824,7 +824,7 @@ class Board private (
 
   //Unlike addReinforcement, doesn't log an event and doesn't produce messages
   private def addReinforcementInternal(side: Side, pieceStats: PieceStats): Unit = {
-    //TODO
+    this.reinforcements.update(side, pieceStats :: this.reinforcements(side))
   }
 
   //Doesn't log an event and doesn't produce messages, but does check for legality of spawn
