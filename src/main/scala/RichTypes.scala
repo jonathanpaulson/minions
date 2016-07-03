@@ -1,3 +1,4 @@
+import scala.language.implicitConversions
 
 class RicherSeq[T](val seq: Seq[T]) {
   def findMap[U](f: T => Option[U]): Option[U] = seq.iterator.map(f).find(_.nonEmpty).flatten

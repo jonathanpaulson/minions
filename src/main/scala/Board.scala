@@ -310,7 +310,7 @@ class Board private (
     goodActions = goodActions.reverse
     actionsThisTurn = actionsThisTurn :+ goodActions
     actionsTotal = actionsTotal :+ goodActions
-    error.getOrElse(Success())
+    error.getOrElse(Success(()))
   }
 
   //End the current turn and begin the next turn. Called also at the start of the game just after setup
@@ -440,7 +440,7 @@ class Board private (
 
   //Raises an exception to indicate illegality. Doesn't test reinforcements (since other things can
   //cause spawns, such as death spawns, this functions handles the most general tests).
-  private def trySpawnLegality(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc) {
+  private def trySpawnLegality(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Unit = {
     failUnless(tiles.inBounds(spawnLoc), "Spawn location not in bounds")
 
     failUnless(pieces(spawnLoc).forall { other => other.side == spawnSide },
@@ -791,7 +791,8 @@ class Board private (
         killIfEnoughDamage(piece)
       case TransformInto(newStats) =>
         removeFromBoard(piece)
-        spawnPieceInternal(piece.side,newStats,piece.loc)
+        spawnPieceInternal(piece.side,newStats,piece.loc) : Try[Unit] //ignore
+        ()
     }
   }
 
