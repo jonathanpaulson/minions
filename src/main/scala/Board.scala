@@ -723,7 +723,32 @@ class Board private (
         addMessage(message,ActionMsgType(side))
 
       case SpellsAndAbilities(spellsAndAbilities) =>
-        //TODO
+        spellsAndAbilities.foreach { played => (played.pieceSpecAndKey, played.spellId) match {
+          case (None, None) => assertUnreachable()
+          case (Some(_), Some(_)) => assertUnreachable()
+          case (Some((pieceSpec,key)),None) =>
+            val piece = findPiece(pieceSpec).get
+            val pieceStats = piece.curStats
+            pieceStats.abilities(key) match {
+              case (ability:SelfEnchantAbility) =>
+                piece.modsWithDuration = piece.modsWithDuration :+ ability.mod
+              case (ability:TargetedAbility) =>
+                val target = findPiece(played.target0).get
+                applyEffect(ability.effect,target)
+            }
+          case (None, Some(spellId)) =>
+            spells(side)(spellId) match {
+              case (spell: NoEffectSpell) => ()
+              case (spell: TargetedSpell) =>
+                val target = findPiece(played.target0).get
+                applyEffect(spell.effect,target)
+              case (spell: TileSpell) =>
+                tiles(played.loc0) = spell.effect(tiles(played.loc0))
+                val piecesOnTile = pieces(played.loc0)
+                piecesOnTile.foreach { piece => killIfEnoughDamage(piece) }
+            }
+        }}
+        //TODO don't forget sorcery discards
     }
   }
 
@@ -763,6 +788,7 @@ class Board private (
         killPiece(piece)
       case Enchant(modWithDuration) =>
         piece.modsWithDuration = piece.modsWithDuration :+ modWithDuration
+        killIfEnoughDamage(piece)
       case TransformInto(newStats) =>
         removeFromBoard(piece)
         spawnPieceInternal(piece.side,newStats,piece.loc)
@@ -824,7 +850,7 @@ class Board private (
 
   //Unlike addReinforcement, doesn't log an event and doesn't produce messages
   private def addReinforcementInternal(side: Side, pieceStats: PieceStats): Unit = {
-    //TODO
+    reinforcements(side) = reinforcements(side) :+ pieceStats
   }
 
   //Doesn't log an event and doesn't produce messages, but does check for legality of spawn

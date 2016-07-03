@@ -155,7 +155,7 @@ case class SelfEnchantAbility(
   val isSorcery: Boolean,
   val isUsableNow: Piece => Boolean,
   val unusableError: String, //Error message when not usable now
-  val mod: PieceMod
+  val mod: PieceModWithDuration
 ) extends PieceAbility {
   override def equals(o: Any): Boolean = super.equals(o)
   override def hashCode: Int = super.hashCode
