@@ -21,6 +21,13 @@ lazy val extraCompilerOptions = Seq(
   "-Xfuture"
 )
 
+//This option is actually irrelevant for us because we're using a browser to run and test the client, rather
+//than writing something that should run like a server on Node.js or a similar javascript runtime engine.
+//Disables Rhino and makes ScalaJS use Node.js instead
+//Rhino is slow, but it doesn't require separate installation should work out-of-the-box
+//Node.js is fast, but needs separate installation
+//scalaJSUseRhino in Global := false
+
 //Helpful docs for the below setup
 //https://www.scala-js.org/tutorial/basic/
 //https://www.scala-js.org/doc/project/cross-build.html
@@ -55,7 +62,10 @@ lazy val minions = crossProject.crossType(scalaJSCrossType).in(file(".")).
     name := "MinionsServer"
   ).
   jsSettings(
-    name := "MinionsClient"
+    name := "MinionsClient",
+    //Create a javascript launcher to call the main class for us
+    persistLauncher in Compile := true,
+    persistLauncher in Test := false
   )
 
 //Pull out the subprojects so that sbt knows they're there

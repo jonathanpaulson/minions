@@ -3,12 +3,17 @@
 ## Getting Started
 
 ### Instructions
-1. Install [sbt](http://www.scala-sbt.org/download.html)
+1. Install [sbt](http://www.scala-sbt.org/download.html), the scala build tool.
 2. Clone this github repo to any desired directory and navigate to that directory.
 3. Run `sbt`.
-4. Within sbt, run `compile` to build everything.
-5. Within sbt, run `MinionsJVM/run` to run the server, or `MinionsJS/run` to run the client.
-6. Run `package` if you would like to generate standalone executable JAR files.
+4. Within sbt, run `compile` to compile the server.
+5. Within sbt, run `fastOptJS` to compile the client via ScalaJS into Javascript.
+6. Within sbt, you can now run `MinionsJVM/run` to run the server.
+7. In a browser, you can now open client/minionsclient_dev.html to run the dev client.
+
+Run `package` if you would like to generate a standalone executable JAR file for the server.
+Run `fullOptJS` to build the production client. The only difference with fastOptJS is that it's slower to compile but optimizes more.
+You can then run it via client/minionsclient.html.
 
 ### Project Organization
 The code consists of two projects: server and client, each one with its own source directory, structured in the usual way for an sbt project.
