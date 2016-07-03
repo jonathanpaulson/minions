@@ -155,7 +155,7 @@ case class SelfEnchantAbility(
   val isSorcery: Boolean,
   val isUsableNow: Piece => Boolean,
   val unusableError: String, //Error message when not usable now
-  val mod: PieceMod
+  val mod: PieceModWithDuration
 ) extends PieceAbility {
   override def equals(o: Any): Boolean = super.equals(o)
   override def hashCode: Int = super.hashCode
@@ -374,10 +374,10 @@ class Plane[T:ClassTag] private (
  */
 trait PlaneTopology {
   def adj(loc: Loc): Seq[Loc]
-  def forEachAdj(loc: Loc)(f: Loc => Unit)
+  def forEachAdj(loc: Loc)(f: Loc => Unit) : Unit
   def distance(loc0: Loc, loc1: Loc): Int
 
-  def forEachReachable(loc: Loc, steps: Int)(f: Loc => Boolean) {
+  def forEachReachable(loc: Loc, steps: Int)(f: Loc => Boolean) : Unit = {
     var reached = Set[Loc]()
     var thisQueue = scala.collection.mutable.Queue[Loc]()
     thisQueue += loc
@@ -389,7 +389,7 @@ trait PlaneTopology {
           reached += loc
           val doContinue = f(loc)
           if(doContinue && i < steps) {
-            forEachAdj(loc) { adj => nextQueue += adj }
+            forEachAdj(loc) { adj => nextQueue.enqueue(adj) }
           }
         }
       }
