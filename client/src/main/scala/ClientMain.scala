@@ -1,8 +1,8 @@
 import scala.scalajs.js.JSApp
 
-object ClientMain {
+object ClientMain extends JSApp {
 
-  def main(args: Array[String]): Unit = {
+  def main(): Unit = {
     println("Hello world from javascript client!")
   }
 }

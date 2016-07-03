@@ -1,6 +1,7 @@
 
-//Common settings across all subprojects
-lazy val commonSettings = Seq(
+//Project settings
+lazy val mainSettings = Seq(
+  name := "Minions",
   version := "1.0",
   scalaVersion := "2.11.8"
 )
@@ -20,37 +21,44 @@ lazy val extraCompilerOptions = Seq(
   "-Xfuture"
 )
 
-//"Core" project - contains main board and game implementation and shared logic
-//Source is located in directory "core"
-lazy val core = (project in file("core")).
-  settings(commonSettings: _*).
+//Helpful docs for the below setup
+//https://www.scala-js.org/tutorial/basic/
+//https://www.scala-js.org/doc/project/cross-build.html
+//https://www.scala-js.org/api/sbt-scalajs/0.6.10/#org.scalajs.sbtplugin.cross.CrossProject
+
+//Define a type of project where we have shared scala files (in core/),
+//scala files that are compiled for the jvm only (in server/),
+//and scala file that are compiled for javascript only (in client/)
+lazy val scalaJSCrossType = new org.scalajs.sbtplugin.cross.CrossType() {
+  override def sharedSrcDir(projectBase: File, conf: String): Option[File] = {
+    conf match {
+      case "main" => Some(new File(projectBase.getParentFile(),"core/src/main/scala"))
+      case "test" => Some(new File(projectBase.getParentFile(),"core/src/test/scala"))
+    }
+  }
+  override def projectDir(crossBase: File, projectType: String): File = {
+    projectType match {
+      case "jvm" => new File(crossBase,"server")
+      case "js" => new File(crossBase,"client")
+      case _ => throw new Exception("Invalid projectType: " + projectType)
+    }
+  }
+}
+
+//Create the project
+lazy val minions = crossProject.crossType(scalaJSCrossType).in(file(".")).
+  settings(mainSettings: _*).
   settings(
-    name := "MinionsCore",
     scalacOptions ++= extraCompilerOptions
+  ).
+  jvmSettings(
+    name := "MinionsServer"
+  ).
+  jsSettings(
+    name := "MinionsClient"
   )
 
-//Server project - contains server-side code
-//Source is located in directory "server"
-lazy val server = (project in file("server")).
-  settings(commonSettings: _*).
-  settings(
-    name := "MinionsServer",
-    scalacOptions ++= extraCompilerOptions
-  ).
-  dependsOn(core)
-
-//Client project - uses ScalaJS to run javascript
-//Source is located in directory "client"
-lazy val client = (project in file("client")).
-  settings(commonSettings: _*).
-  settings(
-    name := "MinionsClient",
-    scalacOptions ++= extraCompilerOptions
-  ).
-  enablePlugins(ScalaJSPlugin). //see project/plugins.sbt
-  dependsOn(core)
-
-
-//Root project encompassing all 3 subprojects
-lazy val root = (project in file(".")).
-  aggregate(core, server, client)
+//Pull out the subprojects so that sbt knows they're there
+//Note - do NOT modify the project settings here, instead use jvmSettings and jsSettings above
+lazy val minionsServer = minions.jvm
+lazy val minionsClient = minions.js
