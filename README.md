@@ -6,8 +6,15 @@
 1. Install [sbt](http://www.scala-sbt.org/download.html)
 2. Clone this github repo to any desired directory and navigate to that directory.
 3. Run `sbt`.
-4. Within sbt, run `compile` to build the Scala code
-5. Within sbt, run `run` to run the Scala code
+4. Within sbt, run `compile` to build the Scala code.
+5. Within sbt, run `core/run`, or `server/run`, or `client/run` to run the main program for each of these three subprojects.
+
+### Project Organization
+The code consists of three subprojects: core, server, client, each one with its own source directory, structured in the usual way for an sbt project.
+
+At the moment, server and client both depend on core but not one another. Client also uses ScalaJS and compiles into Javascript.
+
+See build.sbt for all the nitty-gritty details of the configuration.
 
 ### SBT memory issues
 
