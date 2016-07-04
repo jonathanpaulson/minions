@@ -1,4 +1,3 @@
-
 case object Spells {
   val festerSpell = TargetedSpell(
     key = "fester_spell",
@@ -10,5 +9,3 @@ case object Spells {
     effect = Damage(1)
   )
 }
-
-
