@@ -261,7 +261,6 @@ case class TileSpell(
  * The type of terrain of a single space on the board.
  */
 sealed trait Terrain
-case object Nothing extends Terrain
 case object Wall extends Terrain
 case object Ground extends Terrain
 case object Water extends Terrain

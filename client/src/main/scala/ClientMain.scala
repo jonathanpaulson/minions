@@ -63,27 +63,20 @@ object ClientMain extends JSApp {
     val canvas = jQuery("#board").get(0).asInstanceOf[html.Canvas]
     val ctx = canvas.getContext("2d").asInstanceOf[dom.CanvasRenderingContext2D]
 
-    val origin = Point(0, 0)
+    val origin = Point(2.0*size, 2.0*size)
 
-    val board = Board.create(tiles = Plane.create(100, 100, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
-    board.tiles.iteri {case ((x, y), tile) =>
-      val center = hex_center(Point((x-10).toDouble,y.toDouble), origin)
-      if(center.x < size || center.y < size || center.x+size > canvas.width || center.y+size > canvas.height) {
-        board.tiles.update(x, y, new Tile(terrain=Nothing, modsWithDuration=List()))
-      }
-    }
+    val board = Board.create(tiles = Plane.create(10, 10, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
     board.tiles.update(0, 0, new Tile(terrain=ManaSpire, modsWithDuration=List()))
 
     board.tiles.iteri {case ((x, y), tile) =>
       val color = tile.terrain match {
-        case Nothing => "white"
         case Wall => "black"
         case Ground => "green"
         case Water => "blue"
         case ManaSpire => "orange"
         case Spawner(_, _) => "red"
       }
-      val center = hex_center(Point((x-10).toDouble,y.toDouble), origin)
+      val center = hex_center(Point(x.toDouble,y.toDouble), origin)
       draw_hex(ctx, center, color)
     }
     ()
