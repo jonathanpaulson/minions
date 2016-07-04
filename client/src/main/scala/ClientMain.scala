@@ -12,7 +12,7 @@ case class Point(x: Double, y: Double){
 }
 
 object ClientMain extends JSApp {
-  val size = 30
+  val size = 30.0
 
   def move(ctx : dom.CanvasRenderingContext2D, point : Point) : Unit = {
     ctx.moveTo(Math.floor(point.x), Math.floor(point.y));
@@ -97,6 +97,17 @@ object ClientMain extends JSApp {
     board.tiles.update(1, 1, new Tile(terrain=Spawner(S0, zombie), modsWithDuration=List()))
     board.tiles.update(2, 0, new Tile(terrain=Spawner(S1, zombie), modsWithDuration=List()))
 
+    board.pieces(2, 1) = List(Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board))
+    board.pieces(2, 2) = List(
+      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board),
+      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board)
+    )
+    board.pieces(2, 3) = List(
+      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board),
+      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board),
+      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board)
+    )
+
     board.tiles.iteri {case ((x, y), tile) =>
       val center = hex_center(Point(x.toDouble,y.toDouble), origin)
       tile.terrain match {
@@ -113,8 +124,24 @@ object ClientMain extends JSApp {
       }
     }
     board.pieces.iteri {case ((x,y), pieces) =>
-      for (piece <- pieces) {
-        // TODO(jpaulson): Draw pieces
+      val center = hex_center(Point(x.toDouble,y.toDouble), origin)
+      pieces match {
+        case Nil => ()
+        case p :: Nil =>
+          draw_hex(ctx, center, "blue", size-5.0)
+        case p1 :: p2 :: Nil  =>
+          val c1 = Point(center.x, center.y-size/2)
+          val c2 = Point(center.x, center.y+size/2)
+          draw_hex(ctx, c1, "blue", size/2-0.5)
+          draw_hex(ctx, c2, "blue", size/2-0.5)
+        case p1 :: p2 :: p3 :: Nil  => ()
+          val c1 = Point(center.x, center.y-size/2)
+          val c2 = (center+hex_corner(center, size, 2))/2
+          val c3 = (center+hex_corner(center, size, 0))/2
+          draw_hex(ctx, c1, "blue", size/2-0.5)
+          draw_hex(ctx, c2, "blue", size/2-0.5)
+          draw_hex(ctx, c3, "blue", size/2-0.5)
+        case _ => ()
       }
     }
     ()
