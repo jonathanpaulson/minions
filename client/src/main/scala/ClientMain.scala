@@ -39,17 +39,17 @@ object ClientMain extends JSApp {
     Point(center.x+size*Math.cos(angle_rad), center.y+size*Math.sin(angle_rad))
   }
 
-  def draw_hex(ctx : dom.CanvasRenderingContext2D, center : Point, color : String) : Unit = {
+  def draw_hex(ctx : dom.CanvasRenderingContext2D, center : Point, color : String, size : Double) : Unit = {
     ctx.globalAlpha = 0.2
     ctx.fillStyle = color
     ctx.beginPath()
-    move(ctx, hex_corner(center, size-1.0, 0))
-    line(ctx, hex_corner(center, size-1.0, 1))
-    line(ctx, hex_corner(center, size-1.0, 2))
-    line(ctx, hex_corner(center, size-1.0, 3))
-    line(ctx, hex_corner(center, size-1.0, 4))
-    line(ctx, hex_corner(center, size-1.0, 5))
-    line(ctx, hex_corner(center, size-1.0, 0))
+    move(ctx, hex_corner(center, size, 0))
+    line(ctx, hex_corner(center, size, 1))
+    line(ctx, hex_corner(center, size, 2))
+    line(ctx, hex_corner(center, size, 3))
+    line(ctx, hex_corner(center, size, 4))
+    line(ctx, hex_corner(center, size, 5))
+    line(ctx, hex_corner(center, size, 0))
     ctx.fill();
     ctx.closePath();
   }
@@ -95,17 +95,22 @@ object ClientMain extends JSApp {
     board.tiles.update(0, 1, new Tile(terrain=Wall, modsWithDuration=List()))
     board.tiles.update(1, 0, new Tile(terrain=Water, modsWithDuration=List()))
     board.tiles.update(1, 1, new Tile(terrain=Spawner(S0, zombie), modsWithDuration=List()))
+    board.tiles.update(2, 0, new Tile(terrain=Spawner(S1, zombie), modsWithDuration=List()))
 
     board.tiles.iteri {case ((x, y), tile) =>
-      val color = tile.terrain match {
-        case Wall => "black"
-        case Ground => "green"
-        case Water => "blue"
-        case ManaSpire => "orange"
-        case Spawner(_, _) => "red"
-      }
       val center = hex_center(Point(x.toDouble,y.toDouble), origin)
-      draw_hex(ctx, center, color)
+      tile.terrain match {
+        case Wall => draw_hex(ctx, center, "black", size-1.0)
+        case Ground => draw_hex(ctx, center, "green", size-1.0)
+        case Water => draw_hex(ctx, center, "blue", size-1.0)
+        case ManaSpire => draw_hex(ctx, center, "orange", size-1.0)
+        case Spawner(S0, _) =>
+          draw_hex(ctx, center, "gray", size-1.0)
+          draw_hex(ctx, center, "red", size-10.0)
+        case Spawner(S1, _) =>
+          draw_hex(ctx, center, "gray", size-1.0)
+          draw_hex(ctx, center, "blue", size-10.0)
+      }
     }
     board.pieces.iteri {case ((x,y), pieces) =>
       for (piece <- pieces) {
