@@ -404,6 +404,7 @@ class Board private (
 
   private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {
     tile.terrain match {
+      case Nothing => false
       case Wall => false
       case Ground | ManaSpire | Spawner(_,_) => true
       case Water => pieceStats.isFlying
