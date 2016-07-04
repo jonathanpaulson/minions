@@ -65,7 +65,7 @@ object ClientMain extends JSApp {
 
     val origin = Point(0, 0)
 
-    val board = Board.create(tiles = Plane.create(100, 100, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
+    val board = BoardState.create(tiles = Plane.create(100, 100, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
     board.tiles.iteri {case ((x, y), tile) =>
       val center = hex_center(Point((x-10).toDouble,y.toDouble), origin)
       if(center.x < size || center.y < size || center.x+size > canvas.width || center.y+size > canvas.height) {
@@ -94,4 +94,3 @@ object ClientMain extends JSApp {
     ()
   }
 }
-

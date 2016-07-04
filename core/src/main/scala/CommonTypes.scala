@@ -367,6 +367,16 @@ class Plane[T:ClassTag] private (
   def find(f: T => Boolean): Option[T] = arr.findMap(_.find(f))
   def findMap[U](f: T => Option[U]): Option[U] = arr.findMap(_.findMap(f))
   def transform(f: T => T): Unit = { arr.foreach { subarr => subarr.transform(f); () } }
+
+  def mapInPlace(f: T => T): Unit = {
+    for (x <- 0 to arr.length-1) {
+      for(y <- 0 to arr(x).length-1) {
+        arr(x)(y) = f(arr(x)(y))
+      }
+    }
+  }
+
+  //TODO rename to foreachi for consistency with foreach?
   def iteri(f: ((Int, Int), T) => Unit): Unit = {
     for (x <- 0 to arr.length-1) {
       for(y <- 0 to arr(x).length-1) {
@@ -441,5 +451,3 @@ case object HexTopology extends RegularTopology {
     Math.max(Math.max(Math.abs(loc1.x-loc0.x),Math.abs(loc1.y-loc0.y)),Math.abs((loc1.y-loc0.y) + (loc1.x-loc0.x)))
   }
 }
-
-

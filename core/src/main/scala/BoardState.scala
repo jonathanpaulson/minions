@@ -86,15 +86,16 @@ case object InternalEventMsgType extends MessageType
  */
 case class Tile(
   val terrain: Terrain,
-  var modsWithDuration: List[PieceModWithDuration]
+  val modsWithDuration: List[PieceModWithDuration]
 )
 
 /**
  * Piece:
+ * MUTABLE - be aware when copying, as we rely sharing of mutation to fields between different references to a piece
  * A single piece on the board.
  */
 object Piece {
-  def create(side: Side, baseStats: PieceStats, id: Int, loc: Loc, nthAtLoc: Int, board: Board): Piece = {
+  def create(side: Side, baseStats: PieceStats, id: Int, loc: Loc, nthAtLoc: Int, board: BoardState): Piece = {
     new Piece(
       side = side,
       baseStats = baseStats,
@@ -115,8 +116,8 @@ class Piece private (
   val side: Side,
   val baseStats: PieceStats,
   val id: Int,
-  var loc: Loc, //Board is responsible for updating this as the piece moves
-  var board: Board,
+  var loc: Loc, //BoardState is responsible for updating this as the piece moves
+  var board: BoardState,
   //Modifiers from spells, etc, along with the number of turns they will last
   var modsWithDuration: List[PieceModWithDuration],
   //Damage dealt to this piece
@@ -130,7 +131,7 @@ class Piece private (
   //If the piece was newly spawned this turn
   var spawnedThisTurn: Option[SpawnedThisTurn]
 ) {
-  def copy(newBoard: Board) = {
+  def copy(newBoard: BoardState) = {
     new Piece(
       side = side,
       baseStats = baseStats,
@@ -156,12 +157,12 @@ class Piece private (
 }
 
 /**
- * Board:
- * The full state of one board of the game!
+ * BoardState:
+ * The full state of one board of the game. No history information.
  */
-object Board {
-  def create(tiles: Plane[Tile]): Board = {
-    new Board(
+object BoardState {
+  def create(tiles: Plane[Tile]): BoardState = {
+    new BoardState(
       tiles = tiles,
       pieces = Plane.create(tiles.xSize,tiles.ySize,tiles.topology,List()),
       pieceById = Map(),
@@ -192,9 +193,9 @@ object Board {
       throw new Exception(message)
   }
 }
-import Board.Imports._
+import BoardState.Imports._
 
-class Board private (
+class BoardState private (
   //Tiles of the board
   val tiles: Plane[Tile],
   //List of pieces in each space. Order is irrelevant
@@ -247,8 +248,8 @@ class Board private (
     timeLeft = t
   }
 
-  def copy(): Board = {
-    val newBoard = new Board(
+  def copy(): BoardState = {
+    val newBoard = new BoardState(
       tiles = tiles.copy(),
       pieces = pieces.copy(),
       pieceById = Map(), //Set below after construction
@@ -342,7 +343,12 @@ class Board private (
       piece.modsWithDuration = piece.modsWithDuration.flatMap(_.decay)
     }
     //Decay tile modifiers
-    tiles.foreach { tile => tile.modsWithDuration = tile.modsWithDuration.flatMap(_.decay) }
+    tiles.mapInPlace { tile =>
+      if(tile.modsWithDuration.isEmpty)
+        tile
+      else
+        tile.copy(modsWithDuration = tile.modsWithDuration.flatMap(_.decay))
+    }
 
     mana(side) += newMana
     totalMana(side) += newMana
