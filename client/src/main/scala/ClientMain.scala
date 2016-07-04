@@ -63,10 +63,38 @@ object ClientMain extends JSApp {
     val canvas = jQuery("#board").get(0).asInstanceOf[html.Canvas]
     val ctx = canvas.getContext("2d").asInstanceOf[dom.CanvasRenderingContext2D]
 
+    val zombie = PieceStats(
+      name = "Zombie",
+      attackEffect = Some(Damage(1)),
+      defense = 2,
+      moveRange = 1,
+      attackRange = 1,
+      cost = 2,
+      rebate = 0,
+      isNecromancer = false,
+      isFlying = false,
+      isLumbering = true,
+      isPersistent = false,
+      isEldritch = false,
+      isWailing = false,
+      hasFlurry = false,
+      hasBlink = false,
+      canHurtNecromancer = true,
+      swarmMax = 2,
+      spawnRange = 0,
+      extraMana = 0,
+      deathSpawn = None,
+      freeSpawn = None,
+      abilities = Map.empty
+    )
+
     val origin = Point(2.0*size, 2.0*size)
 
     val board = Board.create(tiles = Plane.create(10, 10, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
     board.tiles.update(0, 0, new Tile(terrain=ManaSpire, modsWithDuration=List()))
+    board.tiles.update(0, 1, new Tile(terrain=Wall, modsWithDuration=List()))
+    board.tiles.update(1, 0, new Tile(terrain=Water, modsWithDuration=List()))
+    board.tiles.update(1, 1, new Tile(terrain=Spawner(S0, zombie), modsWithDuration=List()))
 
     board.tiles.iteri {case ((x, y), tile) =>
       val color = tile.terrain match {
@@ -78,6 +106,11 @@ object ClientMain extends JSApp {
       }
       val center = hex_center(Point(x.toDouble,y.toDouble), origin)
       draw_hex(ctx, center, color)
+    }
+    board.pieces.iteri {case ((x,y), pieces) =>
+      for (piece <- pieces) {
+        // TODO(jpaulson): Draw pieces
+      }
     }
     ()
   }
