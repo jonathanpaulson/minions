@@ -261,6 +261,7 @@ case class TileSpell(
  * The type of terrain of a single space on the board.
  */
 sealed trait Terrain
+case object Nothing extends Terrain
 case object Wall extends Terrain
 case object Ground extends Terrain
 case object Water extends Terrain
@@ -366,6 +367,13 @@ class Plane[T:ClassTag] private (
   def find(f: T => Boolean): Option[T] = arr.findMap(_.find(f))
   def findMap[U](f: T => Option[U]): Option[U] = arr.findMap(_.findMap(f))
   def transform(f: T => T): Unit = { arr.foreach { subarr => subarr.transform(f); () } }
+  def iteri(f: ((Int, Int), T) => Unit): Unit = {
+    for (x <- 0 to arr.length-1) {
+      for(y <- 0 to arr(x).length-1) {
+        f((x, y), arr(x)(y))
+      }
+    }
+  }
 }
 
 /**

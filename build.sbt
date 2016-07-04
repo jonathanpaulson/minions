@@ -58,14 +58,14 @@ lazy val minions = crossProject.crossType(scalaJSCrossType).in(file(".")).
   settings(
     scalacOptions ++= extraCompilerOptions
   ).
-  jvmSettings(
-    name := "MinionsServer"
-  ).
   jsSettings(
     name := "MinionsClient",
     //Create a javascript launcher to call the main class for us
     persistLauncher in Compile := true,
-    persistLauncher in Test := false
+    persistLauncher in Test := false,
+    libraryDependencies ++= Seq(
+      "be.doeraene" %%% "scalajs-jquery" % "0.9.0"
+    )
   )
 
 //Pull out the subprojects so that sbt knows they're there

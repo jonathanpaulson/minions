@@ -3,13 +3,24 @@
   <head>
     <meta charset="UTF-8">
     <title>Minions Client</title>
-  </head>
-  <body>
     <!-- Include JavaScript dependencies -->
     <script type="text/javascript" src="./target/scala-2.11/minionsclient-jsdeps.js"></script>
     <!-- Include Scala.js compiled code -->
     <script type="text/javascript" src="./target/scala-2.11/minionsclient-fastopt.js"></script>
     <!-- Run main object -->
-    <script type="text/javascript" src="./target/scala-2.11/minionsclient-launcher.js"></script>
+    <!-- <script type="text/javascript" src="./target/scala-2.11/minionsclient-launcher.js"></script> -->
+    <script type="text/javascript" src="http://cdn.jsdelivr.net/jquery/2.1.1/jquery.js"></script>
+    <script type="text/javascript">
+     ClientMain().main();
+    </script>
+    <style type="text/css">
+     canvas {
+         border: 1px solid black;
+         margin-left: 5px;
+     }
+    </style>
+  </head>
+  <body>
+      <canvas id="board" width="800" height="700"></canvas>
   </body>
 </html>
