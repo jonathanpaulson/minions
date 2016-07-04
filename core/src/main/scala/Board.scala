@@ -42,8 +42,8 @@ with Ordered[SpawnedThisTurn] {
  */
 sealed trait PlayerAction
 case class Movements(movements: List[Movement]) extends PlayerAction
-case class Attack(pieceSpec: PieceSpec, targetLoc: Loc, targetSpec: PieceSpec) extends PlayerAction
-case class Spawn(pieceSpec: PieceSpec, spawnLoc: Loc, spawnStats: PieceStats) extends PlayerAction
+case class Attack(attackerSpec: PieceSpec, targetLoc: Loc, targetSpec: PieceSpec) extends PlayerAction
+case class Spawn(spawnLoc: Loc, spawnStats: PieceStats, freeSpawnerSpec: Option[PieceSpec]) extends PlayerAction
 case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
 
 //Path should also include the starting location of the piece.
@@ -533,38 +533,38 @@ class Board private (
           }
         }
 
-      case Attack(pieceSpec, targetLoc, targetSpec) =>
-        (findPiece(pieceSpec),findPiece(targetSpec)) match {
+      case Attack(attackerSpec, targetLoc, targetSpec) =>
+        (findPiece(attackerSpec),findPiece(targetSpec)) match {
           case (None, _) => fail("Attacking with a nonexistent or dead piece")
           case (Some(_),None) => fail("Attacking a nonexistent or dead piece")
-          case (Some(piece),Some(target)) =>
-            failUnless(piece.side == side, "Piece controlled by other side")
+          case (Some(attacker),Some(target)) =>
+            failUnless(attacker.side == side, "Attacker is controlled by other side")
             failUnless(target.side != side, "Target piece is friendly")
             failUnless(tiles.inBounds(targetLoc), "Target location not in bounds")
             failUnless(target.loc == targetLoc, "Target piece is not or is no longer in the right spot")
 
-            val pieceStats = piece.curStats
+            val attackerStats = attacker.curStats
             val targetStats = target.curStats
-            failIf(pieceStats.attackRange <= 0, "Piece cannot attack")
-            failIf(pieceStats.isLumbering && piece.hasMoved, "Lumbering pieces cannot both move and attack on the same turn")
+            failIf(attackerStats.attackRange <= 0, "Piece cannot attack")
+            failIf(attackerStats.isLumbering && attacker.hasMoved, "Lumbering pieces cannot both move and attack on the same turn")
 
             //Check attack state + flurry
-            piece.actState match {
+            attacker.actState match {
               case Moving(_) => ()
               case Attacking(numAttacks) =>
                 //Quick termination and slightly more specific err message
-                failIf(!pieceStats.hasFlurry && numAttacks > 0, "Piece already attacked")
+                failIf(!attackerStats.hasFlurry && numAttacks > 0, "Piece already attacked")
                 //Fuller check
-                numAttacksLimit(pieceStats.attackEffect,pieceStats.hasFlurry).foreach { limit =>
+                numAttacksLimit(attackerStats.attackEffect,attackerStats.hasFlurry).foreach { limit =>
                   failIf(numAttacks >= limit, "Piece already assigned all of its attacks")
                 }
               case Spawning | DoneActing =>
                 fail("Piece has already acted or cannot attack any more this turn")
             }
 
-            failUnless(topology.distance(piece.loc,targetLoc) <= pieceStats.attackRange, "Attack range not large enough")
+            failUnless(topology.distance(attacker.loc,targetLoc) <= attackerStats.attackRange, "Attack range not large enough")
 
-            pieceStats.attackEffect match {
+            attackerStats.attackEffect match {
               case None => fail("Piece cannot attack")
               case Some(Damage(_)) => ()
               case Some(Kill) => failIf(targetStats.isNecromancer, "Death attacks cannot hurt necromancers")
@@ -573,27 +573,34 @@ class Board private (
               case Some(TransformInto(_)) => failIf(targetStats.isNecromancer, "Necromancers cannot be transformed")
             }
 
-            failIf(pieceStats.isWailing && targetStats.isNecromancer, "Wailing pieces cannot hurt necromancers")
-            failIf(!pieceStats.canHurtNecromancer && targetStats.isNecromancer, "Piece not allowed to hurt necromancer")
+            failIf(attackerStats.isWailing && targetStats.isNecromancer, "Wailing pieces cannot hurt necromancers")
+            failIf(!attackerStats.canHurtNecromancer && targetStats.isNecromancer, "Piece not allowed to hurt necromancer")
         }
 
-      case Spawn(pieceSpec, spawnLoc, spawnStats) =>
-        findPiece(pieceSpec) match {
-          case None => fail("Spawning using a nonexistent or dead piece")
-          case Some(piece) =>
-            val pieceStats = piece.curStats
-            failUnless(piece.side == side, "Piece controlled by other side")
-            failIf(pieceStats.spawnRange <= 0 && !spawnStats.isEldritch, "Piece cannot spawn")
+      case Spawn(spawnLoc, spawnStats, freeSpawnerSpec) =>
+        //A bunch of tests that don't depend on the spawner or on reinforcements state
+        trySpawnLegality(side, spawnStats, spawnLoc)
 
-            //A bunch of tests that don't depend on the spawner or on reinforcements state
-            trySpawnLegality(side, spawnStats, spawnLoc)
+        def trySpawnUsing(piece: Piece): Try[Unit] = {
+          val distance = topology.distance(spawnLoc,piece.loc)
+          if(piece.side != side)  Failure(new Exception("Spawner controlled by other side"))
+          else if((!spawnStats.isEldritch || distance > 1) && (piece.curStats.spawnRange < distance))  Failure(new Exception("Location not within range of spawner"))
+          else if(piece.actState > Spawning)  Failure(new Exception("Spawner cannot act any more this turn"))
+          else Success(())
+        }
 
-            failUnless(topology.distance(piece.loc,spawnLoc) <= Math.max(pieceStats.spawnRange,1), "Spawn range not large enough")
-
-            val isFreeSpawn = !piece.hasFreeSpawned && pieceStats.freeSpawn.contains(spawnStats)
-            failUnless(isFreeSpawn || reinforcements(side).contains(spawnStats), "No such piece in reinforcements")
-
-            failUnless(piece.actState <= Spawning, "Piece cannot spawn any more this turn")
+        freeSpawnerSpec match {
+          case None =>
+            failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No piece with spawn in range")
+            failUnless(reinforcements(side).contains(spawnStats), "No such piece in reinforcements")
+          case Some(freeSpawnerSpec) =>
+            findPiece(freeSpawnerSpec) match {
+              case None => fail("Free spawning using a nonexistent or dead piece")
+              case Some(freeSpawner) =>
+                trySpawnUsing(freeSpawner).get : Unit
+                failIf(freeSpawner.hasFreeSpawned, "Piece has already free-spawned")
+                failUnless(freeSpawner.curStats.freeSpawn.contains(spawnStats), "Free-spawning piece of the wrong type")
+            }
         }
 
       case SpellsAndAbilities(spellsAndAbilities) =>
@@ -690,35 +697,35 @@ class Board private (
             case Attacking(_) | Spawning | DoneActing => assertUnreachable()
           }
         }
-      case Attack(pieceSpec, targetLoc, targetSpec) =>
-        val piece = findPiece(pieceSpec).get
+      case Attack(attackerSpec, targetLoc, targetSpec) =>
+        val attacker = findPiece(attackerSpec).get
         val target = findPiece(targetSpec).get
-        val stats = piece.curStats
+        val stats = attacker.curStats
         val attackEffect = stats.attackEffect.get match {
           case Damage(n) => if(stats.hasFlurry) Damage(n) else Damage(1) //flurry hits 1 at a time
           case x => x
         }
         applyEffect(attackEffect,target)
-        piece.hasAttacked = true
-        piece.actState = piece.actState match {
-          case Moving(_) => nextGoodActState(piece,Attacking(1))
-          case Attacking(n) => nextGoodActState(piece,Attacking(n+1))
+        attacker.hasAttacked = true
+        attacker.actState = attacker.actState match {
+          case Moving(_) => nextGoodActState(attacker,Attacking(1))
+          case Attacking(n) => nextGoodActState(attacker,Attacking(n+1))
           case Spawning | DoneActing => assertUnreachable()
         }
         if(stats.hasBlink)
-          blinkPiece(piece)
+          blinkPiece(attacker)
 
-      case Spawn(pieceSpec, spawnLoc, spawnStats) =>
-        val piece = findPiece(pieceSpec).get
-        if(!piece.hasFreeSpawned && piece.curStats.freeSpawn.contains(spawnStats))
-          piece.hasFreeSpawned = true
-        else {
-          var first = true
-          reinforcements(side).filterNotFirst { stats => stats == spawnStats }
-        }
+      case Spawn(spawnLoc, spawnStats, freeSpawnerSpec) =>
         spawnPieceInternal(side,spawnStats,spawnLoc) match {
           case Success(()) => ()
           case Failure(_) => assertUnreachable()
+        }
+        freeSpawnerSpec match {
+          case None =>
+            reinforcements(side).filterNotFirst { stats => stats == spawnStats }
+          case Some(spawnerSpec) =>
+            val spawner = findPiece(spawnerSpec).get
+            spawner.hasFreeSpawned = true
         }
         val message = "Spawned %s on %s".format(spawnStats.name,spawnLoc.toString())
         addMessage(message,ActionMsgType(side))
@@ -869,6 +876,3 @@ class Board private (
     numPiecesSpawnedThisTurnAt += (spawnLoc -> nthAtLoc)
   }
 }
-
-
-
