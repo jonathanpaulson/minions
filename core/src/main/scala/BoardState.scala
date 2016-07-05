@@ -2,24 +2,28 @@ import scala.util.{Try,Success,Failure}
 import RichImplicits._
 import scala.collection.immutable.Vector
 
-//TODO should try to organize this a code bit more
+/**
+  * The board state and various (often mutable) data structures and types relating directly to it,
+  * for a single board.
+  *
+  * This is the base layer of the board implementation - interacting with the board is done via
+  * PlayerAction, which represents a basic action performable in the game according to the basic rules,
+  *
+  * Also implemented are GeneralActions - gaining spells and buying pieces.
+  * These are recorded separately from PlayerActions. This is because they aren't subject to the same
+  * undo/redo/reordering logic that player actions are subject to, since they involve interaction with the broader game.
+  *
+  * Given general action G and player action P, an invariant that should hold is:
+  * - If P followed by G is legal, then G followed by P must also be legal and lead to the same board state.
+  *
+  * See Board.scala for the next layer up in the board implementation stack.
+  */
 
 /**
- * The board and various (often mutable) data structures and types relating directly to it.
- */
-
-//TODO think about how to incorporate generaling actions
-/*
-sealed trait Action
-case class PlayerAction(action: PlayerAction) extends Event
-case class GeneralAction(action: GeneralAction) extends Event
-*/
-
-/**
- * PieceSpec:
- * Identifies a single piece on the board uniquely on a given turn, and in a way that
- * should be robust to reordering of actions within that turn.
- */
+  * PieceSpec:
+  * Identifies a single piece on the board uniquely on a given turn, and in a way that
+  * should be robust to reordering of actions within that turn.
+  */
 sealed trait PieceSpec
 //Piece was present at start of turn and has this id
 case class StartedTurnWithID(pieceId: Int) extends PieceSpec
@@ -34,20 +38,33 @@ with Ordered[SpawnedThisTurn] {
 }
 
 /**
- * Action:
- * A single action taken by a player.
- * Actions are immutable and their data should be independent of any of the mutable types
- * on the board. That is, it should be meaningful to ask whether an action would be legal
- * on a different board, or if the order of actions were rearranged, etc.
- */
+  * PlayerAction:
+  * A single action taken by a player. Does not include "General" actions of gaining spells or buying pieces.
+  * Actions are immutable and their data should be independent of any of the mutable types
+  * on the board. That is, it should be meaningful to ask whether an action would be legal
+  * on a different board, or if the order of actions were rearranged, etc.
+  *
+  * Notes:
+  * Movements: movements is a list because we need to support piece swaps, triangular rotations, etc.
+  * Attack: self-explanatory
+  * Spawn: freeSpawnerSpec should only be specified if spawning something for free, like the per-turn zombie from a graveyard.
+  * SpellsAndAbilities: spellsAndAbilities is a list because we need to support playing sorceries and cantrips together.
+  */
 sealed trait PlayerAction
 case class Movements(movements: List[Movement]) extends PlayerAction
 case class Attack(attackerSpec: PieceSpec, targetLoc: Loc, targetSpec: PieceSpec) extends PlayerAction
 case class Spawn(spawnLoc: Loc, spawnStats: PieceStats, freeSpawnerSpec: Option[PieceSpec]) extends PlayerAction
 case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
 
-//Path should also include the starting location of the piece.
+//Note: path should contain both the start and ending location
 case class Movement(pieceSpec: PieceSpec, path: Array[Loc])
+
+object PlayerAction {
+  //Does action involve pieceSpec in any way?
+  def involvesPiece(action: PlayerAction, pieceSpec: PieceSpec): Boolean = {
+    //TODO
+  }
+}
 
 //Data for a played spell or piece ability.
 //Since different spells and abilities affect different things and have different numbers
@@ -62,6 +79,18 @@ case class PlayedSpellOrAbility(
   val discardingId: Option[Int]
 )
 
+//TODO think about how to manage the opposing side not being able to see what spells you own...
+
+/** GeneralAction:
+  * Actions relating to this board that involve interaction with the broader game (a shared spell pool, a shared mana pool).
+  * These are NOT part of the normal action stack.
+  *
+  * Requirement: spellId should be a unique identifier for a particular spell card. Users of BoardState should ensure that this is the case.
+  */
+sealed trait GeneralAction
+case class BuyReinforcement(side: Side, pieceStats: PieceStats) extends GeneralAction
+case class GainSpell(side: Side, spellId: Int, spell: Spell) extends GeneralAction
+
 /**
  * Message:
  * A line in a log of notable events that happened in the board up to this point
@@ -75,8 +104,8 @@ case class Message(
  *  Extra metadata about what kind of message it is
  */
 sealed trait MessageType
-case class ActionMsgType(side: Side) extends MessageType
-case class ExternalMsgType(side: Side) extends MessageType
+case class PlayerActionMsgType(side: Side) extends MessageType
+case class GeneralActionMsgType(side: Side) extends MessageType
 case object TurnChangeMsgType extends MessageType
 case object InternalEventMsgType extends MessageType
 
@@ -158,7 +187,7 @@ class Piece private (
 
 /**
  * BoardState:
- * The full state of one board of the game. No history information.
+ * The full state of one board of the game.
  */
 object BoardState {
   def create(tiles: Plane[Tile]): BoardState = {
@@ -172,10 +201,11 @@ object BoardState {
       turnNumber = -1, //Indicates that the game hasn't started yet
       reinforcements = SideArray.create(List()),
       spells = SideArray.create(Map()),
-      nextSpellId = 0,
       side = S0,
       actionsThisTurn = Vector(),
-      actionsTotal = Vector(),
+      actionsPrevTurns = Vector(),
+      generalActionsThisTurn = Vector(),
+      generalActionsPrevTurns = Vector(),
       messages = Vector(),
       mana = SideArray.create(0),
       totalMana = SideArray.create(0),
@@ -217,15 +247,18 @@ class BoardState private (
 
   //List of all spells in hand, indexed by spellID
   val spells: SideArray[Map[Int,Spell]],
-  var nextSpellId: Int, //Counter for assigning per-board unique ids to spells
 
   //Current side to move
   var side: Side,
 
   //All actions taken by the side to move this turn
   var actionsThisTurn: Vector[List[PlayerAction]],
-  //All actions over the whole history of the board
-  var actionsTotal: Vector[List[PlayerAction]],
+  //All actions over the whole history of the board. Accumulates actionsThisTurn each turn.
+  var actionsPrevTurns: Vector[Vector[List[PlayerAction]]],
+  //All general actions taken by the side to move this turn
+  var generalActionsThisTurn: Vector[List[PlayerAction]],
+  //All general actions over the whole history of the board. Accumulates generalActionsThisTurn each turn.
+  var generalActionsPrevTurns: Vector[Vector[List[PlayerAction]]],
 
   //Messages for external display to user as a result of events
   var messages: Vector[Message],
@@ -259,10 +292,11 @@ class BoardState private (
       turnNumber = turnNumber,
       reinforcements = reinforcements.copy(),
       spells = spells.copy(),
-      nextSpellId = nextSpellId,
       side = side,
       actionsThisTurn = actionsThisTurn,
-      actionsTotal = actionsTotal,
+      actionsPrevTurns = actionsPrevTurns,
+      generalActionsThisTurn = generalActionsThisTurn,
+      generalActionsPrevTurns = generalActionsPrevTurns,
       messages = messages,
       mana = mana,
       totalMana = totalMana,
@@ -300,7 +334,7 @@ class BoardState private (
   }
 
   //Perform a sequence of actions, stopping on before the first illegal action, if any
-  def doActions(actions: Seq[PlayerAction]): Try[Unit] = {
+  def doActionsStopOnIllegal(actions: Seq[PlayerAction]): Try[Unit] = {
     var goodActions: List[PlayerAction] = List()
     val error = actions.findMap { action =>
       doActionSingle(action) match {
@@ -310,7 +344,6 @@ class BoardState private (
     }
     goodActions = goodActions.reverse
     actionsThisTurn = actionsThisTurn :+ goodActions
-    actionsTotal = actionsTotal :+ goodActions
     error.getOrElse(Success(()))
   }
 
@@ -373,14 +406,30 @@ class BoardState private (
     mana(side) = 0
     piecesSpawnedThisTurn = Map()
     numPiecesSpawnedThisTurnAt = Map()
+
+    //Accumulate actions
+    actionsPrevTurns = actionsPrevTurns :+ actionsThisTurn
+    actionsThisTurn = Vector()
+    generalActionsPrevTurns = generalActionsPrevTurns :+ generalActionsThisTurn
+    generalActionsThisTurn = Vector()
   }
 
-  def addReinforcement(side: Side, pieceStats: PieceStats): Unit = {
-    //TODO
-  }
+  //Perform a GeneralAction. These are always legal.
+  def doGeneralAction(action: GeneralAction): Unit = {
+    generalActionsThisTurn = generalActionsThisTurn :+ action
 
-  def addSpell(side: Side, spell: Spell): Unit = {
-    //TODO
+    action match {
+      case BuyReinforcement(side,pieceStats) =>
+        addReinforcementInternal(side,pieceStats)
+        totalCosts(side) = totalCosts(side) + pieceStats.cost
+        val message = "Bought %s (cost %s mana)".format(pieceStats.name,pieceStats.cost)
+        addMessage(message,GeneralActionMsgType(side))
+
+      case GainSpell(side,spellId,spell) =>
+        if(spells.contains(spellId))
+          throw new Exception("spellId is not a unique id and has already occurred in this BoardState: " + spellId)
+        spells(side) = spells(side) + (spellId -> spell)
+    }
   }
 
   //Directly spawn a piece if it possible to do so. Exposed for use to set up initial boards.
@@ -389,6 +438,11 @@ class BoardState private (
       Failure(new Exception("Can only spawn pieces initially before the game has started"))
     else
       spawnPieceInternal(side,pieceStats,loc)
+  }
+
+  //Is there a piece on the current board matching this spec?
+  def pieceExists(spec: PieceSpec): Boolean = {
+    findPiece(spec).nonEmpty
   }
 
   //HELPER FUNCTIONS -------------------------------------------------------------------------------------
@@ -734,7 +788,7 @@ class BoardState private (
             spawner.hasFreeSpawned = true
         }
         val message = "Spawned %s on %s".format(spawnStats.name,spawnLoc.toString())
-        addMessage(message,ActionMsgType(side))
+        addMessage(message,PlayerActionMsgType(side))
 
       case SpellsAndAbilities(spellsAndAbilities) =>
         spellsAndAbilities.foreach { played => (played.pieceSpecAndKey, played.spellId) match {
@@ -839,7 +893,7 @@ class BoardState private (
     }
 
     val message = "Killed %s on %s%s%s".format(stats.name,piece.loc.toString(),rebateMessage,deathSpawnMessage)
-    addMessage(message,ActionMsgType(side))
+    addMessage(message,PlayerActionMsgType(side))
   }
 
   private def unsummonPiece(piece: Piece): Unit = {
@@ -847,7 +901,7 @@ class BoardState private (
     addReinforcementInternal(piece.side,piece.baseStats)
     val stats = piece.curStats
     val message = "Unsummoned %s on %s".format(stats.name,piece.loc.toString())
-    addMessage(message,ActionMsgType(side))
+    addMessage(message,PlayerActionMsgType(side))
   }
 
   private def blinkPiece(piece: Piece): Unit = {
@@ -855,7 +909,7 @@ class BoardState private (
     addReinforcementInternal(piece.side,piece.baseStats)
     val stats = piece.curStats
     val message = "Blinked %s on %s after attack".format(stats.name,piece.loc.toString())
-    addMessage(message,ActionMsgType(side))
+    addMessage(message,PlayerActionMsgType(side))
   }
   private def removeFromBoard(piece: Piece): Unit = {
     pieces(piece.loc) = pieces(piece.loc).filterNot { p => p.id == piece.id }
