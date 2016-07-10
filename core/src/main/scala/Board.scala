@@ -1,6 +1,7 @@
 import scala.util.{Try,Success,Failure}
-import RichImplicits._
 import scala.collection.immutable.Vector
+
+import RichImplicits._
 
 /**
   * The second layer of the board implementation. See BoardState.scala for the more primitive layer below.
@@ -32,19 +33,46 @@ import scala.collection.immutable.Vector
   */
 sealed trait Action
 case class PlayerActions(actions: List[PlayerAction]) extends Action
-case class GeneralAction(action: GeneralAction) extends Action
+case class DoGeneralAction(action: GeneralAction) extends Action
 case class LocalUndo(pieceSpec: PieceSpec) extends Action
+
+//Pairs board states together with the legal history of actions that generated those states, after reordering of actions.
+//A new BoardHistory is created after each Action.
+case class BoardHistory(
+  //State of the board after applying moving/attacking actions, so far
+  val moveAttackState: BoardState,
+  //State of the board after applying spawning actions, so far
+  val spawnState: BoardState,
+
+  //Moving/attacking actions taken by the side to move this turn
+  val moveAttackActionsThisTurn: Vector[PlayerAction],
+  //Spawning actions taken by the side to move this turn
+  val spawnActionsThisTurn: Vector[PlayerAction],
+  //General actions taken by the side to move this turn
+  val generalActionsThisTurn: Vector[GeneralAction]
+)
+
+object BoardHistory {
+  def initial(state: BoardState) = BoardHistory(
+    moveAttackState = state.copy(),
+    spawnState = state.copy(),
+    moveAttackActionsThisTurn = Vector(),
+    spawnActionsThisTurn = Vector(),
+    generalActionsThisTurn = Vector()
+  )
+}
 
 object Board {
   def create(tiles: Plane[Tile]): Board = {
     val initialState = BoardState.create(tiles)
     new Board(
       initialState = initialState,
-      initialStateThisTurn = initialState,
-      statesThisTurn = Vector(initialState),
+      initialStateThisTurn = initialState.copy(),
       actionsThisTurn = Vector(),
+      historiesThisTurn = Vector(BoardHistory.initial(initialState)),
       curIdx = 0,
       actionsPrevTurns = Vector(),
+      playerGeneralActionsPrevTurns = Vector()
     )
   }
 }
@@ -52,31 +80,31 @@ object Board {
 class Board private (
   //The board state at the start of everything
   val initialState: BoardState,
-  //The board state at the start of this turn
+  //The board history at the start of this turn
   var initialStateThisTurn: BoardState,
 
-  //Actions and states so far this turn
-  //statesThisTurn is defined in the range [0,curIdx].
   //actionsThisTurn is defined in a potentially larger range if undos have happened, as it stores the redo history.
-  //If no redos have happened, actionsThisTurn will be one shorter than statesThisTurn (because the n-1th action results in the nth state).
+  //historiesThisTurn is defined in the range [0,curIdx].
   var actionsThisTurn: Vector[Action],
-  var statesThisTurn: Vector[BoardState],
+  var historiesThisTurn: Vector[BoardHistory],
 
   //Current index of action (decrements on undo, increments on redo)
   var curIdx: Int,
 
   //Accumulates actionsThisTurn at the end of each turn
-  var actionsPrevTurns: Vector[Vector[Action]]
+  var actionsPrevTurns: Vector[Vector[Action]],
+  //Actions over the history of the board over prior turns, at the internal rearranging level, rather than the UI level.
+  var playerGeneralActionsPrevTurns: Vector[(Vector[PlayerAction],Vector[GeneralAction])]
 ) {
 
   def curState(): BoardState = {
-    statesThisTurn(curIdx)
+    historiesThisTurn(curIdx).spawnState
   }
 
   def tryLegality(action: Action): Try[Unit] = {
     action match {
       case PlayerActions(actions) => curState().tryLegality(actions)
-      case GeneralAction(_) => Success(())
+      case DoGeneralAction(_) => Success(())
       case LocalUndo(pieceSpec) =>
         if(curState().pieceExists(pieceSpec))
           Success(())
@@ -85,20 +113,136 @@ class Board private (
     }
   }
 
+  //Due to action reordering, might also report some actions illegal that aren't reported as illegal by tryLegality,
+  //but this should be extremely rare.
   def doAction(action: Action): Try[Unit] = {
-    action match {
-      case PlayerActions(actions) =>
-        val newState = curState().copy()
-        //TODO don't forget spawn reordering
-        newState.doActionsStopOnIllegal(actionList) match {
-          case Failure(err) => Failure(err)
-          case Success(()) =>
-            //TODO
+    tryLegality(action) match {
+      case Failure(err) => Failure(err)
+      case Success(()) => Try {
+        val history = historiesThisTurn(curIdx)
+        val newHistory = action match {
+          case PlayerActions(playerActions) =>
+            val newMoveAttackState = history.moveAttackState.copy()
+
+            //Try all the move/attack actions that are legal now in a row. Delay other actions to the spawn phase.
+            var moveAttackActionsRev: List[PlayerAction] = List()
+            var delayedToSpawnRev: List[PlayerAction] = List()
+            playerActions.foreach { playerAction =>
+              playerAction match {
+                case Movements(_) | Attack(_,_,_) =>
+                  //If move/attacks fail, then they're flat-out illegal
+                  newMoveAttackState.doAction(playerAction).get
+                  moveAttackActionsRev = playerAction :: moveAttackActionsRev
+                case Spawn(_,_,_) =>
+                  delayedToSpawnRev = playerAction :: delayedToSpawnRev
+                case SpellsAndAbilities(_) =>
+                  //When spells fail, it may be because they are targeting units only placed during spawn
+                  newMoveAttackState.doAction(playerAction) match {
+                    case Success(()) => moveAttackActionsRev = playerAction :: moveAttackActionsRev
+                    case Failure(_) => delayedToSpawnRev = playerAction :: delayedToSpawnRev
+                  }
+              }
+            }
+
+            //Reapply all the spawn actions so far
+            val newSpawnState = newMoveAttackState.copy()
+            history.spawnActionsThisTurn.foreach { playerAction =>
+              newSpawnState.doAction(playerAction).get
+            }
+
+            //And now apply all the deferred actions
+            val spawnActions = delayedToSpawnRev.reverse
+            spawnActions.foreach { playerAction =>
+              newSpawnState.doAction(playerAction).get
+            }
+
+            BoardHistory(
+              moveAttackState = newMoveAttackState,
+              spawnState = newSpawnState,
+              moveAttackActionsThisTurn = history.moveAttackActionsThisTurn ++ moveAttackActionsRev.reverse,
+              spawnActionsThisTurn = history.spawnActionsThisTurn ++ spawnActions,
+              generalActionsThisTurn = history.generalActionsThisTurn
+            )
+          case DoGeneralAction(generalAction) =>
+            val newMoveAttackState = history.moveAttackState.copy()
+            val newSpawnState = history.spawnState.copy()
+            newMoveAttackState.doGeneralAction(generalAction)
+            newSpawnState.doGeneralAction(generalAction)
+            BoardHistory(
+              moveAttackState = newMoveAttackState,
+              spawnState = newSpawnState,
+              moveAttackActionsThisTurn = history.moveAttackActionsThisTurn,
+              spawnActionsThisTurn = history.spawnActionsThisTurn,
+              generalActionsThisTurn = history.generalActionsThisTurn :+ generalAction
+            )
+          case LocalUndo(pieceSpec) =>
+            val newMoveAttackState = initialStateThisTurn.copy()
+            //Reapply all general actions
+            history.generalActionsThisTurn.foreach { generalAction =>
+              newMoveAttackState.doGeneralAction(generalAction)
+            }
+            //Attempts to reapply an action. Returns true if reapplied, false if not (illegal or involves the undo)
+            def maybeApplyAction(state: BoardState, playerAction: PlayerAction) = {
+              if(PlayerAction.involvesPiece(playerAction,pieceSpec))
+                false
+              else {
+                state.doAction(playerAction) match {
+                  case Success(()) => true
+                  case Failure(_) => false
+                }
+              }
+            }
+            val newMoveAttackActionsThisTurn = history.moveAttackActionsThisTurn.filter { playerAction =>
+              maybeApplyAction(newMoveAttackState,playerAction)
+            }
+            val newSpawnState = newMoveAttackState.copy()
+            val newSpawnActionsThisTurn = history.spawnActionsThisTurn.filter { playerAction =>
+              maybeApplyAction(newSpawnState,playerAction)
+            }
+            BoardHistory(
+              moveAttackState = newMoveAttackState,
+              spawnState = newSpawnState,
+              moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
+              spawnActionsThisTurn = newSpawnActionsThisTurn,
+              generalActionsThisTurn = history.generalActionsThisTurn
+            )
         }
-      case GeneralAction(_) => //TODO
-      case LocalUndo(pieceSpec) =>
-        //TODO
+
+        truncateRedos()
+        actionsThisTurn = actionsThisTurn :+ action
+        historiesThisTurn = historiesThisTurn :+ newHistory
+        curIdx = curIdx + 1
+        ()
+      }
     }
   }
 
+  //End the current turn and begin the next turn. Called also at the start of the game just after setup.
+  def beginNextTurn(): Unit = {
+    val history = historiesThisTurn(curIdx)
+
+    initialStateThisTurn = curState().copy()
+    initialStateThisTurn.beginNextTurn()
+    actionsPrevTurns = actionsPrevTurns :+ actionsThisTurn
+    actionsThisTurn = Vector()
+    historiesThisTurn = Vector(BoardHistory.initial(initialStateThisTurn))
+
+    val playerGeneralActions = (
+      history.moveAttackActionsThisTurn ++ history.spawnActionsThisTurn,
+      history.generalActionsThisTurn
+    )
+    playerGeneralActionsPrevTurns = playerGeneralActionsPrevTurns :+ playerGeneralActions
+    curIdx = 0
+  }
+
+  //TODO undo
+  //TODO prevAction
+  //TODO redo
+  //TODO nextAction
+
+
+  private def truncateRedos(): Unit = {
+    if(actionsThisTurn.length > curIdx)
+      actionsThisTurn = actionsThisTurn.slice(0,curIdx)
+  }
 }

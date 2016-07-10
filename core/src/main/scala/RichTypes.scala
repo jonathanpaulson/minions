@@ -1,4 +1,5 @@
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 
 class RicherSeq[T](val seq: Seq[T]) {
   def findMap[U](f: T => Option[U]): Option[U] = seq.iterator.map(f).find(_.nonEmpty).flatten
@@ -32,7 +33,7 @@ class RicherArray[T](val arr: Array[T]) {
     var filtering = true
     arr.filterNot { x => if(filtering && f(x)) { filtering = false; true } else false }
   }
-  def partitionMap[U,V](f: T => Either[U,V]): (Array[U],Array[V]) = {
+  def partitionMap[U:ClassTag,V:ClassTag](f: T => Either[U,V]): (Array[U],Array[V]) = {
     var us: List[U] = List()
     var vs: List[V] = List()
     arr.foreach { x => f(x) match { case Left(u) => us = u :: us  case Right(v) => vs = v :: vs } }
