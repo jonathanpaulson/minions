@@ -64,8 +64,11 @@ object BoardHistory {
 }
 
 object Board {
-  def create(tiles: Plane[Tile]): Board = {
-    val initialState = BoardState.create(tiles)
+  def create(initialState: BoardState): Board = {
+    //Sanity check
+    if(initialState.turnNumber > 0)
+      throw new Exception("Attempting to create board with initial state with turnNumber > 0: " + initialState.turnNumber)
+
     new Board(
       initialState = initialState,
       initialStateThisTurn = initialState.copy(),
@@ -179,10 +182,12 @@ class Board private (
           case LocalUndo(pieceSpec) =>
             val newMoveAttackState = initialStateThisTurn.copy()
             //Reapply all general actions
+            //Note that this relies on the invariant mentioned at the top of BoardState.scala - that reordering general actions
+            //to come before player actions never changes the legality of the total move sequence or the final result of that sequence.
             history.generalActionsThisTurn.foreach { generalAction =>
               newMoveAttackState.doGeneralAction(generalAction)
             }
-            //Attempts to reapply an action. Returns true if reapplied, false if not (illegal or involves the undo)
+            //Attempts to reapply a player action. Returns true if reapplied, false if not (illegal or involves the undo)
             def maybeApplyAction(state: BoardState, playerAction: PlayerAction) = {
               if(PlayerAction.involvesPiece(playerAction,pieceSpec))
                 false
@@ -218,12 +223,12 @@ class Board private (
     }
   }
 
-  //End the current turn and begin the next turn. Called also at the start of the game just after setup.
-  def beginNextTurn(): Unit = {
+  //End the current turn and begin the next turn.
+  def endTurn(): Unit = {
     val history = historiesThisTurn(curIdx)
 
-    initialStateThisTurn = curState().copy()
-    initialStateThisTurn.beginNextTurn()
+    initialStateThisTurn = history.spawnState.copy()
+    initialStateThisTurn.endTurn()
     actionsPrevTurns = actionsPrevTurns :+ actionsThisTurn
     actionsThisTurn = Vector()
     historiesThisTurn = Vector(BoardHistory.initial(initialStateThisTurn))

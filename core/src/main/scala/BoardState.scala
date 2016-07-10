@@ -215,14 +215,14 @@ class Piece private (
  */
 object BoardState {
   def create(tiles: Plane[Tile]): BoardState = {
-    new BoardState(
+    val board = new BoardState(
       tiles = tiles.copy(),
       pieces = Plane.create(tiles.xSize,tiles.ySize,tiles.topology,List()),
       pieceById = Map(),
       nextPieceId = 0,
       piecesSpawnedThisTurn = Map(),
       numPiecesSpawnedThisTurnAt = Map(),
-      turnNumber = -1, //Indicates that the game hasn't started yet
+      turnNumber = 0,
       reinforcements = SideArray.create(List()),
       spells = SideArray.create(Map()),
       side = S0,
@@ -231,6 +231,9 @@ object BoardState {
       totalMana = SideArray.create(0),
       totalCosts = SideArray.create(0)
     )
+    val message = "New board started"
+    board.addMessage(message,TurnChangeMsgType)
+    board
   }
 
   //Some local functions that it's nice to have in scope
@@ -259,7 +262,7 @@ class BoardState private (
   var piecesSpawnedThisTurn: Map[SpawnedThisTurn,Piece],
   var numPiecesSpawnedThisTurnAt: Map[Loc,Int],
 
-  //Number of turns completed, or -1 if game unstarted
+  //Number of turns completed
   var turnNumber: Int,
 
   //List of all reinforcement pieces in hand
@@ -285,6 +288,7 @@ class BoardState private (
   val ySize: Int = tiles.ySize
   val topology: PlaneTopology = tiles.topology
 
+  //TODO rework this, either drop the message feature or implement it better (maybe in Board.scala rather than here to put it along with history stuff)
   //Transient, used only for message logging and is set by external code prior to calling
   //functions to modify board state
   var timeLeft: Double = 0.0
@@ -350,16 +354,13 @@ class BoardState private (
     doActionSingle(action)
   }
 
-  //End the current turn and begin the next turn. Called also at the start of the game just after setup
-  def beginNextTurn(): Unit = {
-    //Count and accumulate mana, except on the start of game. Wailing units do generate mana
+  //End the current turn and begin the next turn
+  def endTurn(): Unit = {
+    //Count and accumulate mana. Wailing units do generate mana
     var newMana = 0
-    if(turnNumber != -1)
-    {
-      pieceById.values.foreach { piece =>
-        if(piece.side == side)
-          newMana += piece.curStats.extraMana + (if(tiles(piece.loc).terrain == ManaSpire) 1 else 0)
-      }
+    pieceById.values.foreach { piece =>
+      if(piece.side == side)
+        newMana += piece.curStats.extraMana + (if(tiles(piece.loc).terrain == ManaSpire) 1 else 0)
     }
 
     //Wailing units that attacked die
@@ -370,12 +371,7 @@ class BoardState private (
 
     //Heal damage, reset piece state, decay modifiers
     pieceById.values.foreach { piece =>
-      piece.damage = 0
-      piece.actState = nextGoodActState(piece,Moving(0))
-      piece.hasMoved = false
-      piece.hasAttacked = false
-      piece.hasFreeSpawned = false
-      piece.spawnedThisTurn = None
+      refreshPieceForStartOfTurn(piece)
       piece.modsWithDuration = piece.modsWithDuration.flatMap(_.decay)
     }
     //Decay tile modifiers
@@ -389,17 +385,11 @@ class BoardState private (
     mana(side) += newMana
     totalMana(side) += newMana
 
-    if(turnNumber == -1) {
-      val message = "New board started"
-      addMessage(message,TurnChangeMsgType)
-    }
-    if(turnNumber != -1) {
-      //TODO put team or player names into here?
-      val message = "%s turn ended, generated %d mana (board lifetime %d, costs %d, net %d)".format(
-        side.toString(),newMana,totalMana(side),totalCosts(side),totalMana(side) - totalCosts(side)
-      )
-      addMessage(message,TurnChangeMsgType)
-    }
+    //TODO put team or player names into here?
+    val message = "%s turn ended, generated %d mana (board lifetime %d, costs %d, net %d)".format(
+      side.toString(),newMana,totalMana(side),totalCosts(side),totalMana(side) - totalCosts(side)
+    )
+    addMessage(message,TurnChangeMsgType)
 
     //Flip turn
     side = side.opp
@@ -429,10 +419,9 @@ class BoardState private (
 
   //Directly spawn a piece if it possible to do so. Exposed for use to set up initial boards.
   def spawnPieceInitial(side: Side, pieceStats: PieceStats, loc: Loc): Try[Unit] = {
-    if(turnNumber != -1)
-      Failure(new Exception("Can only spawn pieces initially before the game has started"))
-    else
-      spawnPieceInternal(side,pieceStats,loc)
+    spawnPieceInternal(side,pieceStats,loc).map { piece =>
+      refreshPieceForStartOfTurn(piece)
+    }
   }
 
   //Is there a piece on the current board matching this spec?
@@ -514,6 +503,7 @@ class BoardState private (
 
   //Check if a single action is legal
   private def tryLegalitySingle(action: PlayerAction): Try[Unit] = Try {
+    failIf(turnNumber < 0, "Game is not started yet")
     action match {
       case Movements(movements) =>
         def isMovingNow(piece: Piece) = movements.exists { case Movement(id,_) => piece.id == id }
@@ -773,7 +763,7 @@ class BoardState private (
 
       case Spawn(spawnLoc, spawnStats, freeSpawnerSpec) =>
         spawnPieceInternal(side,spawnStats,spawnLoc) match {
-          case Success(()) => ()
+          case Success(_: Piece) => ()
           case Failure(_) => assertUnreachable()
         }
         freeSpawnerSpec match {
@@ -861,7 +851,7 @@ class BoardState private (
         killIfEnoughDamage(piece)
       case TransformInto(newStats) =>
         removeFromBoard(piece)
-        spawnPieceInternal(piece.side,newStats,piece.loc) : Try[Unit] //ignore
+        spawnPieceInternal(piece.side,newStats,piece.loc) : Try[Piece] //ignore
         ()
     }
   }
@@ -889,7 +879,7 @@ class BoardState private (
     var deathSpawnMessage = ""
     stats.deathSpawn.foreach { deathSpawn =>
       spawnPieceInternal(piece.side,deathSpawn,piece.loc) match {
-        case Success(()) => deathSpawnMessage = " (deathspawn: " + deathSpawn.name + ")"
+        case Success(_: Piece) => deathSpawnMessage = " (deathspawn: " + deathSpawn.name + ")"
         case Failure(err) => deathSpawnMessage = " (deathspawn prevented: " + err.getMessage + ")"
       }
     }
@@ -925,7 +915,7 @@ class BoardState private (
   }
 
   //Doesn't log an event and doesn't produce messages, but does check for legality of spawn
-  private def spawnPieceInternal(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Try[Unit] = Try {
+  private def spawnPieceInternal(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Try[Piece] = Try {
     //A bunch of tests that don't depend on the spawner or on reinforcements state
     trySpawnLegality(spawnSide, spawnStats, spawnLoc)
 
@@ -936,5 +926,15 @@ class BoardState private (
     nextPieceId += 1
     piecesSpawnedThisTurn += (piece.spawnedThisTurn.get -> piece)
     numPiecesSpawnedThisTurnAt += (spawnLoc -> nthAtLoc)
+    piece
+  }
+
+  private def refreshPieceForStartOfTurn(piece: Piece): Unit = {
+    piece.damage = 0
+    piece.actState = nextGoodActState(piece,Moving(0))
+    piece.hasMoved = false
+    piece.hasAttacked = false
+    piece.hasFreeSpawned = false
+    piece.spawnedThisTurn = None
   }
 }
