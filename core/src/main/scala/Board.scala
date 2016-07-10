@@ -241,11 +241,41 @@ class Board private (
     curIdx = 0
   }
 
-  //TODO undo
-  //TODO prevAction
-  //TODO redo
-  //TODO nextAction
+  //Undo the most recent Action
+  def undo(): Try[Unit] = {
+    if(curIdx <= 0)
+      Failure(new Exception("Cannot undo, already at the start"))
+    else {
+      curIdx = curIdx - 1
+      Success(())
+    }
+  }
 
+  //Redo the most recent undone Action
+  def redo(): Try[Unit] = {
+    if(curIdx >= actionsThisTurn.length)
+      Failure(new Exception("Cannot redo, already at the end"))
+    else {
+      curIdx = curIdx + 1
+      Success(())
+    }
+  }
+
+  //Return the action that would be undone by a call to undo
+  def prevAction: Option[Action] = {
+    if(curIdx <= 0)
+      None
+    else
+      Some(actionsThisTurn(curIdx-1))
+  }
+
+  //Return the action that would be redone by a call to redo
+  def nextAction: Option[Action] = {
+    if(curIdx >= actionsThisTurn.length)
+      None
+    else
+      Some(actionsThisTurn(curIdx))
+  }
 
   private def truncateRedos(): Unit = {
     if(actionsThisTurn.length > curIdx)
