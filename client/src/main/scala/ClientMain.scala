@@ -90,7 +90,7 @@ object ClientMain extends JSApp {
 
     val origin = Point(2.0*size, 2.0*size)
 
-    val board = Board.create(tiles = Plane.create(10, 10, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
+    val board = BoardState.create(tiles = Plane.create(10, 10, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
     board.tiles.update(0, 0, new Tile(terrain=ManaSpire, modsWithDuration=List()))
     board.tiles.update(0, 1, new Tile(terrain=Wall, modsWithDuration=List()))
     board.tiles.update(1, 0, new Tile(terrain=Water, modsWithDuration=List()))
@@ -152,4 +152,3 @@ object ClientMain extends JSApp {
     ()
   }
 }
-
