@@ -216,10 +216,12 @@ class Piece private (
  * The full state of one board of the game.
  */
 object BoardState {
-  def create(tiles: Plane[Tile]): BoardState = {
+  def create(terrain: Plane[Terrain]): BoardState = {
     val board = new BoardState(
-      tiles = tiles.copy(),
-      pieces = Plane.create(tiles.xSize,tiles.ySize,tiles.topology,List()),
+      tiles = terrain.map { terrain =>
+        Tile(terrain = terrain, modsWithDuration = List())
+      },
+      pieces = Plane.create(terrain.xSize,terrain.ySize,terrain.topology,List()),
       pieceById = Map(),
       nextPieceId = 0,
       piecesSpawnedThisTurn = Map(),

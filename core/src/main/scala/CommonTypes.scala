@@ -57,7 +57,13 @@ object ActState {
  * All the immutable stats of a piece. Also used to represent pieces in reinforcements (i.e. in hand).
  */
 case class PieceStats(
+  //name is for internal identification and use in recorded files and such.
+  //displayName is for the GUI.
+  //The separation of these two allows us to make graphical and cosmetic changes to things like piece names without
+  //invalidating recorded games (although of course there's no help for modifications to piece stats that affect gameplay!)
   val name: String,
+  val displayName: String,
+
   val attackEffect: Option[TargetEffect],
   val defense: Int,
   val moveRange: Int,

@@ -64,7 +64,8 @@ object ClientMain extends JSApp {
     val ctx = canvas.getContext("2d").asInstanceOf[dom.CanvasRenderingContext2D]
 
     val zombie = PieceStats(
-      name = "Zombie",
+      name = "zombie",
+      displayName = "Zombie",
       attackEffect = Some(Damage(1)),
       defense = 2,
       moveRange = 1,
@@ -80,7 +81,7 @@ object ClientMain extends JSApp {
       hasFlurry = false,
       hasBlink = false,
       canHurtNecromancer = true,
-      swarmMax = 2,
+      swarmMax = 2, //Swarming 2 for testing
       spawnRange = 0,
       extraMana = 0,
       deathSpawn = None,
@@ -90,13 +91,17 @@ object ClientMain extends JSApp {
 
     val origin = Point(2.0*size, 2.0*size)
 
-    val board = BoardState.create(tiles = Plane.create(10, 10, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
-    board.tiles.update(0, 0, new Tile(terrain=ManaSpire, modsWithDuration=List()))
-    board.tiles.update(0, 1, new Tile(terrain=Wall, modsWithDuration=List()))
-    board.tiles.update(1, 0, new Tile(terrain=Water, modsWithDuration=List()))
-    board.tiles.update(1, 1, new Tile(terrain=Spawner(S0, zombie), modsWithDuration=List()))
-    board.tiles.update(2, 0, new Tile(terrain=Spawner(S1, zombie), modsWithDuration=List()))
+    val board = BoardState.create(Plane.create(10, 10, HexTopology, Ground))
+    //TODO from dwu to jpaulson: board.tiles(x,y) = z   -  syntatic sugar converts this into .update
+    //TODO from dwu to jpaulson: Don't mutate directly, instead modify the terrain Plane to be what you want first
+    //and then create the BoardState with the desired terain.
+    board.tiles.update(0, 0, ManaSpire)
+    board.tiles.update(0, 1, Wall)
+    board.tiles.update(1, 0, Water)
+    board.tiles.update(1, 1, Spawner(S0, zombie))
+    board.tiles.update(2, 0, Spawner(S1, zombie))
 
+    //TODO from dwu to jpaulson: Don't mutate the board directly, instead use spawnPieceInternal. Don't create Pieces directly either.
     board.pieces(2, 1) = List(Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board))
     board.pieces(2, 2) = List(
       Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board),
