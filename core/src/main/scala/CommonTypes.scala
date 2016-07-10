@@ -269,6 +269,8 @@ case object Water extends Terrain
 case object ManaSpire extends Terrain
 //TODO implement this
 case class Spawner(side:Side, pieceStats:PieceStats) extends Terrain
+//TODO implement this
+//case class UnstableGround extends Terrain  //Units unsummon at the end of turn
 
 /**
  * Loc, Vec:

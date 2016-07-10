@@ -83,24 +83,25 @@ object Board {
 
 class Board private (
   //The board state at the start of everything
-  val initialState: BoardState,
+  private val initialState: BoardState,
   //The board history at the start of this turn
-  var initialStateThisTurn: BoardState,
+  private var initialStateThisTurn: BoardState,
 
   //actionsThisTurn is defined in a potentially larger range if undos have happened, as it stores the redo history.
   //historiesThisTurn is defined in the range [0,curIdx].
-  var actionsThisTurn: Vector[Action],
-  var historiesThisTurn: Vector[BoardHistory],
+  private var actionsThisTurn: Vector[Action],
+  private var historiesThisTurn: Vector[BoardHistory],
 
   //Current index of action (decrements on undo, increments on redo)
-  var curIdx: Int,
+  private var curIdx: Int,
 
   //Accumulates actionsThisTurn at the end of each turn
-  var actionsPrevTurns: Vector[Vector[Action]],
+  private var actionsPrevTurns: Vector[Vector[Action]],
   //Actions over the history of the board over prior turns, at the internal rearranging level, rather than the UI level.
-  var playerGeneralActionsPrevTurns: Vector[(Vector[PlayerAction],Vector[GeneralAction])]
+  private var playerGeneralActionsPrevTurns: Vector[(Vector[PlayerAction],Vector[GeneralAction])]
 ) {
 
+  //Users should NOT modify the BoardState returned by this function!
   def curState(): BoardState = {
     historiesThisTurn(curIdx).spawnState
   }

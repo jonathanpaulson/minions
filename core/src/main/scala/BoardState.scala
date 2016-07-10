@@ -148,6 +148,8 @@ case class Tile(
  * A single piece on the board.
  */
 object Piece {
+  //This function is used internally by the board implementation.
+  //Users should never need to call this function. For setting up initial pieces, see functions like spawnPieceInitial.
   def create(side: Side, baseStats: PieceStats, id: Int, loc: Loc, nthAtLoc: Int, board: BoardState): Piece = {
     new Piece(
       side = side,
@@ -249,6 +251,10 @@ object BoardState {
 import BoardState.Imports._
 
 class BoardState private (
+  //For convenience, we leave these fields exposed rather than making them private and
+  //carefully wrapping them in a bunch of getters and setters. But users of BoardState
+  //should NOT modify any of these fields, only read them.
+
   //Tiles of the board
   val tiles: Plane[Tile],
   //List of pieces in each space. Order is irrelevant
