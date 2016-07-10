@@ -787,6 +787,7 @@ class BoardState private (
         addMessage(message,PlayerActionMsgType(side))
 
       case SpellsAndAbilities(spellsAndAbilities) =>
+        //Apply spell effects
         spellsAndAbilities.foreach { played => (played.pieceSpecAndKey, played.spellId) match {
           case (None, None) => assertUnreachable()
           case (Some(_), Some(_)) => assertUnreachable()
@@ -812,7 +813,12 @@ class BoardState private (
                 piecesOnTile.foreach { piece => killIfEnoughDamage(piece) }
             }
         }}
-        //TODO don't forget sorcery discards
+
+        //Remove spells from hand
+        spellsAndAbilities.foreach { played =>
+          played.discardingId.foreach { id => spells(side) = spells(side) - id }
+          played.spellId.foreach { id => spells(side) = spells(side) - id }
+        }
     }
   }
 
