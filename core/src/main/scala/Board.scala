@@ -20,7 +20,8 @@ import RichImplicits._
   * As a slight detail, GeneralActions require communication with the outside world when doing them or attempting to undo or redo them.
   * Doing or redoing requires claiming a shared resource (like spending mana to buy a unit), undoing requires informing the broader game
   * the resource is available again (like regaining the mana after undoing the purchase).
-  * We handle this by exposing functions here to allow users to determine what is about to get undone or redone on an undo or redo.
+  * We handle this by exposing functions here to allow users to determine what is about to get undone or redone on an undo or redo,
+  * namely prevAction and nextAction.
   * It's up to the user of Board to do the necessary work here.
   *
   */
