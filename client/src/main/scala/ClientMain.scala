@@ -85,7 +85,7 @@ object ClientMain extends JSApp {
     val ctx = canvas.getContext("2d").asInstanceOf[dom.CanvasRenderingContext2D]
     val origin = Point(2.0*size, 2.0*size)
 
-    val board = Board.create(tiles = Plane.create(10, 10, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
+    val board = BoardState.create(Plane.create(10, 10, HexTopology, Ground))
 
     var mouse = Point(0, 0)
     var selected = Point(2, 0)
@@ -114,7 +114,7 @@ object ClientMain extends JSApp {
       }
     }
 
-    def show_board(board : Board) : Unit = {
+    def show_board(board : BoardState) : Unit = {
       println(mouse.x+" "+mouse.y)
       ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
       draw_hex(ctx, hex_center(mouse, origin), "purple", size-1.0)
@@ -192,7 +192,8 @@ object ClientMain extends JSApp {
 
 
     val zombie = PieceStats(
-      name = "Zombie",
+      name = "zombie",
+      displayName = "Zombie",
       attackEffect = Some(Damage(1)),
       defense = 2,
       moveRange = 1,
@@ -208,7 +209,7 @@ object ClientMain extends JSApp {
       hasFlurry = false,
       hasBlink = false,
       canHurtNecromancer = true,
-      swarmMax = 2,
+      swarmMax = 2, //Swarming 2 for testing
       spawnRange = 0,
       extraMana = 0,
       deathSpawn = None,
@@ -216,13 +217,16 @@ object ClientMain extends JSApp {
       abilities = Map.empty
     )
 
+    //TODO from dwu to jpaulson: board.tiles(x,y) = z   -  syntatic sugar converts this into .update
+    //TODO from dwu to jpaulson: Don't mutate directly, instead modify the terrain Plane to be what you want first
+    //and then create the BoardState with the desired terain.
+    board.tiles.update(0, 0, Tile.create(ManaSpire))
+    board.tiles.update(0, 1, Tile.create(Wall))
+    board.tiles.update(1, 0, Tile.create(Water))
+    board.tiles.update(1, 1, Tile.create(Spawner(S0, zombie)))
+    board.tiles.update(2, 0, Tile.create(Spawner(S1, zombie)))
 
-    board.tiles.update(0, 0, new Tile(terrain=ManaSpire, modsWithDuration=List()))
-    board.tiles.update(0, 1, new Tile(terrain=Wall, modsWithDuration=List()))
-    board.tiles.update(1, 0, new Tile(terrain=Water, modsWithDuration=List()))
-    board.tiles.update(1, 1, new Tile(terrain=Spawner(S0, zombie), modsWithDuration=List()))
-    board.tiles.update(2, 0, new Tile(terrain=Spawner(S1, zombie), modsWithDuration=List()))
-
+    //TODO from dwu to jpaulson: Don't mutate the board directly, instead use spawnPieceInternal. Don't create Pieces directly either.
     board.pieces(2, 1) = List(Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board))
     board.pieces(2, 2) = List(
       Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board),
@@ -242,4 +246,3 @@ object ClientMain extends JSApp {
     ()
   }
 }
-
