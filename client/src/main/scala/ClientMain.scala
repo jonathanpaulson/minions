@@ -9,6 +9,7 @@ import scala.scalajs.js
 case class Point(x: Double, y: Double){
   def +(p: Point) = Point(x + p.x, y + p.y)
   def /(d: Double) = Point(x / d, y / d)
+  def toLoc = Loc(x.round.toInt, y.round.toInt)
 }
 
 object ClientMain extends JSApp {
@@ -19,6 +20,26 @@ object ClientMain extends JSApp {
   }
   def line(ctx : dom.CanvasRenderingContext2D, point : Point) : Unit = {
     ctx.lineTo(Math.floor(point.x), Math.floor(point.y));
+  }
+
+  def hex_round(pos : Point) : Point = {
+    val x = pos.x
+    val z = pos.y
+    val y = -(x+z)
+    val rx = Math.round(x)
+    val ry = Math.round(y)
+    val rz = Math.round(z)
+    val dx = Math.abs(x - rx)
+    val dy = Math.abs(y - ry)
+    val dz = Math.abs(z - rz)
+    if(dx >= dy && dx >= dz) {
+      Point(-(ry+rz).toDouble, rz.toDouble)
+    } else if(dy >= dx && dy >= dz) {
+      Point(rx.toDouble, rz.toDouble)
+    } else {
+      // assert (dz >= dx && dz>=dy);
+      Point(rx.toDouble, -(rx+ry).toDouble)
+    }
   }
 
   // Coordinate system: plane s.t. x+y+z = 0
@@ -62,6 +83,113 @@ object ClientMain extends JSApp {
   def setupUI() : Unit = {
     val canvas = jQuery("#board").get(0).asInstanceOf[html.Canvas]
     val ctx = canvas.getContext("2d").asInstanceOf[dom.CanvasRenderingContext2D]
+    val origin = Point(2.0*size, 2.0*size)
+
+    val board = Board.create(tiles = Plane.create(10, 10, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
+
+    var mouse = Point(0, 0)
+    var selected = Point(2, 0)
+    var path = List(Point(5, 2), Point(6, 2), Point(7, 2))
+
+    // Update path to be a shortest path from [selected] to [mouse] that
+    // shares the longest prefix with the current [path]
+    def update_path() : Unit = {
+      def distance(x : Point, y : Point) : Int = {
+        board.tiles.topology.distance(x.toLoc, y.toLoc)
+      }
+      if(path.size==0 || path(0) != selected) {
+        path = List(selected)
+      }
+      while(path.size > 0 && distance(selected, mouse) != path.size-1 + distance(path(path.size-1), mouse)) {
+        path = path.init
+        println(path.size)
+      }
+      if(path(path.size-1) != mouse) {
+        for(ploc <- board.tiles.topology.adj(path(path.size-1).toLoc)) {
+          val p = Point(ploc.x.toDouble, ploc.y.toDouble)
+          if(path.size-1 + distance(path(path.size-1), mouse) == path.size + distance(p, mouse)) {
+            path = path :+ p
+          }
+        }
+      }
+    }
+
+    def show_board(board : Board) : Unit = {
+      println(mouse.x+" "+mouse.y)
+      ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
+      draw_hex(ctx, hex_center(mouse, origin), "purple", size-1.0)
+      draw_hex(ctx, hex_center(selected, origin), "red", size-1.0)
+      board.tiles.iteri {case ((x, y), tile) =>
+        val center = hex_center(Point(x.toDouble,y.toDouble), origin)
+        tile.terrain match {
+          case Wall => draw_hex(ctx, center, "black", size-1.0)
+          case Ground => draw_hex(ctx, center, "green", size-1.0)
+          case Water => draw_hex(ctx, center, "blue", size-1.0)
+          case ManaSpire => draw_hex(ctx, center, "orange", size-1.0)
+          case Spawner(S0, _) =>
+            draw_hex(ctx, center, "gray", size-1.0)
+            draw_hex(ctx, center, "red", size-10.0)
+          case Spawner(S1, _) =>
+            draw_hex(ctx, center, "gray", size-1.0)
+            draw_hex(ctx, center, "blue", size-10.0)
+        }
+      }
+      board.pieces.iteri {case ((x,y), pieces) =>
+        val center = hex_center(Point(x.toDouble,y.toDouble), origin)
+        pieces match {
+          case Nil => ()
+          case p :: Nil =>
+            draw_hex(ctx, center, "blue", size-5.0)
+          case p1 :: p2 :: Nil  =>
+            val c1 = Point(center.x, center.y-size/2)
+            val c2 = Point(center.x, center.y+size/2)
+            draw_hex(ctx, c1, "blue", size/2-0.5)
+            draw_hex(ctx, c2, "blue", size/2-0.5)
+          case p1 :: p2 :: p3 :: Nil  => ()
+            val c1 = Point(center.x, center.y-size/2)
+            val c2 = (center+hex_corner(center, size, 2))/2
+            val c3 = (center+hex_corner(center, size, 0))/2
+            draw_hex(ctx, c1, "blue", size/2-0.5)
+            draw_hex(ctx, c2, "blue", size/2-0.5)
+            draw_hex(ctx, c3, "blue", size/2-0.5)
+          case _ => ()
+        }
+      }
+      if(path.size > 0) {
+        ctx.globalAlpha = 1.0
+        ctx.fillStyle = "black"
+        ctx.setLineDash(js.Array(5.0, 10.0))
+        ctx.beginPath()
+        move(ctx, hex_center(path(0), origin))
+        for(i <- 1 to path.size-1) {
+          line(ctx, hex_center(path(i), origin))
+        }
+        ctx.stroke()
+        ctx.closePath()
+      }
+    }
+
+    def mouse_pos(e : dom.MouseEvent) : Point = {
+      val rect = canvas.getBoundingClientRect()
+      val pixel_pos = Point(e.clientX - rect.left - origin.x, e.clientY - rect.top - origin.y)
+      val hex_pos_f = Point((pixel_pos.x * Math.sqrt(3)/3 - pixel_pos.y/3) / size, pixel_pos.y * 2.0/3.0 / size)
+      val hex_pos = hex_round(hex_pos_f)
+      hex_pos
+    }
+
+    def mousedown(e : dom.MouseEvent) : Unit = {
+      selected = mouse_pos(e)
+      show_board(board)
+    }
+    def mousemove(e : dom.MouseEvent) : Unit = {
+      mouse = mouse_pos(e)
+      update_path()
+      show_board(board)
+    }
+
+    canvas.onmousedown = mousedown _
+    canvas.onmousemove = mousemove _
+
 
     val zombie = PieceStats(
       name = "Zombie",
@@ -88,9 +216,7 @@ object ClientMain extends JSApp {
       abilities = Map.empty
     )
 
-    val origin = Point(2.0*size, 2.0*size)
 
-    val board = Board.create(tiles = Plane.create(10, 10, HexTopology, new Tile(terrain=Ground, modsWithDuration=List())))
     board.tiles.update(0, 0, new Tile(terrain=ManaSpire, modsWithDuration=List()))
     board.tiles.update(0, 1, new Tile(terrain=Wall, modsWithDuration=List()))
     board.tiles.update(1, 0, new Tile(terrain=Water, modsWithDuration=List()))
@@ -108,42 +234,6 @@ object ClientMain extends JSApp {
       Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board)
     )
 
-    board.tiles.iteri {case ((x, y), tile) =>
-      val center = hex_center(Point(x.toDouble,y.toDouble), origin)
-      tile.terrain match {
-        case Wall => draw_hex(ctx, center, "black", size-1.0)
-        case Ground => draw_hex(ctx, center, "green", size-1.0)
-        case Water => draw_hex(ctx, center, "blue", size-1.0)
-        case ManaSpire => draw_hex(ctx, center, "orange", size-1.0)
-        case Spawner(S0, _) =>
-          draw_hex(ctx, center, "gray", size-1.0)
-          draw_hex(ctx, center, "red", size-10.0)
-        case Spawner(S1, _) =>
-          draw_hex(ctx, center, "gray", size-1.0)
-          draw_hex(ctx, center, "blue", size-10.0)
-      }
-    }
-    board.pieces.iteri {case ((x,y), pieces) =>
-      val center = hex_center(Point(x.toDouble,y.toDouble), origin)
-      pieces match {
-        case Nil => ()
-        case p :: Nil =>
-          draw_hex(ctx, center, "blue", size-5.0)
-        case p1 :: p2 :: Nil  =>
-          val c1 = Point(center.x, center.y-size/2)
-          val c2 = Point(center.x, center.y+size/2)
-          draw_hex(ctx, c1, "blue", size/2-0.5)
-          draw_hex(ctx, c2, "blue", size/2-0.5)
-        case p1 :: p2 :: p3 :: Nil  => ()
-          val c1 = Point(center.x, center.y-size/2)
-          val c2 = (center+hex_corner(center, size, 2))/2
-          val c3 = (center+hex_corner(center, size, 0))/2
-          draw_hex(ctx, c1, "blue", size/2-0.5)
-          draw_hex(ctx, c2, "blue", size/2-0.5)
-          draw_hex(ctx, c3, "blue", size/2-0.5)
-        case _ => ()
-      }
-    }
     ()
   }
 
