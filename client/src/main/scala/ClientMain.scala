@@ -102,7 +102,6 @@ object ClientMain extends JSApp {
       }
       while(path.size > 0 && distance(selected, mouse) != path.size-1 + distance(path(path.size-1), mouse)) {
         path = path.init
-        println(path.size)
       }
       if(path(path.size-1) != mouse) {
         for(ploc <- board.tiles.topology.adj(path(path.size-1).toLoc)) {
@@ -115,7 +114,6 @@ object ClientMain extends JSApp {
     }
 
     def show_board(board : BoardState) : Unit = {
-      println(mouse.x+" "+mouse.y)
       ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
       draw_hex(ctx, hex_center(mouse, origin), "purple", size-1.0)
       draw_hex(ctx, hex_center(selected, origin), "red", size-1.0)
@@ -179,6 +177,7 @@ object ClientMain extends JSApp {
 
     def mousedown(e : dom.MouseEvent) : Unit = {
       selected = mouse_pos(e)
+      println(selected.toString)
       show_board(board)
     }
     def mousemove(e : dom.MouseEvent) : Unit = {
@@ -209,7 +208,7 @@ object ClientMain extends JSApp {
       hasFlurry = false,
       hasBlink = false,
       canHurtNecromancer = true,
-      swarmMax = 2, //Swarming 2 for testing
+      swarmMax = 3, //Swarming 3 for testing
       spawnRange = 0,
       extraMana = 0,
       deathSpawn = None,
@@ -227,17 +226,18 @@ object ClientMain extends JSApp {
     board.tiles.update(2, 0, Tile.create(Spawner(S1, zombie)))
 
     //TODO from dwu to jpaulson: Don't mutate the board directly, instead use spawnPieceInternal. Don't create Pieces directly either.
-    board.pieces(2, 1) = List(Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board))
-    board.pieces(2, 2) = List(
-      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board),
-      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board)
-    )
-    board.pieces(2, 3) = List(
-      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board),
-      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board),
-      Piece.create(S0, zombie, 0, loc=Loc(2, 1), nthAtLoc=0, board=board)
-    )
+    board.spawnPieceInitial(S0, zombie, Loc(2, 1))
 
+    board.spawnPieceInitial(S0, zombie, Loc(2, 2))
+    board.spawnPieceInitial(S0, zombie, Loc(2, 2))
+
+    board.spawnPieceInitial(S0, zombie, Loc(2, 3))
+    board.spawnPieceInitial(S0, zombie, Loc(2, 3))
+    board.spawnPieceInitial(S0, zombie, Loc(2, 3))
+
+    val action = Movements(List(Movement(SpawnedThisTurn("zombie", Loc(2, 1), 0), Array(Loc(2, 1), Loc(3, 0)))))
+    val result = board.doAction(action)
+    println(result.toString)
     ()
   }
 

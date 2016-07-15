@@ -531,7 +531,7 @@ class BoardState private (
           failUnless(path.length > 1, "Empty or trivial movement path")
           failUnless(path(0) != path.last, "Circular movement path")
           failUnless(path.forall { loc => tiles.inBounds(loc) }, "Movement out of bounds")
-          failUnless((1 to (path.length - 1)).forall { idx => topology.distance(path.last,path(idx)) == 1 },
+          failUnless((1 to (path.length - 1)).forall { idx => topology.distance(path(idx-1),path(idx)) == 1 },
               "Movement path locations not all adjacent")
 
           findPiece(pieceSpec) match {
