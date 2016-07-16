@@ -22,7 +22,7 @@ object ClientMain extends JSApp {
     ctx.lineTo(Math.floor(point.x), Math.floor(point.y));
   }
 
-  def hex_round(pos : Point) : Point = {
+  def hex_round(pos : Point) : Loc = {
     val x = pos.x
     val z = pos.y
     val y = -(x+z)
@@ -33,12 +33,12 @@ object ClientMain extends JSApp {
     val dy = Math.abs(y - ry)
     val dz = Math.abs(z - rz)
     if(dx >= dy && dx >= dz) {
-      Point(-(ry+rz).toDouble, rz.toDouble)
+      Loc(-(ry+rz).toInt, rz.toInt)
     } else if(dy >= dx && dy >= dz) {
-      Point(rx.toDouble, rz.toDouble)
+      Loc(rx.toInt, rz.toInt)
     } else {
       // assert (dz >= dx && dz>=dy);
-      Point(rx.toDouble, -(rx+ry).toDouble)
+      Loc(rx.toInt, -(rx+ry).toInt)
     }
   }
 
@@ -47,10 +47,10 @@ object ClientMain extends JSApp {
   // y is up and to the left
   // z is down
   // We store Point(x, z); we can recover y as -(x+z)
-  def hex_center(pos : Point, origin : Point) : Point = {
+  def hex_center(pos : Loc, origin : Point) : Point = {
     Point(
-      origin.x + size * Math.sqrt(3) * (pos.x + pos.y/2),
-      origin.y + size * 3.0/2.0 * pos.y
+      origin.x + size * Math.sqrt(3) * (pos.x.toDouble + pos.y.toDouble/2.0),
+      origin.y + size * 3.0/2.0 * pos.y.toDouble
     )
   }
 
@@ -87,25 +87,24 @@ object ClientMain extends JSApp {
 
     val board = BoardState.create(Plane.create(10, 10, HexTopology, Ground))
 
-    var mouse = Point(0, 0)
-    var selected = Point(2, 0)
-    var path = List(Point(5, 2), Point(6, 2), Point(7, 2))
+    var mouse = Loc(0, 0)
+    var selected = Loc(2, 0)
+    var path = List(Loc(0, 0))
 
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
     def update_path() : Unit = {
-      def distance(x : Point, y : Point) : Int = {
-        board.tiles.topology.distance(x.toLoc, y.toLoc)
+      def distance(x : Loc, y : Loc) : Int = {
+        board.tiles.topology.distance(x, y)
       }
-      if(path.size==0 || path(0) != selected) {
+      if(path.size==0 || (!path(0).equals(selected))) {
         path = List(selected)
       }
       while(path.size > 0 && distance(selected, mouse) != path.size-1 + distance(path(path.size-1), mouse)) {
         path = path.init
       }
       if(path(path.size-1) != mouse) {
-        for(ploc <- board.tiles.topology.adj(path(path.size-1).toLoc)) {
-          val p = Point(ploc.x.toDouble, ploc.y.toDouble)
+        for(p <- board.tiles.topology.adj(path(path.size-1))) {
           if(path.size-1 + distance(path(path.size-1), mouse) == path.size + distance(p, mouse)) {
             path = path :+ p
           }
@@ -118,7 +117,7 @@ object ClientMain extends JSApp {
       draw_hex(ctx, hex_center(mouse, origin), "purple", size-1.0)
       draw_hex(ctx, hex_center(selected, origin), "red", size-1.0)
       board.tiles.iteri {case ((x, y), tile) =>
-        val center = hex_center(Point(x.toDouble,y.toDouble), origin)
+        val center = hex_center(Loc(x,y), origin)
         tile.terrain match {
           case Wall => draw_hex(ctx, center, "black", size-1.0)
           case Ground => draw_hex(ctx, center, "green", size-1.0)
@@ -133,7 +132,7 @@ object ClientMain extends JSApp {
         }
       }
       board.pieces.iteri {case ((x,y), pieces) =>
-        val center = hex_center(Point(x.toDouble,y.toDouble), origin)
+        val center = hex_center(Loc(x,y), origin)
         pieces match {
           case Nil => ()
           case p :: Nil =>
@@ -167,7 +166,7 @@ object ClientMain extends JSApp {
       }
     }
 
-    def mouse_pos(e : dom.MouseEvent) : Point = {
+    def mouse_pos(e : dom.MouseEvent) : Loc = {
       val rect = canvas.getBoundingClientRect()
       val pixel_pos = Point(e.clientX - rect.left - origin.x, e.clientY - rect.top - origin.y)
       val hex_pos_f = Point((pixel_pos.x * Math.sqrt(3)/3 - pixel_pos.y/3) / size, pixel_pos.y * 2.0/3.0 / size)
@@ -176,8 +175,13 @@ object ClientMain extends JSApp {
     }
 
     def mousedown(e : dom.MouseEvent) : Unit = {
+      if(board.pieces(selected).length == 1) {
+        val piece = board.pieces(selected)(0)
+        val action = Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))
+        val result = board.doAction(action)
+        println(result)
+      }
       selected = mouse_pos(e)
-      println(selected.toString)
       show_board(board)
     }
     def mousemove(e : dom.MouseEvent) : Unit = {
@@ -195,7 +199,7 @@ object ClientMain extends JSApp {
       displayName = "Zombie",
       attackEffect = Some(Damage(1)),
       defense = 2,
-      moveRange = 1,
+      moveRange = 100,
       attackRange = 1,
       cost = 2,
       rebate = 0,
@@ -235,9 +239,7 @@ object ClientMain extends JSApp {
     board.spawnPieceInitial(S0, zombie, Loc(2, 3))
     board.spawnPieceInitial(S0, zombie, Loc(2, 3))
 
-    val action = Movements(List(Movement(SpawnedThisTurn("zombie", Loc(2, 1), 0), Array(Loc(2, 1), Loc(3, 0)))))
-    val result = board.doAction(action)
-    println(result.toString)
+    show_board(board)
     ()
   }
 
