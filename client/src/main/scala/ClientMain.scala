@@ -44,7 +44,7 @@ object ClientMain extends JSApp {
     } else if(dy >= dx && dy >= dz) {
       Loc(rx.toInt, rz.toInt)
     } else {
-      // assert (dz >= dx && dz>=dy);
+      assert(dz >= dx && dz>=dy);
       Loc(rx.toInt, -(rx+ry).toInt)
     }
   }
@@ -95,8 +95,8 @@ object ClientMain extends JSApp {
     val board = BoardState.create(Plane.create(10, 10, HexTopology, Ground))
 
     var selected : Option[Piece] = None
-    var mouse = Loc(0, 0)
-    var path = List(Loc(0, 0))
+    var mouse : Loc = Loc(0, 0)
+    var path : List[Loc] = List()
 
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
@@ -124,14 +124,34 @@ object ClientMain extends JSApp {
       }
     }
 
+    def pixel_location(piece : Piece) : Point = {
+      val loc = piece.loc
+      val center = hex_center(piece.loc, origin)
+      board.pieces(loc) match {
+        case Nil => sys.error("")
+        case p :: Nil => hex_center(piece.loc, origin)
+        case p1 :: p2 :: Nil =>
+          if(piece == p1) {
+            Point(center.x, center.y-size/2)
+          } else {
+            assert(piece == p2)
+            Point(center.x, center.y+size/2)
+          }
+        case p1 :: p2 :: p3 :: Nil =>
+          if(piece == p1) {
+            Point(center.x, center.y-size/2)
+          } else if(piece == p2) {
+            (center+hex_corner(center, size, 2))/2
+          } else {
+            assert(piece == p3)
+            (center+hex_corner(center, size, 0))/2
+          }
+        case _ => sys.error("")
+      }
+    }
+
     def show_board(board : BoardState) : Unit = {
       ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
-      draw_hex(ctx, hex_center(mouse, origin), "purple", size-1.0)
-      selected match {
-        case None => ()
-        case Some(p) =>
-          draw_hex(ctx, hex_center(p.loc, origin), "red", size-1.0)
-      }
       board.tiles.iteri {case ((x, y), tile) =>
         val center = hex_center(Loc(x,y), origin)
         tile.terrain match {
@@ -148,36 +168,36 @@ object ClientMain extends JSApp {
         }
       }
       board.pieces.iteri {case ((x,y), pieces) =>
-        def color(p : Piece) : String = {
-          selected match {
-            case None => "blue"
-            case Some(piece) =>
-              if (piece == p) "red" else "blue"
+        def color(piece : Piece) : String = {
+          val is_selected =
+            selected match {
+              case None => false
+              case Some(p) => (p == piece)
+            }
+          (is_selected, piece.side) match {
+              case (true, S0) => "aqua"
+              case (false, S0) => "blue"
+              case (true, S1) => "lightcoral"
+              case (false, S1) => "red"
           }
         }
-        val center = hex_center(Loc(x,y), origin)
         pieces match {
           case Nil => ()
           case p :: Nil =>
-            draw_hex(ctx, center, color(p), size-5.0)
-            text(ctx, p.id.toString, center, "black")
+            draw_hex(ctx, pixel_location(p), color(p), size-5.0)
+            text(ctx, p.id.toString, pixel_location(p), "black")
           case p1 :: p2 :: Nil  =>
-            val c1 = Point(center.x, center.y-size/2)
-            val c2 = Point(center.x, center.y+size/2)
-            draw_hex(ctx, c1, color(p1), size/2-0.5)
-            text(ctx, p1.id.toString, c1, "black")
-            draw_hex(ctx, c2, color(p2), size/2-0.5)
-            text(ctx, p2.id.toString, c2, "black")
+            draw_hex(ctx, pixel_location(p1), color(p1), size/2-0.5)
+            text(ctx, p1.id.toString, pixel_location(p1), "black")
+            draw_hex(ctx, pixel_location(p2), color(p2), size/2-0.5)
+            text(ctx, p2.id.toString, pixel_location(p2), "black")
           case p1 :: p2 :: p3 :: Nil  => ()
-            val c1 = Point(center.x, center.y-size/2)
-            val c2 = (center+hex_corner(center, size, 2))/2
-            val c3 = (center+hex_corner(center, size, 0))/2
-            draw_hex(ctx, c1, color(p1), size/2-0.5)
-            text(ctx, p1.id.toString, c1, "black")
-            draw_hex(ctx, c2, color(p2), size/2-0.5)
-            text(ctx, p2.id.toString, c2, "black")
-            draw_hex(ctx, c3, color(p3), size/2-0.5)
-            text(ctx, p3.id.toString, c3, "black")
+            draw_hex(ctx, pixel_location(p1), color(p1), size/2-0.5)
+            text(ctx, p1.id.toString, pixel_location(p1), "black")
+            draw_hex(ctx, pixel_location(p2), color(p2), size/2-0.5)
+            text(ctx, p2.id.toString, pixel_location(p2), "black")
+            draw_hex(ctx, pixel_location(p3), color(p3), size/2-0.5)
+            text(ctx, p3.id.toString, pixel_location(p3), "black")
           case _ => ()
         }
       }
@@ -186,7 +206,11 @@ object ClientMain extends JSApp {
         ctx.fillStyle = "black"
         ctx.setLineDash(js.Array(5.0, 10.0))
         ctx.beginPath()
-        move(ctx, hex_center(path(0), origin))
+        selected match {
+          case None => sys.error("")
+          case Some(piece) =>
+            move(ctx, pixel_location(piece))
+        }
         for(i <- 1 to path.size-1) {
           line(ctx, hex_center(path(i), origin))
         }
@@ -205,7 +229,7 @@ object ClientMain extends JSApp {
       val hex_point = mouse_to_hex(e)
       val hex_loc = hex_round(hex_point)
       val hex_delta = Point(hex_point.x - hex_loc.x, hex_point.y - hex_loc.y)
-      println(hex_delta.x+" "+hex_delta.y)
+      println(hex_loc.x+" "+hex_loc.y)
       board.pieces(hex_loc) match {
         case Nil => None
         case p :: Nil => Some(p)
@@ -294,7 +318,6 @@ object ClientMain extends JSApp {
     board.tiles.update(1, 1, Tile.create(Spawner(S0, zombie)))
     board.tiles.update(2, 0, Tile.create(Spawner(S1, zombie)))
 
-    //TODO from dwu to jpaulson: Don't mutate the board directly, instead use spawnPieceInternal. Don't create Pieces directly either.
     board.spawnPieceInitial(S0, zombie, Loc(2, 1))
 
     board.spawnPieceInitial(S0, zombie, Loc(2, 2))
@@ -303,6 +326,8 @@ object ClientMain extends JSApp {
     board.spawnPieceInitial(S0, zombie, Loc(2, 3))
     board.spawnPieceInitial(S0, zombie, Loc(2, 3))
     board.spawnPieceInitial(S0, zombie, Loc(2, 3))
+
+    board.spawnPieceInitial(S1, zombie, Loc(3, 2))
 
     show_board(board)
     ()
