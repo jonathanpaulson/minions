@@ -9,97 +9,156 @@ import scala.scalajs.js
 import scala.util.{Try, Success, Failure}
 
 /**
-  * Point:
-  * The location of a pixel in normal canvas coordinates.
+  * PixelLoc, PixelVec:
+  * The location of a pixel in normal canvas coordinates, and vectors for offsets between those locations.
   * As usual, (0,0) is the upper left corner, x is to the right, y is downward.
   *
   * Note: As these are doubles and capable of representing subpixel positions, these are actually locations of the
   * corners of pixels. For example, (14,52) is the upper left corner of a pixel, (14.5,52) is the midpoint of the top edge,
   * (14.5,52.5) is the center of the pixel, etc.
   */
-case class Point(x: Double, y: Double){
-  def +(p: Point) = Point(x + p.x, y + p.y)
-  def /(d: Double) = Point(x / d, y / d)
+object PixelLoc {
+  def midpoint(a: PixelLoc, b: PixelLoc): PixelLoc = PixelLoc((a.x+b.x)/2.0,(a.y+b.y)/2.0)
+}
+case class PixelLoc(x: Double, y: Double){
+  def +(d: PixelVec): PixelLoc = PixelLoc(x + d.dx, y + d.dy)
+  def -(p: PixelLoc): PixelVec = PixelVec(x - p.x, y - p.y)
+}
+case class PixelVec(dx: Double, dy: Double){
+  def +(p: PixelLoc): PixelLoc = PixelLoc(dx + p.x, dy + p.y)
+  def +(d: PixelVec): PixelVec = PixelVec(dx + d.dx, dy + d.dy)
+  def -(d: PixelVec): PixelVec = PixelVec(dx - d.dx, dy - d.dy)
 }
 
-/*
- Coordinate system for Loc (from CommonTypes.scala):
- x is to the right
- y is to down and to the right
+/**
+  * HexLoc, HexVec:
+  * A floating point version of Loc and Vec from CommonTypes.scala. Integer coordinates correspond to the centers of hexes.
+  *
+  * x is up and to the right /
+  * y is down |
+  * z is up and to the left \
+  *
+  *        z 0  -1  -2   -3   -4
+  *
+  *    x 0   1   2   3   4      -5
+  *  y   / \ / \ / \ / \ / \ y
+  *   0 |   |   |   |   |   | 0   -6
+  *      \ / \ / \ / \ / \ / \
+  *     1 |   |   |   |   |   | 1   -7
+  *        \ / \ / \ / \ / \ / \
+  *       2 |   |   |   |   |   | 2   -8
+  *          \ / \ / \ / \ / \ / \
+  *         3 |   |   |   |   |   | 3
+  *            \ / \ / \ / \ / \ / \
+  *           4 |   |   |   |   |   | 4
+  *              \ / \ / \ / \ / \ /
+  *              x 0   1   2   3   4
+  *
+  *  This is consistent with HexTopology in CommonTypes.scala having (x-1,y-1) and (x+1,y+1) not be adjacent to (x,y),
+  *  but all other (x + {-1,0,1}, y + {-1,0,1}) be adjacent.
+  *
+  *  Corner 0 = maximal x
+  *  Corner 2 = maximal y
+  *  Corner 4 = maximal z
+  *
+  *  (x,y,z)
+  *                            (corner 5)
+  *                          (1/3,-2/3,1/3)
+  *                                .
+  *                            .       .
+  *   (corner 4)           .       .       .           (corner 0)
+  * (-1/3,-1/3,2/3)    .                       .     (2/3,-1/3,-1/3)
+  *                .               .               .
+  *                    .                       .
+  *                .       .       .       .       .
+  *                            .       .
+  *                .               .               .
+  *                            .       .
+  *                .       .       .       .       .
+  *                    .                       .
+  *                .               .               .
+  * (-2/3,1/3/1/3)     .                       .     (1/3,1/3,-2/3)
+  *   (corner 3)           .       .       .           (corner 1)
+  *                            .       .
+  *                                .
+  *                          (-1/3,2/3,-1/3)
+  *                             (corner 2)
+  */
 
-  x  0   1   2   3   4
- y   / \ / \ / \ / \ / \
-  0 |   |   |   |   |   |
-     \ / \ / \ / \ / \ / \
-    1 |   |   |   |   |   |
-       \ / \ / \ / \ / \ / \
-      2 |   |   |   |   |   |
-         \ / \ / \ / \ / \ / \
-        3 |   |   |   |   |   |
-           \ / \ / \ / \ / \ / \
-          4 |   |   |   |   |   |
-             \ / \ / \ / \ / \ /
+object HexLoc {
+  def midpoint(a: HexLoc, b: HexLoc): HexLoc = HexLoc((a.x+b.x)/2.0,(a.y+b.y)/2.0)
 
- This is consistent with HexTopology in CommonTypes.scala having (x-1,y-1) and (x+1,y+1) not be adjacent to (x,y),
- but all other (x + {-1,0,1}, y + {-1,0,1}) be adjacent.
-*/
-
-//TODO dwu: At some point we probably want to split things up into multiple files. Maybe a reasonable separation would be
-//to factor out the drawing logic from the user-input-handling.
-
-object ClientMain extends JSApp {
-  val size = 30.0
-
-  def move(ctx : CanvasRenderingContext2D, point : Point) : Unit = {
-    ctx.moveTo(Math.floor(point.x), Math.floor(point.y));
+  def ofPixel(p: PixelLoc, origin: PixelLoc, hexRadius: Double): HexLoc = {
+    val v = p - origin
+    HexLoc((v.dx * Math.sqrt(3)/3 - v.dy/3) / hexRadius, v.dy * 2.0/3.0 / hexRadius)
   }
-  def line(ctx : CanvasRenderingContext2D, point : Point) : Unit = {
-    ctx.lineTo(Math.floor(point.x), Math.floor(point.y));
-  }
-  def text(ctx : CanvasRenderingContext2D, text : String, point : Point, color : String) : Unit = {
-    ctx.globalAlpha = 1.0
-    ctx.fillStyle = color
-    ctx.textAlign = "center"
-    ctx.fillText(text, Math.floor(point.x), Math.floor(point.y))
-  }
+}
+case class HexLoc(x: Double, y: Double) {
+  def z: Double = -(x+y)
+  def +(d: HexVec): HexLoc = HexLoc(x + d.dx, y + d.dy)
+  def -(p: HexLoc): HexVec = HexVec(x - p.x, y - p.y)
+  def -(p: Loc): HexVec = HexVec(x - p.x, y - p.y)
 
-  //TODO from dwu to jpaulson: Camel-case this and other functions and variable names, to match the usual Scala style conventions?
-
-  //Returns the Loc for the hex that contains a given Point.
-  def hexRound(pos : Point) : Loc = {
-    val x = pos.x
-    val z = pos.y
-    val y = -(x+z)
+  //Find the Loc for the hex that contains this HexLoc, taking into account the hexagon shape of a cell.
+  def round(): Loc = {
     val rx = Math.round(x)
     val ry = Math.round(y)
     val rz = Math.round(z)
     val dx = Math.abs(x - rx)
     val dy = Math.abs(y - ry)
     val dz = Math.abs(z - rz)
-    if(dx >= dy && dx >= dz) {
-      Loc(-(ry+rz).toInt, rz.toInt)
-    } else if(dy >= dx && dy >= dz) {
-      Loc(rx.toInt, rz.toInt)
-    } else {
-      // assert (dz >= dx && dz>=dy);
-      Loc(rx.toInt, -(rx+ry).toInt)
-    }
+    if(dx >= dy && dx >= dz)
+      Loc(-(ry+rz).toInt, ry.toInt)
+    else if(dz >= dx && dz >= dy)
+      Loc(rx.toInt, ry.toInt)
+    else // (dz >= dx && dz>=dy);
+      Loc(rx.toInt, -(rx+rz).toInt)
+  }
+}
+case class HexVec(dx: Double, dy: Double){
+  def dz: Double = -(dx+dy)
+  def +(p: HexLoc): HexLoc = HexLoc(dx + p.x, dy + p.y)
+  def +(d: HexVec): HexVec = HexVec(dx + d.dx, dy + d.dy)
+  def -(d: HexVec): HexVec = HexVec(dx - d.dx, dy - d.dy)
+}
+
+//TODO dwu: At some point we probably want to split things up into multiple files. Maybe a reasonable separation would be
+//to factor out the drawing logic from the user-input-handling.
+
+object ClientMain extends JSApp {
+  //The euclidean distance from the center of a hexagon to the corner in pixels.
+  val size = 30.0
+
+  def move(ctx : CanvasRenderingContext2D, pixel : PixelLoc) : Unit = {
+    ctx.moveTo(Math.floor(pixel.x), Math.floor(pixel.y));
+  }
+  def line(ctx : CanvasRenderingContext2D, pixel : PixelLoc) : Unit = {
+    ctx.lineTo(Math.floor(pixel.x), Math.floor(pixel.y));
+  }
+  def text(ctx : CanvasRenderingContext2D, text : String, pixel : PixelLoc, color : String) : Unit = {
+    ctx.globalAlpha = 1.0
+    ctx.fillStyle = color
+    ctx.textAlign = "center"
+    ctx.fillText(text, Math.floor(pixel.x), Math.floor(pixel.y))
   }
 
-  def hexCenter(pos : Loc, origin : Point) : Point = {
-    Point(
+  def hexCenter(pos : Loc, origin : PixelLoc) : PixelLoc = {
+    PixelLoc(
       origin.x + size * Math.sqrt(3) * (pos.x.toDouble + pos.y.toDouble/2.0),
       origin.y + size * 3.0/2.0 * pos.y.toDouble
     )
   }
 
-  def hexCorner(center : Point, size : Double, corner : Int) : Point = {
-    val angleDeg = 60*corner + 30
-    val angleRad = Math.PI/180 * angleDeg
-    Point(center.x+size*Math.cos(angleRad), center.y+size*Math.sin(angleRad))
+  def hexCorner(center : PixelLoc, size : Double, corner : Int) : PixelLoc = {
+    //Rotate by a sixth of a revolution for every corner.
+    val sixth = (2 * Math.PI) / 6
+    //The zeroth corner is offset by half of a sixth from horizontal.
+    val angle = (corner - 0.5) * sixth
+    PixelLoc(center.x+size*Math.cos(angle), center.y+size*Math.sin(angle))
   }
 
-  def drawHex(ctx : CanvasRenderingContext2D, center : Point, color : String, size : Double) : Unit = {
+
+  def drawHex(ctx : CanvasRenderingContext2D, center : PixelLoc, color : String, size : Double) : Unit = {
     ctx.globalAlpha = 0.2
     ctx.fillStyle = color
     ctx.beginPath()
@@ -123,13 +182,18 @@ object ClientMain extends JSApp {
   def setupUI() : Unit = {
     val canvas = jQuery("#board").get(0).asInstanceOf[html.Canvas]
     val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
-    val origin = Point(2.0*size, 2.0*size)
+
+    //The pixel location of Loc(0,0), place it slightly away from the border of the canvas.
+    val origin = PixelLoc(2.0*size, 2.0*size)
 
     val board = BoardState.create(Plane.create(10, 10, HexTopology, Ground))
 
     var selected : Option[Piece] = None
     var mouse = Loc(0, 0)
     var path = List(Loc(0, 0))
+
+    //TODO dwu: Eventually this will need to take into account traversibility.
+    //At that point, it will also need to be a true recursive search rather than this greedy algorithm.
 
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
@@ -141,17 +205,17 @@ object ClientMain extends JSApp {
         case None => ()
         case Some(p) =>
           val loc = p.loc
-          //TODO from dwu to jpaulson: In scala, ".equals" is the same as "==", so just use "==". Unlike ocaml, "==" in Scala will call out
+          //TODO from dwu to jpaulson: In scala, ".equals" is the same as "==", so just use "==" or "!=". Unlike ocaml, this will call out
           //to the object-specific comparison method so it's right even for things like Maps with non-semantic internal structure.
-          if(path.size==0 || (!path(0).equals(loc))) {
+          if(path.length==0 || (!path(0).equals(loc))) {
             path = List(loc)
           }
-          while(path.size > 0 && distance(loc, mouse) != path.size-1 + distance(path(path.size-1), mouse)) {
+          while(path.length > 0 && distance(loc, mouse) != path.length-1 + distance(path(path.length-1), mouse)) {
             path = path.init
           }
-          if(path(path.size-1) != mouse) {
-            for(p <- board.tiles.topology.adj(path(path.size-1))) {
-              if(path.size-1 + distance(path(path.size-1), mouse) == path.size + distance(p, mouse)) {
+          if(path(path.length-1) != mouse) {
+            for(p <- board.tiles.topology.adj(path(path.length-1))) {
+              if(path.length-1 + distance(path(path.length-1), mouse) == path.length + distance(p, mouse)) {
                 path = path :+ p
               }
             }
@@ -197,16 +261,16 @@ object ClientMain extends JSApp {
             drawHex(ctx, center, color(p), size-5.0)
             text(ctx, p.id.toString, center, "black")
           case p1 :: p2 :: Nil  =>
-            val c1 = Point(center.x, center.y-size/2)
-            val c2 = Point(center.x, center.y+size/2)
+            val c1 = PixelLoc(center.x, center.y-size/2)
+            val c2 = PixelLoc(center.x, center.y+size/2)
             drawHex(ctx, c1, color(p1), size/2-0.5)
             text(ctx, p1.id.toString, c1, "black")
             drawHex(ctx, c2, color(p2), size/2-0.5)
             text(ctx, p2.id.toString, c2, "black")
           case p1 :: p2 :: p3 :: Nil  => ()
-            val c1 = Point(center.x, center.y-size/2)
-            val c2 = (center+hexCorner(center, size, 2))/2
-            val c3 = (center+hexCorner(center, size, 0))/2
+            val c1 = PixelLoc(center.x, center.y-size/2)
+            val c2 = PixelLoc.midpoint(center,hexCorner(center, size, 3))
+            val c3 = PixelLoc.midpoint(center,hexCorner(center, size, 1))
             drawHex(ctx, c1, color(p1), size/2-0.5)
             text(ctx, p1.id.toString, c1, "black")
             drawHex(ctx, c2, color(p2), size/2-0.5)
@@ -216,13 +280,13 @@ object ClientMain extends JSApp {
           case _ => ()
         }
       }
-      if(path.size > 0) {
+      if(path.length > 0) {
         ctx.globalAlpha = 1.0
         ctx.fillStyle = "black"
         ctx.setLineDash(js.Array(5.0, 10.0))
         ctx.beginPath()
         move(ctx, hexCenter(path(0), origin))
-        for(i <- 1 to path.size-1) {
+        for(i <- 1 to path.length-1) {
           line(ctx, hexCenter(path(i), origin))
         }
         ctx.stroke()
@@ -230,30 +294,35 @@ object ClientMain extends JSApp {
       }
     }
 
-    def mouseToHex(e : MouseEvent) : Point = {
+    def mousePixel(e : MouseEvent) : PixelLoc = {
       val rect = canvas.getBoundingClientRect()
-      val pixelPos = Point(e.clientX - rect.left - origin.x, e.clientY - rect.top - origin.y)
-      Point((pixelPos.x * Math.sqrt(3)/3 - pixelPos.y/3) / size, pixelPos.y * 2.0/3.0 / size)
+      PixelLoc(e.clientX - rect.left, e.clientY - rect.top)
+    }
+    def mouseHexLoc(e : MouseEvent) : HexLoc = {
+      HexLoc.ofPixel(mousePixel(e), origin, size)
+    }
+    def mouseLoc(e : MouseEvent) : Loc = {
+      mouseHexLoc(e).round()
     }
 
-    def mouseUnit(e : MouseEvent) : Option[Piece] = {
-      val hexPoint = mouseToHex(e)
-      val hexLoc = hexRound(hexPoint)
-      val hexDelta = Point(hexPoint.x - hexLoc.x, hexPoint.y - hexLoc.y)
-      println(hexDelta.x+" "+hexDelta.y)
-      board.pieces(hexLoc) match {
+    def mousePiece(e : MouseEvent) : Option[Piece] = {
+      val hexLoc = mouseHexLoc(e)
+      val loc = hexLoc.round()
+      val hexDelta = hexLoc - loc
+
+      board.pieces(loc) match {
         case Nil => None
         case p :: Nil => Some(p)
         case p1 :: p2 :: Nil =>
-          if(hexDelta.y < 0) {
+          if(hexDelta.dy < 0) {
             Some(p1)
           } else {
             Some(p2)
           }
         case p1 :: p2 :: p3 :: Nil =>
-          if(hexDelta.y < 0) {
+          if(hexDelta.dz > hexDelta.dy && hexDelta.dx > hexDelta.dy) {
             Some(p1)
-          } else if(hexDelta.x < 0) {
+          } else if(hexDelta.dz > hexDelta.dx) {
             Some(p2)
           } else {
             Some(p3)
@@ -262,14 +331,10 @@ object ClientMain extends JSApp {
       }
     }
 
-    def mousePos(e : MouseEvent) : Loc = {
-      hexRound(mouseToHex(e))
-    }
-
     def mousedown(e : MouseEvent) : Unit = {
       selected match {
         case None =>
-          selected = mouseUnit(e)
+          selected = mousePiece(e)
         case Some(piece) =>
           val action = Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))
           val result = board.doAction(action)
@@ -279,13 +344,13 @@ object ClientMain extends JSApp {
             case Success(_) => ()
             case Failure(error) =>
               println(error)
-              selected = mouseUnit(e)
+              selected = mousePiece(e)
           }
       }
       showBoard(board)
     }
     def mousemove(e : MouseEvent) : Unit = {
-      mouse = mousePos(e)
+      mouse = mouseLoc(e)
       updatePath()
       showBoard(board)
     }
