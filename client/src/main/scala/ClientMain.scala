@@ -21,9 +21,27 @@ import RichImplicits._
   */
 object PixelLoc {
   def midpoint(a: PixelLoc, b: PixelLoc): PixelLoc = PixelLoc((a.x+b.x)/2.0,(a.y+b.y)/2.0)
+
+  def ofLoc(loc : Loc, gridSize: Double) : PixelLoc = {
+    val x = loc.x.toDouble
+    val y = loc.y.toDouble
+    PixelLoc(
+      gridSize * Math.sqrt(3) * (x + y/2.0),
+      gridSize * 3.0/2.0 * y
+    )
+  }
+  def ofHexLoc(hexLoc : HexLoc, gridSize: Double) : PixelLoc = {
+    val x = hexLoc.x
+    val y = hexLoc.y
+    PixelLoc(
+      gridSize * Math.sqrt(3) * (x + y/2.0),
+      gridSize * 3.0/2.0 * y
+    )
+  }
 }
 case class PixelLoc(x: Double, y: Double){
   def +(d: PixelVec): PixelLoc = PixelLoc(x + d.dx, y + d.dy)
+  def -(d: PixelVec): PixelLoc = PixelLoc(x - d.dx, y - d.dy)
   def -(p: PixelLoc): PixelVec = PixelVec(x - p.x, y - p.y)
 }
 case class PixelVec(dx: Double, dy: Double){
@@ -91,14 +109,26 @@ case class PixelVec(dx: Double, dy: Double){
 object HexLoc {
   def midpoint(a: HexLoc, b: HexLoc): HexLoc = HexLoc((a.x+b.x)/2.0,(a.y+b.y)/2.0)
 
-  def ofPixel(p: PixelLoc, origin: PixelLoc, hexRadius: Double): HexLoc = {
-    val v = p - origin
-    HexLoc((v.dx * Math.sqrt(3)/3 - v.dy/3) / hexRadius, v.dy * 2.0/3.0 / hexRadius)
+  def ofLoc(loc: Loc) = HexLoc(loc.x.toDouble,loc.y.toDouble)
+
+  def ofPixel(p: PixelLoc, gridSize: Double): HexLoc = {
+    HexLoc((p.x * Math.sqrt(3)/3 - p.y/3) / gridSize, p.y * 2.0/3.0 / gridSize)
+  }
+
+  //Returns the pixel loc corresponding to hexLoc + hexVec * scale
+  def ofHexLocOffset(hexLoc : HexLoc, gridSize: Double, hexVec : HexVec, scale : Double) : PixelLoc = {
+    val x = hexLoc.x + hexVec.dx * scale
+    val y = hexLoc.y + hexVec.dy * scale
+    PixelLoc(
+      gridSize * Math.sqrt(3) * (x + y/2.0),
+      gridSize * 3.0/2.0 * y
+    )
   }
 }
 case class HexLoc(x: Double, y: Double) {
   def z: Double = -(x+y)
   def +(d: HexVec): HexLoc = HexLoc(x + d.dx, y + d.dy)
+  def -(d: HexVec): HexLoc = HexLoc(x - d.dx, y - d.dy)
   def -(p: HexLoc): HexVec = HexVec(x - p.x, y - p.y)
   def -(p: Loc): HexVec = HexVec(x - p.x, y - p.y)
 
@@ -118,12 +148,26 @@ case class HexLoc(x: Double, y: Double) {
       Loc(rx.toInt, -(rx+rz).toInt)
   }
 }
+
+object HexVec {
+  val corners: Array[HexVec] = {
+    val third: Double = 1.0 / 3.0
+    Array(
+      HexVec( 2*third, -1*third),
+      HexVec( 1*third,  1*third),
+      HexVec(-1*third,  2*third),
+      HexVec(-2*third,  1*third),
+      HexVec(-1*third, -1*third),
+      HexVec( 1*third, -2*third)
+    )
+  }
+}
 case class HexVec(dx: Double, dy: Double){
   def dz: Double = -(dx+dy)
   def +(p: HexLoc): HexLoc = HexLoc(dx + p.x, dy + p.y)
   def +(d: HexVec): HexVec = HexVec(dx + d.dx, dy + d.dy)
   def -(d: HexVec): HexVec = HexVec(dx - d.dx, dy - d.dy)
-
+  def *(c: Double): HexVec = HexVec(dx*c,dy*c)
 
   //Determine which hexant this belongs to
   def hexant(): Int = {
@@ -156,8 +200,8 @@ case class HexVec(dx: Double, dy: Double){
       case (true,true,true) => 0 //Shouldn't happen
     }
   }
-
 }
+//TODO dwu: Consider having an implicit HexLoc => Loc
 
 
 //TODO dwu: At some point we probably want to split things up into multiple files. Maybe a reasonable separation would be
@@ -165,12 +209,24 @@ case class HexVec(dx: Double, dy: Double){
 
 object ClientMain extends JSApp {
   //The euclidean distance from the center of a hexagon to the corner in pixels.
-  val size = 30.0
+  val gridSize = 30.0
+  val tileScale = 29.0 / gridSize
+  val pieceScale = 25.0 / gridSize
+  val smallPieceScale = 14.0 / gridSize
+  val smallPieceOffset = 15.0 / gridSize
 
-  def move(ctx : CanvasRenderingContext2D, pixel : PixelLoc) : Unit = {
+  def move(ctx : CanvasRenderingContext2D, loc : Loc) : Unit = {
+    move(ctx,HexLoc.ofLoc(loc))
+  }
+  def move(ctx : CanvasRenderingContext2D, hexLoc : HexLoc) : Unit = {
+    val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
     ctx.moveTo(Math.floor(pixel.x), Math.floor(pixel.y));
   }
-  def line(ctx : CanvasRenderingContext2D, pixel : PixelLoc) : Unit = {
+  def line(ctx : CanvasRenderingContext2D, loc : Loc) : Unit = {
+    line(ctx,HexLoc.ofLoc(loc))
+  }
+  def line(ctx : CanvasRenderingContext2D, hexLoc : HexLoc) : Unit = {
+    val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
     ctx.lineTo(Math.floor(pixel.x), Math.floor(pixel.y));
   }
   def text(ctx : CanvasRenderingContext2D, text : String, pixel : PixelLoc, color : String) : Unit = {
@@ -180,58 +236,55 @@ object ClientMain extends JSApp {
     ctx.fillText(text, Math.floor(pixel.x), Math.floor(pixel.y))
   }
 
-  def hexCenter(pos : Loc, origin : PixelLoc) : PixelLoc = {
-    PixelLoc(
-      origin.x + size * Math.sqrt(3) * (pos.x.toDouble + pos.y.toDouble/2.0),
-      origin.y + size * 3.0/2.0 * pos.y.toDouble
-    )
+  def hexCorner(hexLoc : HexLoc, scale : Double, corner : Int) : HexLoc = {
+    hexLoc + HexVec.corners(corner) * scale
   }
 
-  def hexCorner(center : PixelLoc, size : Double, corner : Int) : PixelLoc = {
-    //Rotate by a sixth of a revolution for every corner.
-    val sixth = (2 * Math.PI) / 6
-    //The zeroth corner is offset by half of a sixth from horizontal.
-    val angle = (corner - 0.5) * sixth
-    PixelLoc(center.x+size*Math.cos(angle), center.y+size*Math.sin(angle))
+  def drawHex(ctx : CanvasRenderingContext2D, loc : Loc, color : String, scale : Double) : Unit = {
+    drawHex(ctx,HexLoc.ofLoc(loc), color, scale)
   }
-
-
-  def drawHex(ctx : CanvasRenderingContext2D, center : PixelLoc, color : String, size : Double) : Unit = {
+  def drawHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double) : Unit = {
     ctx.globalAlpha = 0.2
     ctx.fillStyle = color
     ctx.beginPath()
-    move(ctx, hexCorner(center, size, 0))
-    line(ctx, hexCorner(center, size, 1))
-    line(ctx, hexCorner(center, size, 2))
-    line(ctx, hexCorner(center, size, 3))
-    line(ctx, hexCorner(center, size, 4))
-    line(ctx, hexCorner(center, size, 5))
-    line(ctx, hexCorner(center, size, 0))
+    move(ctx, hexLoc + HexVec.corners(0) * scale)
+    line(ctx, hexLoc + HexVec.corners(1) * scale)
+    line(ctx, hexLoc + HexVec.corners(2) * scale)
+    line(ctx, hexLoc + HexVec.corners(3) * scale)
+    line(ctx, hexLoc + HexVec.corners(4) * scale)
+    line(ctx, hexLoc + HexVec.corners(5) * scale)
+    line(ctx, hexLoc + HexVec.corners(0) * scale)
     ctx.fill();
     ctx.closePath();
   }
 
-  def drawTile(ctx : CanvasRenderingContext2D, center : PixelLoc, size: Double, tile: Tile) : Unit = {
+  def drawTile(ctx : CanvasRenderingContext2D, loc : Loc, tile: Tile) : Unit = {
+    drawTile(ctx,HexLoc.ofLoc(loc),tile)
+  }
+  def drawTile(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, tile: Tile) : Unit = {
     tile.terrain match {
-      case Wall => drawHex(ctx, center, "black", size-1.0)
-      case Ground => drawHex(ctx, center, "green", size-1.0)
-      case Water => drawHex(ctx, center, "blue", size-1.0)
-      case ManaSpire => drawHex(ctx, center, "orange", size-1.0)
+      case Wall => drawHex(ctx, hexLoc, "black", tileScale)
+      case Ground => drawHex(ctx, hexLoc, "green", tileScale)
+      case Water => drawHex(ctx, hexLoc, "blue", tileScale)
+      case ManaSpire => drawHex(ctx, hexLoc, "orange", tileScale)
       case Spawner(S0, _) =>
-        drawHex(ctx, center, "gray", size-1.0)
-        drawHex(ctx, center, "red", size*0.7-1.0)
+        drawHex(ctx, hexLoc, "gray", tileScale)
+        drawHex(ctx, hexLoc, "red", tileScale*0.7)
       case Spawner(S1, _) =>
-        drawHex(ctx, center, "gray", size-1.0)
-        drawHex(ctx, center, "blue", size*0.7-1.0)
+        drawHex(ctx, hexLoc, "gray", tileScale)
+        drawHex(ctx, hexLoc, "blue", tileScale*0.7)
     }
   }
 
-  def drawPiece(ctx : CanvasRenderingContext2D, center : PixelLoc, size : Double, piece: Piece, isSelected: Boolean) : Unit = {
+  def drawPiece(ctx : CanvasRenderingContext2D, loc : Loc, scale : Double, piece: Piece, isSelected: Boolean) : Unit = {
+    drawPiece(ctx,HexLoc.ofLoc(loc),scale,piece,isSelected)
+  }
+  def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, piece: Piece, isSelected: Boolean) : Unit = {
     def pieceColor(p : Piece, isSelected: Boolean) : String = {
       if(isSelected) "red" else "blue"
     }
-    drawHex(ctx, center, pieceColor(piece,isSelected), size)
-    text(ctx, piece.id.toString, center, "black")
+    drawHex(ctx, hexLoc, pieceColor(piece,isSelected), scale)
+    text(ctx, piece.id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
   }
 
   def main(): Unit = {
@@ -244,8 +297,8 @@ object ClientMain extends JSApp {
     val canvas = jQuery("#board").get(0).asInstanceOf[html.Canvas]
     val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
 
-    //The pixel location of Loc(0,0), place it slightly away from the border of the canvas.
-    val origin = PixelLoc(2.0*size, 2.0*size)
+    //How much to translate the canvas origin inward from the upper left corner.
+    val translateOrigin = PixelVec(2.0*gridSize, 2.0*gridSize)
 
     val board = BoardState.create(Plane.create(10, 10, HexTopology, Ground))
 
@@ -292,35 +345,35 @@ object ClientMain extends JSApp {
     }
 
     def showBoard(board : BoardState) : Unit = {
+      ctx.setTransform(1,0,0,1,0,0)
       ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
-      drawHex(ctx, hexCenter(mouse, origin), "purple", size-1.0)
+      ctx.translate(translateOrigin.dx,translateOrigin.dy)
+      drawHex(ctx, mouse, "purple", tileScale)
       selected match {
         case None => ()
         case Some(p) =>
-          drawHex(ctx, hexCenter(p.loc, origin), "red", size-1.0)
+          drawHex(ctx, p.loc, "red", tileScale)
       }
-      board.tiles.iteri {case ((x, y), tile) =>
-        val center = hexCenter(Loc(x,y), origin)
-        drawTile(ctx,center,size,tile)
+      board.tiles.iteri {case (loc, tile) =>
+        drawTile(ctx,loc,tile)
       }
-      board.pieces.iteri {case ((x,y), pieces) =>
-        val center = hexCenter(Loc(x,y), origin)
+      board.pieces.iteri {case (loc, pieces) =>
         pieces match {
           case Nil => ()
           case p :: Nil =>
-            drawPiece(ctx, center, size-5.0, p, isPieceSelected(p))
+            drawPiece(ctx, loc, pieceScale, p, isPieceSelected(p))
           case p1 :: p2 :: Nil  =>
-            val c1 = PixelLoc.midpoint(center,hexCorner(center, size, 5))
-            val c2 = PixelLoc.midpoint(center,hexCorner(center, size, 2))
-            drawPiece(ctx, c1, size/2-0.5, p1, isPieceSelected(p1))
-            drawPiece(ctx, c2, size/2-0.5, p2, isPieceSelected(p2))
+            val c1 = HexLoc.ofLoc(loc) + HexVec.corners(5) * smallPieceOffset
+            val c2 = HexLoc.ofLoc(loc) + HexVec.corners(2) * smallPieceOffset
+            drawPiece(ctx, c1, smallPieceScale, p1, isPieceSelected(p1))
+            drawPiece(ctx, c2, smallPieceScale, p2, isPieceSelected(p2))
           case p1 :: p2 :: p3 :: Nil  => ()
-            val c1 = PixelLoc.midpoint(center,hexCorner(center, size, 5))
-            val c2 = PixelLoc.midpoint(center,hexCorner(center, size, 3))
-            val c3 = PixelLoc.midpoint(center,hexCorner(center, size, 1))
-            drawPiece(ctx, c1, size/2-0.5, p1, isPieceSelected(p1))
-            drawPiece(ctx, c2, size/2-0.5, p2, isPieceSelected(p2))
-            drawPiece(ctx, c3, size/2-0.5, p3, isPieceSelected(p3))
+            val c1 = HexLoc.ofLoc(loc) + HexVec.corners(5) * smallPieceOffset
+            val c2 = HexLoc.ofLoc(loc) + HexVec.corners(3) * smallPieceOffset
+            val c3 = HexLoc.ofLoc(loc) + HexVec.corners(1) * smallPieceOffset
+            drawPiece(ctx, c1, smallPieceScale, p1, isPieceSelected(p1))
+            drawPiece(ctx, c2, smallPieceScale, p2, isPieceSelected(p2))
+            drawPiece(ctx, c3, smallPieceScale, p3, isPieceSelected(p3))
           case _ => ()
         }
       }
@@ -329,9 +382,9 @@ object ClientMain extends JSApp {
         ctx.fillStyle = "black"
         ctx.setLineDash(js.Array(5.0, 10.0))
         ctx.beginPath()
-        move(ctx, hexCenter(path(0), origin))
+        move(ctx, path(0))
         for(i <- 1 to path.length-1) {
-          line(ctx, hexCenter(path(i), origin))
+          line(ctx, path(i))
         }
         ctx.stroke()
         ctx.closePath()
@@ -340,13 +393,10 @@ object ClientMain extends JSApp {
 
     def mousePixel(e : MouseEvent) : PixelLoc = {
       val rect = canvas.getBoundingClientRect()
-      PixelLoc(e.clientX - rect.left, e.clientY - rect.top)
+      PixelLoc(e.clientX - rect.left, e.clientY - rect.top) - translateOrigin
     }
     def mouseHexLoc(e : MouseEvent) : HexLoc = {
-      HexLoc.ofPixel(mousePixel(e), origin, size)
-    }
-    def mouseLoc(e : MouseEvent) : Loc = {
-      mouseHexLoc(e).round()
+      HexLoc.ofPixel(mousePixel(e), gridSize)
     }
 
     def mousePiece(e : MouseEvent) : Option[Piece] = {
@@ -392,14 +442,13 @@ object ClientMain extends JSApp {
       showBoard(board)
     }
     def mousemove(e : MouseEvent) : Unit = {
-      mouse = mouseLoc(e)
+      mouse = mouseHexLoc(e).round()
       updatePath()
       showBoard(board)
     }
 
     canvas.onmousedown = mousedown _
     canvas.onmousemove = mousemove _
-
 
     val zombie = PieceStats(
       name = "zombie",
