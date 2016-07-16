@@ -138,6 +138,7 @@ case object InternalEventMsgType extends MessageType
  *  Possibly enchanted due to spells. Later in list -> spells were played later.
  */
 object Tile {
+  //TODO from dwu to jpaulson: remove this? Outside code shouldn't need to create tiles.
   def create(terrain : Terrain) = new Tile(terrain, modsWithDuration = List())
 }
 case class Tile(

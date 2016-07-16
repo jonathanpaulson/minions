@@ -1,34 +1,71 @@
 import scala.scalajs.js.JSApp
 import scala.scalajs.js.annotation.JSExport
 import org.scalajs.jquery.jQuery
-import org.scalajs.dom
+import org.scalajs.dom.CanvasRenderingContext2D
+import org.scalajs.dom.MouseEvent
 import org.scalajs.dom.html
 import scala.util.Random
 import scala.scalajs.js
 import scala.util.{Try, Success, Failure}
 
+/**
+  * Point:
+  * The location of a pixel in normal canvas coordinates.
+  * As usual, (0,0) is the upper left corner, x is to the right, y is downward.
+  *
+  * Note: As these are doubles and capable of representing subpixel positions, these are actually locations of the
+  * corners of pixels. For example, (14,52) is the upper left corner of a pixel, (14.5,52) is the midpoint of the top edge,
+  * (14.5,52.5) is the center of the pixel, etc.
+  */
 case class Point(x: Double, y: Double){
   def +(p: Point) = Point(x + p.x, y + p.y)
   def /(d: Double) = Point(x / d, y / d)
-  def toLoc = Loc(x.round.toInt, y.round.toInt)
 }
+
+/*
+ Coordinate system for Loc (from CommonTypes.scala):
+ x is to the right
+ y is to down and to the right
+
+  x  0   1   2   3   4
+ y   / \ / \ / \ / \ / \
+  0 |   |   |   |   |   |
+     \ / \ / \ / \ / \ / \
+    1 |   |   |   |   |   |
+       \ / \ / \ / \ / \ / \
+      2 |   |   |   |   |   |
+         \ / \ / \ / \ / \ / \
+        3 |   |   |   |   |   |
+           \ / \ / \ / \ / \ / \
+          4 |   |   |   |   |   |
+             \ / \ / \ / \ / \ /
+
+ This is consistent with HexTopology in CommonTypes.scala having (x-1,y-1) and (x+1,y+1) not be adjacent to (x,y),
+ but all other (x + {-1,0,1}, y + {-1,0,1}) be adjacent.
+*/
+
+//TODO dwu: At some point we probably want to split things up into multiple files. Maybe a reasonable separation would be
+//to factor out the drawing logic from the user-input-handling.
 
 object ClientMain extends JSApp {
   val size = 30.0
 
-  def move(ctx : dom.CanvasRenderingContext2D, point : Point) : Unit = {
+  def move(ctx : CanvasRenderingContext2D, point : Point) : Unit = {
     ctx.moveTo(Math.floor(point.x), Math.floor(point.y));
   }
-  def line(ctx : dom.CanvasRenderingContext2D, point : Point) : Unit = {
+  def line(ctx : CanvasRenderingContext2D, point : Point) : Unit = {
     ctx.lineTo(Math.floor(point.x), Math.floor(point.y));
   }
-  def text(ctx : dom.CanvasRenderingContext2D, text : String, point : Point, color : String) : Unit = {
+  def text(ctx : CanvasRenderingContext2D, text : String, point : Point, color : String) : Unit = {
     ctx.globalAlpha = 1.0
     ctx.fillStyle = color
     ctx.textAlign = "center"
     ctx.fillText(text, Math.floor(point.x), Math.floor(point.y))
   }
 
+  //TODO from dwu to jpaulson: Camel-case this and other functions and variable names, to match the usual Scala style conventions?
+
+  //Returns the Loc for the hex that contains a given Point.
   def hex_round(pos : Point) : Loc = {
     val x = pos.x
     val z = pos.y
@@ -49,11 +86,6 @@ object ClientMain extends JSApp {
     }
   }
 
-  // Coordinate system: plane s.t. x+y+z = 0
-  // x is up and to the right
-  // y is up and to the left
-  // z is down
-  // We store Point(x, z); we can recover y as -(x+z)
   def hex_center(pos : Loc, origin : Point) : Point = {
     Point(
       origin.x + size * Math.sqrt(3) * (pos.x.toDouble + pos.y.toDouble/2.0),
@@ -67,7 +99,7 @@ object ClientMain extends JSApp {
     Point(center.x+size*Math.cos(angle_rad), center.y+size*Math.sin(angle_rad))
   }
 
-  def draw_hex(ctx : dom.CanvasRenderingContext2D, center : Point, color : String, size : Double) : Unit = {
+  def draw_hex(ctx : CanvasRenderingContext2D, center : Point, color : String, size : Double) : Unit = {
     ctx.globalAlpha = 0.2
     ctx.fillStyle = color
     ctx.beginPath()
@@ -83,13 +115,14 @@ object ClientMain extends JSApp {
   }
 
   def main(): Unit = {
+    //TODO from dwu to jpaulson: I'm not sure I understand what "setupUI _" means. Could you explain to me?
     jQuery(setupUI _)
     ()
   }
 
   def setupUI() : Unit = {
     val canvas = jQuery("#board").get(0).asInstanceOf[html.Canvas]
-    val ctx = canvas.getContext("2d").asInstanceOf[dom.CanvasRenderingContext2D]
+    val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
     val origin = Point(2.0*size, 2.0*size)
 
     val board = BoardState.create(Plane.create(10, 10, HexTopology, Ground))
@@ -108,6 +141,8 @@ object ClientMain extends JSApp {
         case None => ()
         case Some(p) =>
           val loc = p.loc
+          //TODO from dwu to jpaulson: In scala, ".equals" is the same as "==", so just use "==". Unlike ocaml, "==" in Scala will call out
+          //to the object-specific comparison method so it's right even for things like Maps with non-semantic internal structure.
           if(path.size==0 || (!path(0).equals(loc))) {
             path = List(loc)
           }
@@ -195,13 +230,13 @@ object ClientMain extends JSApp {
       }
     }
 
-    def mouse_to_hex(e : dom.MouseEvent) : Point = {
+    def mouse_to_hex(e : MouseEvent) : Point = {
       val rect = canvas.getBoundingClientRect()
       val pixel_pos = Point(e.clientX - rect.left - origin.x, e.clientY - rect.top - origin.y)
       Point((pixel_pos.x * Math.sqrt(3)/3 - pixel_pos.y/3) / size, pixel_pos.y * 2.0/3.0 / size)
     }
 
-    def mouse_unit(e : dom.MouseEvent) : Option[Piece] = {
+    def mouse_unit(e : MouseEvent) : Option[Piece] = {
       val hex_point = mouse_to_hex(e)
       val hex_loc = hex_round(hex_point)
       val hex_delta = Point(hex_point.x - hex_loc.x, hex_point.y - hex_loc.y)
@@ -227,11 +262,11 @@ object ClientMain extends JSApp {
       }
     }
 
-    def mouse_pos(e : dom.MouseEvent) : Loc = {
+    def mouse_pos(e : MouseEvent) : Loc = {
       hex_round(mouse_to_hex(e))
     }
 
-    def mousedown(e : dom.MouseEvent) : Unit = {
+    def mousedown(e : MouseEvent) : Unit = {
       selected match {
         case None =>
           selected = mouse_unit(e)
@@ -249,7 +284,7 @@ object ClientMain extends JSApp {
       }
       show_board(board)
     }
-    def mousemove(e : dom.MouseEvent) : Unit = {
+    def mousemove(e : MouseEvent) : Unit = {
       mouse = mouse_pos(e)
       update_path()
       show_board(board)
@@ -294,9 +329,7 @@ object ClientMain extends JSApp {
     board.tiles.update(1, 1, Tile.create(Spawner(S0, zombie)))
     board.tiles.update(2, 0, Tile.create(Spawner(S1, zombie)))
 
-    //TODO from dwu to jpaulson: Don't mutate the board directly, instead use spawnPieceInternal. Don't create Pieces directly either.
     board.spawnPieceInitial(S0, zombie, Loc(2, 1))
-
     board.spawnPieceInitial(S0, zombie, Loc(2, 2))
     board.spawnPieceInitial(S0, zombie, Loc(2, 2))
 
