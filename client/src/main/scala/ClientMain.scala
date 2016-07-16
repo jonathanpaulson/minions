@@ -8,6 +8,8 @@ import scala.util.Random
 import scala.scalajs.js
 import scala.util.{Try, Success, Failure}
 
+import RichImplicits._
+
 /**
   * PixelLoc, PixelVec:
   * The location of a pixel in normal canvas coordinates, and vectors for offsets between those locations.
@@ -60,6 +62,7 @@ case class PixelVec(dx: Double, dy: Double){
   *  Corner 0 = maximal x
   *  Corner 2 = maximal y
   *  Corner 4 = maximal z
+  *  Hexant n = the triangle extending from the center out between corner n and corner n+1 mod 6
   *
   *  (x,y,z)
   *                            (corner 5)
@@ -68,15 +71,15 @@ case class PixelVec(dx: Double, dy: Double){
   *                            .       .
   *   (corner 4)           .       .       .           (corner 0)
   * (-1/3,-1/3,2/3)    .                       .     (2/3,-1/3,-1/3)
-  *                .               .               .
+  *                .          4    .     5         .
   *                    .                       .
   *                .       .       .       .       .
   *                            .       .
-  *                .               .               .
+  *                .     3         .         0     .
   *                            .       .
   *                .       .       .       .       .
   *                    .                       .
-  *                .               .               .
+  *                .          2    .    1          .
   * (-2/3,1/3/1/3)     .                       .     (1/3,1/3,-2/3)
   *   (corner 3)           .       .       .           (corner 1)
   *                            .       .
@@ -120,7 +123,42 @@ case class HexVec(dx: Double, dy: Double){
   def +(p: HexLoc): HexLoc = HexLoc(dx + p.x, dy + p.y)
   def +(d: HexVec): HexVec = HexVec(dx + d.dx, dy + d.dy)
   def -(d: HexVec): HexVec = HexVec(dx - d.dx, dy - d.dy)
+
+
+  //Determine which hexant this belongs to
+  def hexant(): Int = {
+    val moreLeftThanRight = dz > dx
+    val moreURThanDL = dx > dy
+    val moreDRthanUL = dy > dz
+
+    (moreLeftThanRight, moreURThanDL, moreDRthanUL) match {
+      case (false,false,false) => 0 //Zero vector
+      case (false,false,true) => 1
+      case (false,true,false) => 5
+      case (false,true,true) => 0
+      case (true,false,false) => 3
+      case (true,false,true) => 2
+      case (true,true,false) => 4
+      case (true,true,true) => 0 //Shouldn't happen
+    }
+  }
+
+  //Determine which hexant this belongs to
+  def closestCorner(): Int = {
+    (dx > 0, dy > 0, dz > 0) match {
+      case (false,false,false) => 0 //Zero vector
+      case (false,false,true) => 4
+      case (false,true,false) => 2
+      case (false,true,true) => 3
+      case (true,false,false) => 0
+      case (true,false,true) => 5
+      case (true,true,false) => 1
+      case (true,true,true) => 0 //Shouldn't happen
+    }
+  }
+
 }
+
 
 //TODO dwu: At some point we probably want to split things up into multiple files. Maybe a reasonable separation would be
 //to factor out the drawing logic from the user-input-handling.
@@ -173,6 +211,29 @@ object ClientMain extends JSApp {
     ctx.closePath();
   }
 
+  def drawTile(ctx : CanvasRenderingContext2D, center : PixelLoc, size: Double, tile: Tile) : Unit = {
+    tile.terrain match {
+      case Wall => drawHex(ctx, center, "black", size-1.0)
+      case Ground => drawHex(ctx, center, "green", size-1.0)
+      case Water => drawHex(ctx, center, "blue", size-1.0)
+      case ManaSpire => drawHex(ctx, center, "orange", size-1.0)
+      case Spawner(S0, _) =>
+        drawHex(ctx, center, "gray", size-1.0)
+        drawHex(ctx, center, "red", size*0.7-1.0)
+      case Spawner(S1, _) =>
+        drawHex(ctx, center, "gray", size-1.0)
+        drawHex(ctx, center, "blue", size*0.7-1.0)
+    }
+  }
+
+  def drawPiece(ctx : CanvasRenderingContext2D, center : PixelLoc, size : Double, piece: Piece, isSelected: Boolean) : Unit = {
+    def pieceColor(p : Piece, isSelected: Boolean) : String = {
+      if(isSelected) "red" else "blue"
+    }
+    drawHex(ctx, center, pieceColor(piece,isSelected), size)
+    text(ctx, piece.id.toString, center, "black")
+  }
+
   def main(): Unit = {
     //TODO from dwu to jpaulson: I'm not sure I understand what "setupUI _" means. Could you explain to me?
     jQuery(setupUI _)
@@ -223,6 +284,13 @@ object ClientMain extends JSApp {
       }
     }
 
+    def isPieceSelected(piece: Piece) : Boolean = {
+      selected match {
+        case None => false
+        case Some(p) => piece.id == p.id
+      }
+    }
+
     def showBoard(board : BoardState) : Unit = {
       ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
       drawHex(ctx, hexCenter(mouse, origin), "purple", size-1.0)
@@ -233,50 +301,26 @@ object ClientMain extends JSApp {
       }
       board.tiles.iteri {case ((x, y), tile) =>
         val center = hexCenter(Loc(x,y), origin)
-        tile.terrain match {
-          case Wall => drawHex(ctx, center, "black", size-1.0)
-          case Ground => drawHex(ctx, center, "green", size-1.0)
-          case Water => drawHex(ctx, center, "blue", size-1.0)
-          case ManaSpire => drawHex(ctx, center, "orange", size-1.0)
-          case Spawner(S0, _) =>
-            drawHex(ctx, center, "gray", size-1.0)
-            drawHex(ctx, center, "red", size-10.0)
-          case Spawner(S1, _) =>
-            drawHex(ctx, center, "gray", size-1.0)
-            drawHex(ctx, center, "blue", size-10.0)
-        }
+        drawTile(ctx,center,size,tile)
       }
       board.pieces.iteri {case ((x,y), pieces) =>
-        def color(p : Piece) : String = {
-          selected match {
-            case None => "blue"
-            case Some(piece) =>
-              if (piece == p) "red" else "blue"
-          }
-        }
         val center = hexCenter(Loc(x,y), origin)
         pieces match {
           case Nil => ()
           case p :: Nil =>
-            drawHex(ctx, center, color(p), size-5.0)
-            text(ctx, p.id.toString, center, "black")
+            drawPiece(ctx, center, size-5.0, p, isPieceSelected(p))
           case p1 :: p2 :: Nil  =>
-            val c1 = PixelLoc(center.x, center.y-size/2)
-            val c2 = PixelLoc(center.x, center.y+size/2)
-            drawHex(ctx, c1, color(p1), size/2-0.5)
-            text(ctx, p1.id.toString, c1, "black")
-            drawHex(ctx, c2, color(p2), size/2-0.5)
-            text(ctx, p2.id.toString, c2, "black")
+            val c1 = PixelLoc.midpoint(center,hexCorner(center, size, 5))
+            val c2 = PixelLoc.midpoint(center,hexCorner(center, size, 2))
+            drawPiece(ctx, c1, size/2-0.5, p1, isPieceSelected(p1))
+            drawPiece(ctx, c2, size/2-0.5, p2, isPieceSelected(p2))
           case p1 :: p2 :: p3 :: Nil  => ()
-            val c1 = PixelLoc(center.x, center.y-size/2)
+            val c1 = PixelLoc.midpoint(center,hexCorner(center, size, 5))
             val c2 = PixelLoc.midpoint(center,hexCorner(center, size, 3))
             val c3 = PixelLoc.midpoint(center,hexCorner(center, size, 1))
-            drawHex(ctx, c1, color(p1), size/2-0.5)
-            text(ctx, p1.id.toString, c1, "black")
-            drawHex(ctx, c2, color(p2), size/2-0.5)
-            text(ctx, p2.id.toString, c2, "black")
-            drawHex(ctx, c3, color(p3), size/2-0.5)
-            text(ctx, p3.id.toString, c3, "black")
+            drawPiece(ctx, c1, size/2-0.5, p1, isPieceSelected(p1))
+            drawPiece(ctx, c2, size/2-0.5, p2, isPieceSelected(p2))
+            drawPiece(ctx, c3, size/2-0.5, p3, isPieceSelected(p3))
           case _ => ()
         }
       }
@@ -314,18 +358,16 @@ object ClientMain extends JSApp {
         case Nil => None
         case p :: Nil => Some(p)
         case p1 :: p2 :: Nil =>
-          if(hexDelta.dy < 0) {
-            Some(p1)
-          } else {
-            Some(p2)
+          hexDelta.closestCorner() match {
+            case 0 | 4 | 5 => Some(p1)
+            case 1 | 2 | 3 => Some(p2)
           }
         case p1 :: p2 :: p3 :: Nil =>
-          if(hexDelta.dz > hexDelta.dy && hexDelta.dx > hexDelta.dy) {
-            Some(p1)
-          } else if(hexDelta.dz > hexDelta.dx) {
-            Some(p2)
-          } else {
-            Some(p3)
+          hexDelta.hexant() match {
+            case 4 | 5 => Some(p1)
+            case 2 | 3 => Some(p2)
+            case 0 | 1 => Some(p3)
+            case _ => assertUnreachable()
           }
         case _ => None
       }
