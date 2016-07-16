@@ -66,7 +66,7 @@ object ClientMain extends JSApp {
   //TODO from dwu to jpaulson: Camel-case this and other functions and variable names, to match the usual Scala style conventions?
 
   //Returns the Loc for the hex that contains a given Point.
-  def hex_round(pos : Point) : Loc = {
+  def hexRound(pos : Point) : Loc = {
     val x = pos.x
     val z = pos.y
     val y = -(x+z)
@@ -86,30 +86,30 @@ object ClientMain extends JSApp {
     }
   }
 
-  def hex_center(pos : Loc, origin : Point) : Point = {
+  def hexCenter(pos : Loc, origin : Point) : Point = {
     Point(
       origin.x + size * Math.sqrt(3) * (pos.x.toDouble + pos.y.toDouble/2.0),
       origin.y + size * 3.0/2.0 * pos.y.toDouble
     )
   }
 
-  def hex_corner(center : Point, size : Double, corner : Int) : Point = {
-    val angle_deg = 60*corner + 30
-    val angle_rad = Math.PI/180 * angle_deg
-    Point(center.x+size*Math.cos(angle_rad), center.y+size*Math.sin(angle_rad))
+  def hexCorner(center : Point, size : Double, corner : Int) : Point = {
+    val angleDeg = 60*corner + 30
+    val angleRad = Math.PI/180 * angleDeg
+    Point(center.x+size*Math.cos(angleRad), center.y+size*Math.sin(angleRad))
   }
 
-  def draw_hex(ctx : CanvasRenderingContext2D, center : Point, color : String, size : Double) : Unit = {
+  def drawHex(ctx : CanvasRenderingContext2D, center : Point, color : String, size : Double) : Unit = {
     ctx.globalAlpha = 0.2
     ctx.fillStyle = color
     ctx.beginPath()
-    move(ctx, hex_corner(center, size, 0))
-    line(ctx, hex_corner(center, size, 1))
-    line(ctx, hex_corner(center, size, 2))
-    line(ctx, hex_corner(center, size, 3))
-    line(ctx, hex_corner(center, size, 4))
-    line(ctx, hex_corner(center, size, 5))
-    line(ctx, hex_corner(center, size, 0))
+    move(ctx, hexCorner(center, size, 0))
+    line(ctx, hexCorner(center, size, 1))
+    line(ctx, hexCorner(center, size, 2))
+    line(ctx, hexCorner(center, size, 3))
+    line(ctx, hexCorner(center, size, 4))
+    line(ctx, hexCorner(center, size, 5))
+    line(ctx, hexCorner(center, size, 0))
     ctx.fill();
     ctx.closePath();
   }
@@ -133,7 +133,7 @@ object ClientMain extends JSApp {
 
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
-    def update_path() : Unit = {
+    def updatePath() : Unit = {
       def distance(x : Loc, y : Loc) : Int = {
         board.tiles.topology.distance(x, y)
       }
@@ -159,27 +159,27 @@ object ClientMain extends JSApp {
       }
     }
 
-    def show_board(board : BoardState) : Unit = {
+    def showBoard(board : BoardState) : Unit = {
       ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
-      draw_hex(ctx, hex_center(mouse, origin), "purple", size-1.0)
+      drawHex(ctx, hexCenter(mouse, origin), "purple", size-1.0)
       selected match {
         case None => ()
         case Some(p) =>
-          draw_hex(ctx, hex_center(p.loc, origin), "red", size-1.0)
+          drawHex(ctx, hexCenter(p.loc, origin), "red", size-1.0)
       }
       board.tiles.iteri {case ((x, y), tile) =>
-        val center = hex_center(Loc(x,y), origin)
+        val center = hexCenter(Loc(x,y), origin)
         tile.terrain match {
-          case Wall => draw_hex(ctx, center, "black", size-1.0)
-          case Ground => draw_hex(ctx, center, "green", size-1.0)
-          case Water => draw_hex(ctx, center, "blue", size-1.0)
-          case ManaSpire => draw_hex(ctx, center, "orange", size-1.0)
+          case Wall => drawHex(ctx, center, "black", size-1.0)
+          case Ground => drawHex(ctx, center, "green", size-1.0)
+          case Water => drawHex(ctx, center, "blue", size-1.0)
+          case ManaSpire => drawHex(ctx, center, "orange", size-1.0)
           case Spawner(S0, _) =>
-            draw_hex(ctx, center, "gray", size-1.0)
-            draw_hex(ctx, center, "red", size-10.0)
+            drawHex(ctx, center, "gray", size-1.0)
+            drawHex(ctx, center, "red", size-10.0)
           case Spawner(S1, _) =>
-            draw_hex(ctx, center, "gray", size-1.0)
-            draw_hex(ctx, center, "blue", size-10.0)
+            drawHex(ctx, center, "gray", size-1.0)
+            drawHex(ctx, center, "blue", size-10.0)
         }
       }
       board.pieces.iteri {case ((x,y), pieces) =>
@@ -190,28 +190,28 @@ object ClientMain extends JSApp {
               if (piece == p) "red" else "blue"
           }
         }
-        val center = hex_center(Loc(x,y), origin)
+        val center = hexCenter(Loc(x,y), origin)
         pieces match {
           case Nil => ()
           case p :: Nil =>
-            draw_hex(ctx, center, color(p), size-5.0)
+            drawHex(ctx, center, color(p), size-5.0)
             text(ctx, p.id.toString, center, "black")
           case p1 :: p2 :: Nil  =>
             val c1 = Point(center.x, center.y-size/2)
             val c2 = Point(center.x, center.y+size/2)
-            draw_hex(ctx, c1, color(p1), size/2-0.5)
+            drawHex(ctx, c1, color(p1), size/2-0.5)
             text(ctx, p1.id.toString, c1, "black")
-            draw_hex(ctx, c2, color(p2), size/2-0.5)
+            drawHex(ctx, c2, color(p2), size/2-0.5)
             text(ctx, p2.id.toString, c2, "black")
           case p1 :: p2 :: p3 :: Nil  => ()
             val c1 = Point(center.x, center.y-size/2)
-            val c2 = (center+hex_corner(center, size, 2))/2
-            val c3 = (center+hex_corner(center, size, 0))/2
-            draw_hex(ctx, c1, color(p1), size/2-0.5)
+            val c2 = (center+hexCorner(center, size, 2))/2
+            val c3 = (center+hexCorner(center, size, 0))/2
+            drawHex(ctx, c1, color(p1), size/2-0.5)
             text(ctx, p1.id.toString, c1, "black")
-            draw_hex(ctx, c2, color(p2), size/2-0.5)
+            drawHex(ctx, c2, color(p2), size/2-0.5)
             text(ctx, p2.id.toString, c2, "black")
-            draw_hex(ctx, c3, color(p3), size/2-0.5)
+            drawHex(ctx, c3, color(p3), size/2-0.5)
             text(ctx, p3.id.toString, c3, "black")
           case _ => ()
         }
@@ -221,39 +221,39 @@ object ClientMain extends JSApp {
         ctx.fillStyle = "black"
         ctx.setLineDash(js.Array(5.0, 10.0))
         ctx.beginPath()
-        move(ctx, hex_center(path(0), origin))
+        move(ctx, hexCenter(path(0), origin))
         for(i <- 1 to path.size-1) {
-          line(ctx, hex_center(path(i), origin))
+          line(ctx, hexCenter(path(i), origin))
         }
         ctx.stroke()
         ctx.closePath()
       }
     }
 
-    def mouse_to_hex(e : MouseEvent) : Point = {
+    def mouseToHex(e : MouseEvent) : Point = {
       val rect = canvas.getBoundingClientRect()
-      val pixel_pos = Point(e.clientX - rect.left - origin.x, e.clientY - rect.top - origin.y)
-      Point((pixel_pos.x * Math.sqrt(3)/3 - pixel_pos.y/3) / size, pixel_pos.y * 2.0/3.0 / size)
+      val pixelPos = Point(e.clientX - rect.left - origin.x, e.clientY - rect.top - origin.y)
+      Point((pixelPos.x * Math.sqrt(3)/3 - pixelPos.y/3) / size, pixelPos.y * 2.0/3.0 / size)
     }
 
-    def mouse_unit(e : MouseEvent) : Option[Piece] = {
-      val hex_point = mouse_to_hex(e)
-      val hex_loc = hex_round(hex_point)
-      val hex_delta = Point(hex_point.x - hex_loc.x, hex_point.y - hex_loc.y)
-      println(hex_delta.x+" "+hex_delta.y)
-      board.pieces(hex_loc) match {
+    def mouseUnit(e : MouseEvent) : Option[Piece] = {
+      val hexPoint = mouseToHex(e)
+      val hexLoc = hexRound(hexPoint)
+      val hexDelta = Point(hexPoint.x - hexLoc.x, hexPoint.y - hexLoc.y)
+      println(hexDelta.x+" "+hexDelta.y)
+      board.pieces(hexLoc) match {
         case Nil => None
         case p :: Nil => Some(p)
         case p1 :: p2 :: Nil =>
-          if(hex_delta.y < 0) {
+          if(hexDelta.y < 0) {
             Some(p1)
           } else {
             Some(p2)
           }
         case p1 :: p2 :: p3 :: Nil =>
-          if(hex_delta.y < 0) {
+          if(hexDelta.y < 0) {
             Some(p1)
-          } else if(hex_delta.x < 0) {
+          } else if(hexDelta.x < 0) {
             Some(p2)
           } else {
             Some(p3)
@@ -262,14 +262,14 @@ object ClientMain extends JSApp {
       }
     }
 
-    def mouse_pos(e : MouseEvent) : Loc = {
-      hex_round(mouse_to_hex(e))
+    def mousePos(e : MouseEvent) : Loc = {
+      hexRound(mouseToHex(e))
     }
 
     def mousedown(e : MouseEvent) : Unit = {
       selected match {
         case None =>
-          selected = mouse_unit(e)
+          selected = mouseUnit(e)
         case Some(piece) =>
           val action = Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))
           val result = board.doAction(action)
@@ -279,15 +279,15 @@ object ClientMain extends JSApp {
             case Success(_) => ()
             case Failure(error) =>
               println(error)
-              selected = mouse_unit(e)
+              selected = mouseUnit(e)
           }
       }
-      show_board(board)
+      showBoard(board)
     }
     def mousemove(e : MouseEvent) : Unit = {
-      mouse = mouse_pos(e)
-      update_path()
-      show_board(board)
+      mouse = mousePos(e)
+      updatePath()
+      showBoard(board)
     }
 
     canvas.onmousedown = mousedown _
@@ -337,7 +337,7 @@ object ClientMain extends JSApp {
     board.spawnPieceInitial(S0, zombie, Loc(2, 3))
     board.spawnPieceInitial(S0, zombie, Loc(2, 3))
 
-    show_board(board)
+    showBoard(board)
     ()
   }
 
