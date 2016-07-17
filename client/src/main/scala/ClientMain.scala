@@ -441,23 +441,25 @@ object ClientMain extends JSApp {
       val hexLoc = mouseHexLoc(e)
       val loc = hexLoc.round()
       val hexDelta = hexLoc - loc
-      board.pieces(loc) match {
-        case Nil => None
-        case p :: Nil => Some(p)
-        case p1 :: p2 :: Nil =>
-          hexDelta.closestCorner() match {
-            case 0 | 4 | 5 => Some(p1)
-            case 1 | 2 | 3 => Some(p2)
-          }
-        case p1 :: p2 :: p3 :: Nil =>
-          hexDelta.hexant() match {
-            case 4 | 5 => Some(p1)
-            case 2 | 3 => Some(p2)
-            case 0 | 1 => Some(p3)
-            case _ => assertUnreachable()
-          }
-        case _ => None
-      }
+      val piece =
+        board.pieces(loc) match {
+          case Nil => None
+          case p :: Nil => Some(p)
+          case p1 :: p2 :: Nil =>
+            hexDelta.closestCorner() match {
+              case 0 | 4 | 5 => Some(p1)
+              case 1 | 2 | 3 => Some(p2)
+            }
+          case p1 :: p2 :: p3 :: Nil =>
+            hexDelta.hexant() match {
+              case 4 | 5 => Some(p1)
+              case 2 | 3 => Some(p2)
+              case 0 | 1 => Some(p3)
+              case _ => assertUnreachable()
+            }
+          case _ => None
+        }
+      piece.filter( piece => piece.side == board.side)
     }
 
     def mousedown(e : MouseEvent) : Unit = {
