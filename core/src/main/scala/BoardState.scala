@@ -366,6 +366,17 @@ class BoardState private (
     doActionSingle(action)
   }
 
+  def doActions(actions : Seq[PlayerAction]) : Try[Unit] = {
+    tryLegality(actions) match {
+      case Success(()) =>
+        for(a <- actions) {
+          doActionSingle(a)
+        }
+        Success(())
+      case Failure(err) => Failure(err)
+    }
+  }
+
   //End the current turn and begin the next turn
   def endTurn(): Unit = {
     //Count and accumulate mana. Wailing units do generate mana

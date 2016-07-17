@@ -293,7 +293,7 @@ object ClientMain extends JSApp {
         drawHex(ctx, hexLoc, "gray", tileScale)
         drawHex(ctx, hexLoc, "blue", tileScale*0.7)
     }
-    // text(ctx, (hexLoc.x+" "+hexLoc.y), PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
+    text(ctx, Loc(hexLoc.x.round.toInt, hexLoc.y.round.toInt).toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
   }
 
   def drawPiece(ctx : CanvasRenderingContext2D, loc : Loc, scale : Double, piece: Piece, isSelected: Boolean) : Unit = {
@@ -341,18 +341,21 @@ object ClientMain extends JSApp {
       selected match {
         case None => ()
         case Some(piece) =>
+          val moves = board.legalMoves(piece, mouse)
           val distances = board.legalMoves(piece, mouse).mapValues { case (d, _can_land) => d}
           if(distances.contains(piece.loc)) {
-            if(path.size==0 || path(0)!=piece.loc) {
-              path = List(piece.loc)
-            }
-            while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path(path.length-1))) {
-              path = path.init
-            }
-            if(path(path.length-1) != mouse) {
-              for(p <- board.tiles.topology.adj(path(path.length-1))) {
-                if(distances.contains(p) && path.length-1 + distances(path(path.length-1)) == path.length + distances(p)) {
-                  path = path :+ p
+            if(moves.contains(mouse) && moves(mouse)._2) {
+              if(path.size==0 || path(0)!=piece.loc) {
+                path = List(piece.loc)
+              }
+              while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path(path.length-1))) {
+                path = path.init
+              }
+              if(path(path.length-1) != mouse) {
+                for(p <- board.tiles.topology.adj(path(path.length-1))) {
+                  if(distances.contains(p) && path.length-1 + distances(path(path.length-1)) == path.length + distances(p)) {
+                    path = path :+ p
+                  }
                 }
               }
             }
@@ -441,44 +444,56 @@ object ClientMain extends JSApp {
       val hexLoc = mouseHexLoc(e)
       val loc = hexLoc.round()
       val hexDelta = hexLoc - loc
-      val piece =
-        board.pieces(loc) match {
-          case Nil => None
-          case p :: Nil => Some(p)
-          case p1 :: p2 :: Nil =>
-            hexDelta.closestCorner() match {
-              case 0 | 4 | 5 => Some(p1)
-              case 1 | 2 | 3 => Some(p2)
-            }
-          case p1 :: p2 :: p3 :: Nil =>
-            hexDelta.hexant() match {
-              case 4 | 5 => Some(p1)
-              case 2 | 3 => Some(p2)
-              case 0 | 1 => Some(p3)
-              case _ => assertUnreachable()
-            }
-          case _ => None
-        }
-      piece.filter( piece => piece.side == board.side)
+      board.pieces(loc) match {
+        case Nil => None
+        case p :: Nil => Some(p)
+        case p1 :: p2 :: Nil =>
+          hexDelta.closestCorner() match {
+            case 0 | 4 | 5 => Some(p1)
+            case 1 | 2 | 3 => Some(p2)
+          }
+        case p1 :: p2 :: p3 :: Nil =>
+          hexDelta.hexant() match {
+            case 4 | 5 => Some(p1)
+            case 2 | 3 => Some(p2)
+            case 0 | 1 => Some(p3)
+            case _ => assertUnreachable()
+          }
+        case _ => None
+      }
     }
 
     def mousedown(e : MouseEvent) : Unit = {
+      def doActions(actions : Seq[PlayerAction]) : Unit = {
+        println(actions)
+        selected = None
+        path = List()
+        board.doActions(actions) match {
+          case Success(()) => ()
+          case Failure(error) =>
+            println(error)
+            selected = mousePiece(e).filter(piece => piece.side == board.side)
+        }
+      }
       selected match {
         case None =>
-          selected = mousePiece(e)
+          selected = mousePiece(e).filter(piece => piece.side == board.side)
         case Some(piece) =>
-          // Possible actions are:
-          // - move to the square
-          // - move along path to within range, then attack
-          val action = Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))
-          val result = board.doAction(action)
-          selected = None
-          path = List()
-          result match {
-            case Success(_) => ()
-            case Failure(error) =>
-              println(error)
-              selected = mousePiece(e)
+          mousePiece(e) match {
+            case None => doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))))
+            case Some(other) =>
+              if(other.side == piece.side) {
+                doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))))
+              } else {
+                if(path.length > 1) {
+                  doActions(List(
+                    Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray))),
+                    Attack(StartedTurnWithID(piece.id), other.loc, StartedTurnWithID(other.id))
+                  ))
+                } else {
+                  doActions(List(Attack(StartedTurnWithID(piece.id), other.loc, StartedTurnWithID(other.id))))
+                }
+              }
           }
       }
       showBoard(board)
@@ -503,7 +518,7 @@ object ClientMain extends JSApp {
       rebate = 0,
       isNecromancer = false,
       isFlying = true,
-      isLumbering = true,
+      isLumbering = false,
       isPersistent = false,
       isEldritch = false,
       isWailing = false,
