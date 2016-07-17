@@ -293,6 +293,7 @@ object ClientMain extends JSApp {
         drawHex(ctx, hexLoc, "gray", tileScale)
         drawHex(ctx, hexLoc, "blue", tileScale*0.7)
     }
+    // text(ctx, (hexLoc.x+" "+hexLoc.y), PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
   }
 
   def drawPiece(ctx : CanvasRenderingContext2D, loc : Loc, scale : Double, piece: Piece, isSelected: Boolean) : Unit = {
@@ -337,56 +338,27 @@ object ClientMain extends JSApp {
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
     def updatePath() : Unit = {
-      def distance(x : Loc, y : Loc) : Int = {
-        board.tiles.topology.distance(x, y)
-      }
       selected match {
         case None => ()
         case Some(piece) =>
-          val loc = piece.loc
-          if(path.size==0 || path(0)!=loc) {
-            path = List(loc)
-          }
-          while(path.length > 0 && distance(loc, mouse) != path.length-1 + distance(path(path.length-1), mouse)) {
-            path = path.init
-          }
-          if(path(path.length-1) != mouse) {
-            for(p <- board.tiles.topology.adj(path(path.length-1))) {
-              if(path.length-1 + distance(path(path.length-1), mouse) == path.length + distance(p, mouse)) {
-                path = path :+ p
+          val distances = board.legalMoves(piece, mouse)
+          if(distances.contains(piece.loc)) {
+            if(path.size==0 || path(0)!=piece.loc) {
+              path = List(piece.loc)
+            }
+            while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path(path.length-1))) {
+              path = path.init
+            }
+            while(path(path.length-1) != mouse) {
+              for(p <- board.tiles.topology.adj(path(path.length-1))) {
+                if(distances.contains(p) && path.length-1 + distances(path(path.length-1)) == path.length + distances(p)) {
+                  path = path :+ p
+                }
               }
             }
           }
       }
     }
-
-    /*
-    def pixel_location(piece : Piece) : Point = {
-      val loc = piece.loc
-      val center = hex_center(piece.loc, origin)
-      board.pieces(loc) match {
-        case Nil => sys.error("")
-        case p :: Nil => hex_center(piece.loc, origin)
-        case p1 :: p2 :: Nil =>
-          if(piece == p1) {
-            Point(center.x, center.y-size/2)
-          } else {
-            assert(piece == p2)
-            Point(center.x, center.y+size/2)
-          }
-        case p1 :: p2 :: p3 :: Nil =>
-          if(piece == p1) {
-            Point(center.x, center.y-size/2)
-          } else if(piece == p2) {
-            (center+hex_corner(center, size, 2))/2
-          } else {
-            assert(piece == p3)
-            (center+hex_corner(center, size, 0))/2
-          }
-        case _ => sys.error("")
-      }
-    }
-     */
 
     def isPieceSelected(piece: Piece) : Boolean = {
       selected match {
@@ -447,7 +419,7 @@ object ClientMain extends JSApp {
       selected match {
         case None => ()
         case Some(piece) =>
-          for(loc <- board.legalMoves(piece)) {
+          for((loc, _d) <- board.legalMoves(piece, piece.loc)) {
             drawHex(ctx, loc, "yellow", tileScale)
           }
       }
@@ -519,7 +491,7 @@ object ClientMain extends JSApp {
       displayName = "Zombie",
       attackEffect = Some(Damage(1)),
       defense = 2,
-      moveRange = 3,
+      moveRange = 5,
       attackRange = 1,
       cost = 2,
       rebate = 0,
@@ -558,6 +530,9 @@ object ClientMain extends JSApp {
     board.spawnPieceInitial(S0, zombie, Loc(2, 3))
 
     board.spawnPieceInitial(S1, zombie, Loc(3, 2))
+    board.spawnPieceInitial(S1, zombie, Loc(3, 4))
+    board.spawnPieceInitial(S1, zombie, Loc(2, 4))
+    board.spawnPieceInitial(S1, zombie, Loc(1, 4))
 
     showBoard(board)
     ()

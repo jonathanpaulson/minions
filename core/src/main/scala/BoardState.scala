@@ -441,17 +441,17 @@ class BoardState private (
     findPiece(spec).nonEmpty
   }
 
-  def legalMoves(piece : Piece) : Set[Loc] = {
+  def legalMoves(piece : Piece, loc : Loc) : Map[Loc, Int] = {
     var q = scala.collection.mutable.Queue[(Loc, Int)]()
     var seen = scala.collection.mutable.HashSet[Loc]()
-    var ans = scala.collection.mutable.HashSet[Loc]()
+    var ans = scala.collection.mutable.HashMap[Loc, Int]()
 
     val range = piece.actState match {
       case Moving(stepsUsed) => piece.baseStats.moveRange - stepsUsed
       case Attacking(_) | Spawning | DoneActing => 0
     }
 
-    q += ((piece.loc, 0))
+    q += ((loc, 0))
     while(!q.isEmpty) {
       val (x,d) = q.dequeue
       if(piece.board.tiles.inBounds(x) && !seen.contains(x)) {
@@ -461,13 +461,13 @@ class BoardState private (
         val within_range = d <= range
         if(terrain_ok && within_range && (!has_enemy || piece.baseStats.isFlying)) {
           if(!has_enemy) {
-            ans += x
+            ans(x) = d
           }
           piece.board.tiles.topology.forEachAdj(x) { y => q.enqueue((y, d+1))}
         }
       }
     }
-    Set() ++ ans
+    Map() ++ ans
   }
 
   //HELPER FUNCTIONS -------------------------------------------------------------------------------------
