@@ -138,6 +138,7 @@ case object InternalEventMsgType extends MessageType
  *  Possibly enchanted due to spells. Later in list -> spells were played later.
  */
 object Tile {
+  //TODO from dwu to jpaulson: remove this? Outside code shouldn't need to create tiles.
   def create(terrain : Terrain) = new Tile(terrain, modsWithDuration = List())
 }
 case class Tile(
@@ -455,7 +456,6 @@ class BoardState private (
       val (x,d) = q.dequeue
       if(piece.board.tiles.inBounds(x) && !seen.contains(x)) {
         seen += x
-        println(x)
         val terrain_ok = canWalkOnTile(piece.baseStats, piece.board.tiles(x)) && d<=piece.baseStats.moveRange
         val has_enemy = piece.board.pieces(x).exists { other => other.side != piece.side }
         val within_range = d <= range
