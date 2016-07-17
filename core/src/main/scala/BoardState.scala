@@ -325,7 +325,7 @@ class BoardState private (
       totalMana = totalMana,
       totalCosts = totalCosts
     )
-    val newPieceById = pieceById.mapValues { piece => piece.copy(newBoard) }
+    val newPieceById = pieceById.transform({ (_k, piece) => piece.copy(newBoard) })
     val newPiecesSpawnedThisTurn = piecesSpawnedThisTurn.mapValues { piece => newPieceById(piece.id) }
     newBoard.pieceById = newPieceById
     newBoard.piecesSpawnedThisTurn = newPiecesSpawnedThisTurn
@@ -367,13 +367,10 @@ class BoardState private (
   }
 
   def doActions(actions : Seq[PlayerAction]) : Try[Unit] = {
-    tryLegality(actions) match {
-      case Success(()) =>
-        for(a <- actions) {
-          doActionSingle(a)
-        }
-        Success(())
-      case Failure(err) => Failure(err)
+    tryLegality(actions).map { case () =>
+      for(a <- actions) {
+        doActionSingle(a).get
+      }
     }
   }
 

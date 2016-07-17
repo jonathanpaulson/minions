@@ -465,7 +465,6 @@ object ClientMain extends JSApp {
 
     def mousedown(e : MouseEvent) : Unit = {
       def doActions(actions : Seq[PlayerAction]) : Unit = {
-        println(actions)
         selected = None
         path = List()
         board.doActions(actions) match {

@@ -367,7 +367,7 @@ class Plane[T:ClassTag] private (
   def inBounds(x: Int, y: Int): Boolean = x >= 0 && x < xSize && y >= 0 && y < ySize
   def inBounds(loc: Loc): Boolean = inBounds(loc.x,loc.y)
 
-  def copy(): Plane[T] = new Plane[T](xSize,ySize,topology,arr.clone())
+  def copy(): Plane[T] = new Plane[T](xSize,ySize,topology, arr.map { subarr => subarr.clone() })
 
   def map[U:ClassTag](f: T => U): Plane[U] = new Plane[U](xSize,ySize,topology,arr.map { subarr => subarr.map(f) })
   def foreach(f: T => Unit): Unit = arr.foreach { subarr => subarr.foreach(f) }
