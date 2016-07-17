@@ -342,7 +342,7 @@ object ClientMain extends JSApp {
         case None => ()
         case Some(piece) =>
           val moves = board.legalMoves(piece, mouse)
-          val distances = board.legalMoves(piece, mouse).mapValues { case (d, _can_land) => d}
+          val distances = board.legalMoves(piece, mouse).transform { case (_k, (d, _can_land)) => d}
           if(distances.contains(piece.loc)) {
             if(moves.contains(mouse) && moves(mouse)._2) {
               if(path.size==0 || path(0)!=piece.loc) {

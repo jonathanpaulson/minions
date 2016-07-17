@@ -326,7 +326,7 @@ class BoardState private (
       totalCosts = totalCosts
     )
     val newPieceById = pieceById.transform({ (_k, piece) => piece.copy(newBoard) })
-    val newPiecesSpawnedThisTurn = piecesSpawnedThisTurn.mapValues { piece => newPieceById(piece.id) }
+    val newPiecesSpawnedThisTurn = piecesSpawnedThisTurn.transform { (_k, piece) => newPieceById(piece.id) }
     newBoard.pieceById = newPieceById
     newBoard.piecesSpawnedThisTurn = newPiecesSpawnedThisTurn
     newBoard.pieces.transform { pieceList => pieceList.map { piece => newPieceById(piece.id) } }
