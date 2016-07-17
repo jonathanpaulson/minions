@@ -62,7 +62,7 @@ case class Spawn(spawnLoc: Loc, spawnStats: PieceStats, freeSpawnerSpec: Option[
 case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
 
 //Note: path should contain both the start and ending location
-case class Movement(pieceSpec: PieceSpec, path: Array[Loc])
+case class Movement(pieceSpec: PieceSpec, path: Vector[Loc])
 
 //Data for a played spell or piece ability.
 //Since different spells and abilities affect different things and have different numbers
@@ -326,7 +326,6 @@ class BoardState private (
       totalCosts = totalCosts
     )
     val newPieceById = pieceById.transform({ (_k, piece) => piece.copy(newBoard) })
-    // TODO jpaulson: This throws if a piece is dead.
     val newPiecesSpawnedThisTurn = piecesSpawnedThisTurn.transform { (_k, piece) => newPieceById(piece.id) }
     newBoard.pieceById = newPieceById
     newBoard.piecesSpawnedThisTurn = newPiecesSpawnedThisTurn
@@ -562,7 +561,7 @@ class BoardState private (
     action match {
       case Movements(movements) =>
         def isMovingNow(piece: Piece) = movements.exists { case Movement(id,_) => piece.id == id }
-        def pieceIfMovingTo(pieceSpec: PieceSpec, path: Array[Loc], dest: Loc): Option[Piece] =
+        def pieceIfMovingTo(pieceSpec: PieceSpec, path: Vector[Loc], dest: Loc): Option[Piece] =
           if(path.length > 0 && path.last == dest) findPiece(pieceSpec)
           else None
 
@@ -966,7 +965,7 @@ class BoardState private (
   private def removeFromBoard(piece: Piece): Unit = {
     pieces(piece.loc) = pieces(piece.loc).filterNot { p => p.id == piece.id }
     pieceById = pieceById - piece.id
-    piece.spawnedThisTurn.foreach { spawnedThisTurn => piecesSpawnedThisTurn - spawnedThisTurn }
+    piece.spawnedThisTurn.foreach { spawnedThisTurn => piecesSpawnedThisTurn = piecesSpawnedThisTurn - spawnedThisTurn }
   }
 
   //Unlike addReinforcement, doesn't log an event and doesn't produce messages
@@ -995,6 +994,8 @@ class BoardState private (
     piece.hasMoved = false
     piece.hasAttacked = false
     piece.hasFreeSpawned = false
+
+    piece.spawnedThisTurn.foreach { spawnedThisTurn => piecesSpawnedThisTurn = piecesSpawnedThisTurn - spawnedThisTurn }
     piece.spawnedThisTurn = None
   }
 }

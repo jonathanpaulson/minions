@@ -331,11 +331,6 @@ object ClientMain extends JSApp {
     var mouse : Loc = Loc(0, 0)
     var path : List[Loc] = List()
 
-    // TODO dwu: Eventually this will need to take into account traversibility.
-    // At that point, it will also need to be a true recursive search rather than this greedy algorithm.
-    // jpaulson: I think this works now. I don't know what you mean by "true recursive search". I think this
-    // code is fine.
-
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
     def updatePath() : Unit = {
@@ -343,7 +338,7 @@ object ClientMain extends JSApp {
         case None => ()
         case Some(piece) =>
           val moves = board.legalMoves(piece, mouse)
-          val distances = board.legalMoves(piece, mouse).transform { case (_k, (d, _can_land)) => d}
+          val distances = moves.transform { case (_k, (d, _can_land)) => d}
           if(distances.contains(piece.loc)) {
             if(moves.contains(mouse) && moves(mouse)._2) {
               if(path.size==0 || path(0)!=piece.loc) {
@@ -480,14 +475,14 @@ object ClientMain extends JSApp {
           selected = mousePiece(e).filter(piece => piece.side == board.side)
         case Some(piece) =>
           mousePiece(e) match {
-            case None => doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))))
+            case None => doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector)))))
             case Some(other) =>
               if(other.side == piece.side) {
-                doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))))
+                doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector)))))
               } else {
                 if(path.length > 1) {
                   doActions(List(
-                    Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray))),
+                    Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector))),
                     Attack(StartedTurnWithID(piece.id), other.loc, StartedTurnWithID(other.id))
                   ))
                 } else {
