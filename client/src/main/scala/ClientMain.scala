@@ -114,16 +114,6 @@ object HexLoc {
   def ofPixel(p: PixelLoc, gridSize: Double): HexLoc = {
     HexLoc((p.x * Math.sqrt(3)/3 - p.y/3) / gridSize, p.y * 2.0/3.0 / gridSize)
   }
-
-  //Returns the pixel loc corresponding to hexLoc + hexVec * scale
-  def ofHexLocOffset(hexLoc : HexLoc, gridSize: Double, hexVec : HexVec, scale : Double) : PixelLoc = {
-    val x = hexLoc.x + hexVec.dx * scale
-    val y = hexLoc.y + hexVec.dy * scale
-    PixelLoc(
-      gridSize * Math.sqrt(3) * (x + y/2.0),
-      gridSize * 3.0/2.0 * y
-    )
-  }
 }
 case class HexLoc(x: Double, y: Double) {
   def z: Double = -(x+y)
