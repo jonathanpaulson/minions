@@ -348,12 +348,12 @@ object ClientMain extends JSApp {
               if(path.size==0 || path(0)!=piece.loc) {
                 path = List(piece.loc)
               }
-              while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path(path.length-1))) {
+              while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path.last)) {
                 path = path.init
               }
-              if(path(path.length-1) != mouse) {
-                for(p <- board.tiles.topology.adj(path(path.length-1))) {
-                  if(distances.contains(p) && path.length-1 + distances(path(path.length-1)) == path.length + distances(p)) {
+              while(path.last != mouse) {
+                for(p <- board.tiles.topology.adj(path.last)) {
+                  if(distances.contains(p) && path.length-1 + distances(path.last) == path.length + distances(p)) {
                     path = path :+ p
                   }
                 }
