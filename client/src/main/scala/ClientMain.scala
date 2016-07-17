@@ -343,7 +343,7 @@ object ClientMain extends JSApp {
         case Some(piece) =>
           val distances = board.legalMoves(piece, mouse).mapValues { case (d, _can_land) => d}
           if(distances.contains(piece.loc)) {
-            if(path.size==0 || path(0)!=piece.loc) {
+            if(path.length==0 || path(0)!=piece.loc) {
               path = List(piece.loc)
             }
             while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path(path.length-1))) {

@@ -441,27 +441,34 @@ class BoardState private (
     findPiece(spec).nonEmpty
   }
 
+  //Find the set of all legal locations that a piece an visit, along with
+  //the number of steps to reach them and whether or not they have an enemy piece.
   def legalMoves(piece : Piece, loc : Loc) : Map[Loc, (Int, Boolean)] = {
-    var q = scala.collection.mutable.Queue[(Loc, Int)]()
-    var seen = scala.collection.mutable.HashSet[Loc]()
-    var ans = scala.collection.mutable.HashMap[Loc, (Int, Boolean)]()
+    assert(piece.board eq this);
+    val q = scala.collection.mutable.Queue[(Loc, Int)]()
+    val seen = scala.collection.mutable.HashSet[Loc]()
+    val ans = scala.collection.mutable.HashMap[Loc, (Int, Boolean)]()
+
+    val pieceStats = piece.curStats
 
     val range = piece.actState match {
-      case Moving(stepsUsed) => piece.baseStats.moveRange - stepsUsed
+      case Moving(stepsUsed) => pieceStats.moveRange - stepsUsed
       case Attacking(_) | Spawning | DoneActing => 0
     }
 
+    //Breadth first floodfill
     q += ((loc, 0))
     while(!q.isEmpty) {
       val (x,d) = q.dequeue
-      if(piece.board.tiles.inBounds(x) && !seen.contains(x)) {
+      if(tiles.inBounds(x) && !seen.contains(x)) {
         seen += x
-        val terrain_ok = canWalkOnTile(piece.baseStats, piece.board.tiles(x)) && d<=piece.baseStats.moveRange
-        val has_enemy = piece.board.pieces(x).exists { other => other.side != piece.side }
+        val terrain_ok = canWalkOnTile(pieceStats, tiles(x))
+        val has_enemy = pieces(x).exists { other => other.side != piece.side }
         val within_range = d <= range
-        if(terrain_ok && within_range && (!has_enemy || piece.baseStats.isFlying)) {
+        if(terrain_ok && within_range && (!has_enemy || pieceStats.isFlying)) {
           ans(x) = (d, !has_enemy)
-          piece.board.tiles.topology.forEachAdj(x) { y => q.enqueue((y, d+1))}
+          if(d < range)
+            topology.forEachAdj(x) { y => q.enqueue((y, d+1)) }
         }
       }
     }
@@ -777,6 +784,11 @@ class BoardState private (
           piece.loc = dest
           piece.hasMoved = true
           piece.actState = piece.actState match {
+            //TODO dwu: This will be a bug because if a vampire uses all its movement, you'd like
+            //it to be able to continue to move if you then sorcery it, but nextGoodActState will
+            //put it at Attacking(0).
+            //Probably do away with nextGoodActState and just ensure everything is capable of handling
+            //act states that might not be maxmimally moved forward.
             case Moving(n) => nextGoodActState(piece,Moving(n + movement.path.length - 1))
             case Attacking(_) | Spawning | DoneActing => assertUnreachable()
           }
