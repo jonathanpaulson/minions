@@ -134,6 +134,33 @@ case class HexLoc(x: Double, y: Double) {
 
   //Find the Loc for the hex that contains this HexLoc, taking into account the hexagon shape of a cell.
   def round(): Loc = {
+    /*
+     This algorithm is magic. Here's how it works:
+     Given a hexagon H, let H' be the inscribed hexagon formed by connecting the midpoints of the sides of H.
+     Let H'x be the rhombus formed by adjoining equilateral trinagles on to the sides of H' that are furthest
+     in the +x and -x directions, similarly define H'y and H'z.
+
+     Note that H' is the intersection of H'x, H'y, H'z.
+
+     Drawing a picture should make it evident that the borders of these rhombuses are the lines corresponding to
+     x,y,z = 0.5 mod 1, and further that within H'x, y and z are rounded correctly, within H'y, x and z are rounded
+     correctl, and within H'z, x and y are rounded correctly.
+
+     Case 1: Loc is within H': Then Loc is within the intersection of all three rhombuses. Then all roundings are correct.
+     Therefore regardless of which branch of the if/else is taken below, the value will be correct.
+
+     Case 2: Loc is within H but not within H':
+     Assume by symmetry that WOLOG, Loc is within the triangular sliver of (H - H') in the +x direction. Note that
+     dx, dy, dz are linear on this triangle (i.e. none of them cross a rounding boundary or a Math.abs kink).
+
+     The corners of this triangle are (x,y,z) = { A: (+2/3,-1/3,-1/3), B: (1/2,-1/2,0), C: (1/2,0,-1/2) }
+     By inspection, line AB satisfies dx = dy, with dx >= dy if you move inward.
+     And line BC satifies dx = dz, with dx >= dz if you move inward.
+     By linearity of dx,dy,dz on the triangle, the entire triangular silver will fall into the (dx >= dy && dx >= dz) case.
+     Also note that the entire trianglar sliver is a subset of H'x, on which the rounding of y and z are correct.
+     Since the algorithm relies only on the rounding of y and z in this case it will be correct.
+     */
+
     val rx = Math.round(x)
     val ry = Math.round(y)
     val rz = Math.round(z)
@@ -141,11 +168,11 @@ case class HexLoc(x: Double, y: Double) {
     val dy = Math.abs(y - ry)
     val dz = Math.abs(z - rz)
     if(dx >= dy && dx >= dz)
-      Loc(-(ry+rz).toInt, ry.toInt)
+      Loc(-(ry+rz).toInt, ry.toInt) //create loc from y and z
     else if(dz >= dx && dz >= dy)
-      Loc(rx.toInt, ry.toInt)
+      Loc(rx.toInt, ry.toInt)       //create loc from x and y
     else // (dz >= dx && dz>=dy);
-      Loc(rx.toInt, -(rx+rz).toInt)
+      Loc(rx.toInt, -(rx+rz).toInt) //create loc from x and z
   }
 }
 
