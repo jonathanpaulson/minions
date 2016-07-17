@@ -326,6 +326,7 @@ class BoardState private (
       totalCosts = totalCosts
     )
     val newPieceById = pieceById.transform({ (_k, piece) => piece.copy(newBoard) })
+    // TODO jpaulson: This throws if a piece is dead.
     val newPiecesSpawnedThisTurn = piecesSpawnedThisTurn.transform { (_k, piece) => newPieceById(piece.id) }
     newBoard.pieceById = newPieceById
     newBoard.piecesSpawnedThisTurn = newPiecesSpawnedThisTurn

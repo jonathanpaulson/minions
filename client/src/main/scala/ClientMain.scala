@@ -333,7 +333,8 @@ object ClientMain extends JSApp {
 
     // TODO dwu: Eventually this will need to take into account traversibility.
     // At that point, it will also need to be a true recursive search rather than this greedy algorithm.
-    // TODO(jpaulson): Take obstacles into account
+    // jpaulson: I think this works now. I don't know what you mean by "true recursive search". I think this
+    // code is fine.
 
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
