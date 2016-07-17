@@ -101,13 +101,14 @@ object ClientMain extends JSApp {
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
     def update_path() : Unit = {
+      // TODO(jpaulson): Take obstacles into account
       def distance(x : Loc, y : Loc) : Int = {
         board.tiles.topology.distance(x, y)
       }
       selected match {
         case None => ()
-        case Some(p) =>
-          val loc = p.loc
+        case Some(piece) =>
+          val loc = piece.loc
           if(path.size==0 || (!path(0).equals(loc))) {
             path = List(loc)
           }
@@ -217,6 +218,13 @@ object ClientMain extends JSApp {
         ctx.stroke()
         ctx.closePath()
       }
+      selected match {
+        case None => ()
+        case Some(piece) =>
+          for(loc <- board.legalMoves(piece)) {
+            draw_hex(ctx, hex_center(loc, origin), "yellow", size)
+          }
+      }
     }
 
     def mouse_to_hex(e : dom.MouseEvent) : Point = {
@@ -225,11 +233,11 @@ object ClientMain extends JSApp {
       Point((pixel_pos.x * Math.sqrt(3)/3 - pixel_pos.y/3) / size, pixel_pos.y * 2.0/3.0 / size)
     }
 
+    // TODO(jpaulson): Improve this using [pixel_location(piece)]
     def mouse_unit(e : dom.MouseEvent) : Option[Piece] = {
       val hex_point = mouse_to_hex(e)
       val hex_loc = hex_round(hex_point)
       val hex_delta = Point(hex_point.x - hex_loc.x, hex_point.y - hex_loc.y)
-      println(hex_loc.x+" "+hex_loc.y)
       board.pieces(hex_loc) match {
         case Nil => None
         case p :: Nil => Some(p)
@@ -260,6 +268,9 @@ object ClientMain extends JSApp {
         case None =>
           selected = mouse_unit(e)
         case Some(piece) =>
+          // Possible actions are:
+          // - move to the square
+          // - move along path to within range, then attack
           val action = Movements(List(Movement(StartedTurnWithID(piece.id), path.toArray)))
           val result = board.doAction(action)
           selected = None
@@ -288,7 +299,7 @@ object ClientMain extends JSApp {
       displayName = "Zombie",
       attackEffect = Some(Damage(1)),
       defense = 2,
-      moveRange = 100,
+      moveRange = 3,
       attackRange = 1,
       cost = 2,
       rebate = 0,

@@ -1,5 +1,5 @@
 import scala.util.{Try,Success,Failure}
-import scala.collection.immutable.Vector
+import scala.collection.immutable.{Queue, Vector}
 
 import RichImplicits._
 
@@ -440,6 +440,36 @@ class BoardState private (
     findPiece(spec).nonEmpty
   }
 
+  def legalMoves(piece : Piece) : Set[Loc] = {
+    var q = scala.collection.mutable.Queue[(Loc, Int)]()
+    var seen = scala.collection.mutable.HashSet[Loc]()
+    var ans = scala.collection.mutable.HashSet[Loc]()
+
+    val range = piece.actState match {
+      case Moving(stepsUsed) => piece.baseStats.moveRange - stepsUsed
+      case Attacking(_) | Spawning | DoneActing => 0
+    }
+
+    q += ((piece.loc, 0))
+    while(!q.isEmpty) {
+      val (x,d) = q.dequeue
+      if(piece.board.tiles.inBounds(x) && !seen.contains(x)) {
+        seen += x
+        println(x)
+        val terrain_ok = canWalkOnTile(piece.baseStats, piece.board.tiles(x)) && d<=piece.baseStats.moveRange
+        val has_enemy = piece.board.pieces(x).exists { other => other.side != piece.side }
+        val within_range = d <= range
+        if(terrain_ok && within_range && (!has_enemy || piece.baseStats.isFlying)) {
+          if(!has_enemy) {
+            ans += x
+          }
+          piece.board.tiles.topology.forEachAdj(x) { y => q.enqueue((y, d+1))}
+        }
+      }
+    }
+    Set() ++ ans
+  }
+
   //HELPER FUNCTIONS -------------------------------------------------------------------------------------
   private def addMessage(message: String, mtype: MessageType): Unit = {
     messages = messages :+ Message(message,mtype,timeLeft)
@@ -499,7 +529,7 @@ class BoardState private (
     failUnless(tiles.inBounds(spawnLoc), "Spawn location not in bounds")
 
     failUnless(pieces(spawnLoc).forall { other => other.side == spawnSide },
-        "Cannot spawn on to spaces with enemies")
+      "Cannot spawn on to spaces with enemies")
     failUnless(canWalkOnTile(spawnStats,tiles(spawnLoc)), "Non-flying pieces cannot spawn over obstacles")
 
     //Count pieces for swarm
@@ -532,7 +562,7 @@ class BoardState private (
           failUnless(path(0) != path.last, "Circular movement path")
           failUnless(path.forall { loc => tiles.inBounds(loc) }, "Movement out of bounds")
           failUnless((1 to (path.length - 1)).forall { idx => topology.distance(path(idx-1),path(idx)) == 1 },
-              "Movement path locations not all adjacent")
+            "Movement path locations not all adjacent")
 
           findPiece(pieceSpec) match {
             case None => fail("Moving a nonexistent or dead piece")
@@ -560,10 +590,10 @@ class BoardState private (
                 //Tiles are all walkable by this piece
                 failUnless(canWalkOnTile(pieceStats,tiles(loc)), "Non-flying pieces cannot move over obstacles")
                 failUnless(pieceStats.isFlying || pieces(loc).forall { other => other.side == piece.side },
-                    "Non-flying pieces cannot move through enemies")
+                  "Non-flying pieces cannot move through enemies")
               }
               failUnless(pieces(path.last).forall { other => other.side == piece.side },
-                  "Cannot move on to spaces with enemies")
+                "Cannot move on to spaces with enemies")
 
               //Count pieces on final destination for swarm
               var piecesOnFinalSquare = 1
@@ -831,9 +861,9 @@ class BoardState private (
         case Spawning => Spawning
         case Attacking(numAttacks) =>
           if(stats.attackEffect.isEmpty ||
-             stats.attackRange <= 0 ||
-             stats.isLumbering && piece.hasMoved ||
-             numAttacksLimit(stats.attackEffect, stats.hasFlurry).exists { limit => numAttacks >= limit })
+            stats.attackRange <= 0 ||
+            stats.isLumbering && piece.hasMoved ||
+            numAttacksLimit(stats.attackEffect, stats.hasFlurry).exists { limit => numAttacks >= limit })
             loop(Spawning)
           else
             Attacking(numAttacks)
