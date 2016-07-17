@@ -300,7 +300,12 @@ object ClientMain extends JSApp {
   }
   def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, piece: Piece, isSelected: Boolean) : Unit = {
     def pieceColor(p : Piece, isSelected: Boolean) : String = {
-      if(isSelected) "red" else "blue"
+      (isSelected, p.side) match {
+        case (true, S0) => "aqua"
+        case (false, S0) => "blue"
+        case (true, S1) => "lightcoral"
+        case (false, S1) => "red"
+      }
     }
     drawHex(ctx, hexLoc, pieceColor(piece,isSelected), scale)
     text(ctx, piece.id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
