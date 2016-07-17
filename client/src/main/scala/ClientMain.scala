@@ -341,7 +341,7 @@ object ClientMain extends JSApp {
       selected match {
         case None => ()
         case Some(piece) =>
-          val distances = board.legalMoves(piece, mouse)
+          val distances = board.legalMoves(piece, mouse).mapValues { case (d, _can_land) => d}
           if(distances.contains(piece.loc)) {
             if(path.size==0 || path(0)!=piece.loc) {
               path = List(piece.loc)
@@ -349,13 +349,15 @@ object ClientMain extends JSApp {
             while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path(path.length-1))) {
               path = path.init
             }
-            while(path(path.length-1) != mouse) {
+            if(path(path.length-1) != mouse) {
               for(p <- board.tiles.topology.adj(path(path.length-1))) {
                 if(distances.contains(p) && path.length-1 + distances(path(path.length-1)) == path.length + distances(p)) {
                   path = path :+ p
                 }
               }
             }
+          } else {
+            path = List(piece.loc)
           }
       }
     }
@@ -419,8 +421,10 @@ object ClientMain extends JSApp {
       selected match {
         case None => ()
         case Some(piece) =>
-          for((loc, _d) <- board.legalMoves(piece, piece.loc)) {
-            drawHex(ctx, loc, "yellow", tileScale)
+          for((loc, (_d, can_land)) <- board.legalMoves(piece, piece.loc)) {
+            if(can_land) {
+              drawHex(ctx, loc, "yellow", tileScale)
+            }
           }
       }
     }
@@ -496,7 +500,7 @@ object ClientMain extends JSApp {
       cost = 2,
       rebate = 0,
       isNecromancer = false,
-      isFlying = false,
+      isFlying = true,
       isLumbering = true,
       isPersistent = false,
       isEldritch = false,
@@ -517,6 +521,7 @@ object ClientMain extends JSApp {
     //and then create the BoardState with the desired terain.
     board.tiles.update(0, 0, Tile.create(ManaSpire))
     board.tiles.update(0, 1, Tile.create(Wall))
+    board.tiles.update(2, 4, Tile.create(Wall))
     board.tiles.update(1, 0, Tile.create(Water))
     board.tiles.update(1, 1, Tile.create(Spawner(S0, zombie)))
     board.tiles.update(2, 0, Tile.create(Spawner(S1, zombie)))
@@ -531,7 +536,6 @@ object ClientMain extends JSApp {
 
     board.spawnPieceInitial(S1, zombie, Loc(3, 2))
     board.spawnPieceInitial(S1, zombie, Loc(3, 4))
-    board.spawnPieceInitial(S1, zombie, Loc(2, 4))
     board.spawnPieceInitial(S1, zombie, Loc(1, 4))
 
     showBoard(board)

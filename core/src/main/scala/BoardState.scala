@@ -441,10 +441,10 @@ class BoardState private (
     findPiece(spec).nonEmpty
   }
 
-  def legalMoves(piece : Piece, loc : Loc) : Map[Loc, Int] = {
+  def legalMoves(piece : Piece, loc : Loc) : Map[Loc, (Int, Boolean)] = {
     var q = scala.collection.mutable.Queue[(Loc, Int)]()
     var seen = scala.collection.mutable.HashSet[Loc]()
-    var ans = scala.collection.mutable.HashMap[Loc, Int]()
+    var ans = scala.collection.mutable.HashMap[Loc, (Int, Boolean)]()
 
     val range = piece.actState match {
       case Moving(stepsUsed) => piece.baseStats.moveRange - stepsUsed
@@ -460,9 +460,7 @@ class BoardState private (
         val has_enemy = piece.board.pieces(x).exists { other => other.side != piece.side }
         val within_range = d <= range
         if(terrain_ok && within_range && (!has_enemy || piece.baseStats.isFlying)) {
-          if(!has_enemy) {
-            ans(x) = d
-          }
+          ans(x) = (d, !has_enemy)
           piece.board.tiles.topology.forEachAdj(x) { y => q.enqueue((y, d+1))}
         }
       }
