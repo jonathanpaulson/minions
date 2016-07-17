@@ -441,8 +441,9 @@ class BoardState private (
     findPiece(spec).nonEmpty
   }
 
-  //Find the set of all legal locations that a piece an visit, along with
-  //the number of steps to reach them and whether or not they have an enemy piece.
+  //Find the set of all legal locations that a piece can end on or move through, along with
+  //the number of steps to reach the location and whether or not they can actually end
+  //on that square (as opposed to only moving through it)
   def legalMoves(piece : Piece, loc : Loc) : Map[Loc, (Int, Boolean)] = {
     assert(piece.board eq this);
     val q = scala.collection.mutable.Queue[(Loc, Int)]()

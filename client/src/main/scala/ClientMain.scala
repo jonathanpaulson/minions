@@ -341,17 +341,17 @@ object ClientMain extends JSApp {
       selected match {
         case None => ()
         case Some(piece) =>
-          val distances = board.legalMoves(piece, mouse).mapValues { case (d, _can_land) => d}
+          val distances = board.legalMoves(piece, mouse).mapValues { case (d, _can_land) => d }
           if(distances.contains(piece.loc)) {
             if(path.length==0 || path(0)!=piece.loc) {
               path = List(piece.loc)
             }
-            while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path(path.length-1))) {
+            while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path.last)) {
               path = path.init
             }
-            if(path(path.length-1) != mouse) {
-              for(p <- board.tiles.topology.adj(path(path.length-1))) {
-                if(distances.contains(p) && path.length-1 + distances(path(path.length-1)) == path.length + distances(p)) {
+            if(path.last != mouse) {
+              for(p <- board.tiles.topology.adj(path.last)) {
+                if(distances.contains(p) && path.length-1 + distances(path.last) == path.length + distances(p)) {
                   path = path :+ p
                 }
               }
@@ -459,7 +459,7 @@ object ClientMain extends JSApp {
             }
           case _ => None
         }
-      piece.filter( piece => piece.side == board.side)
+      piece.filter { piece => piece.side == board.side }
     }
 
     def mousedown(e : MouseEvent) : Unit = {
