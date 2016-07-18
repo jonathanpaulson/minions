@@ -338,25 +338,24 @@ object ClientMain extends JSApp {
         case None => ()
         case Some(piece) =>
           val moves = board.legalMoves(piece, mouse)
-          val distances = moves.transform { case (_k, (d, _can_land)) => d}
-          if(distances.contains(piece.loc)) {
-            if(moves.contains(mouse) && moves(mouse)._2) {
-              if(path.size==0 || path(0)!=piece.loc) {
-                path = List(piece.loc)
-              }
-              while(path.length > 0 && distances(piece.loc) != path.length-1 + distances(path.last)) {
-                path = path.init
-              }
-              while(path.last != mouse) {
-                for(p <- board.tiles.topology.adj(path.last)) {
-                  if(distances.contains(p) && path.length-1 + distances(path.last) == path.length + distances(p)) {
-                    path = path :+ p
-                  }
+          val distances = moves.transform { case (_k, (d, _not_has_enemy)) => d}
+          if(moves.contains(mouse) && moves(mouse)._2) {
+            if(path.size==0 || path(0)!=piece.loc) {
+              path = List(piece.loc)
+            }
+            while(path.length > 1 && distances(piece.loc) != path.length-1 + distances(path.last)) {
+              path = path.init
+            }
+            while(path.last != mouse) {
+              for(p <- board.tiles.topology.adj(path.last)) {
+                if(distances.contains(p) && path.length-1 + distances(path.last) == path.length + distances(p)) {
+                  path = path :+ p
                 }
               }
             }
-          } else {
-            path = List(piece.loc)
+          } else if(moves.contains(mouse) && !moves(mouse)._2) { // Enemy unit(s)
+            while(path.length > 1 && board.tiles.topology.distance(path.last, mouse) < piece.curStats.attackRange)
+              path = path.init
           }
       }
     }
@@ -460,6 +459,10 @@ object ClientMain extends JSApp {
     }
 
     def mousedown(e : MouseEvent) : Unit = {
+      selected = mousePiece(e).filter(piece => piece.side == board.side)
+      showBoard(board)
+    }
+    def mouseup(e : MouseEvent) : Unit = {
       def doActions(actions : Seq[PlayerAction]) : Unit = {
         selected = None
         path = List()
@@ -467,7 +470,6 @@ object ClientMain extends JSApp {
           case Success(()) => ()
           case Failure(error) =>
             println(error)
-            selected = mousePiece(e).filter(piece => piece.side == board.side)
         }
       }
       selected match {
@@ -501,6 +503,7 @@ object ClientMain extends JSApp {
 
     canvas.onmousedown = mousedown _
     canvas.onmousemove = mousemove _
+    canvas.onmouseup = mouseup _
 
     val zombie = PieceStats(
       name = "zombie",
@@ -508,7 +511,7 @@ object ClientMain extends JSApp {
       attackEffect = Some(Damage(1)),
       defense = 2,
       moveRange = 5,
-      attackRange = 1,
+      attackRange = 2,
       cost = 2,
       rebate = 0,
       isNecromancer = false,
@@ -549,6 +552,7 @@ object ClientMain extends JSApp {
     board.spawnPieceInitial(S1, zombie, Loc(3, 2))
     board.spawnPieceInitial(S1, zombie, Loc(3, 4))
     board.spawnPieceInitial(S1, zombie, Loc(1, 4))
+    board.spawnPieceInitial(S1, zombie, Loc(2, 5))
 
     showBoard(board)
     ()
