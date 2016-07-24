@@ -379,6 +379,7 @@ class BoardState private (
         newMana += piece.curStats.extraMana + (if(tiles(piece.loc).terrain == ManaSpire) 1 else 0)
     }
 
+    // TODO jpaulson for dwu: Wailing units that attack die immediately, not at end of turn
     //Wailing units that attacked die
     val attackedWailings = pieceById.iterator.filter { case (pieceId,piece) =>
       piece.curStats.isWailing && piece.hasAttacked
