@@ -164,14 +164,14 @@ object ClientMain extends JSApp {
         case None => ()
         case Some(piece) =>
           mousePiece(e) match {
-            case None => doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector)))))
+            case None => doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
             case Some(other) =>
               if(other.side == piece.side) {
-                doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector)))))
+                doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
               } else {
                 if(path.length > 1) {
                   doActions(List(
-                    Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector))),
+                    Movements(List(Movement(piece.spec, path.toVector))),
                     Attack(piece.spec, other.loc, other.spec)
                   ))
                 } else {
