@@ -499,6 +499,10 @@ class BoardState private (
     Map() ++ ans
   }
 
+  def inBounds(loc: Loc): Boolean = {
+    tiles.inBounds(loc)
+  }
+
   //HELPER FUNCTIONS -------------------------------------------------------------------------------------
   private def addMessage(message: String, mtype: MessageType): Unit = {
     messages = messages :+ Message(message,mtype,timeLeft)

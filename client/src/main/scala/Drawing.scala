@@ -15,15 +15,14 @@ object Drawing {
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
 
-  private def move(ctx : CanvasRenderingContext2D, loc : Loc) : Unit = {
-    move(ctx,HexLoc.ofLoc(loc))
+  import scala.language.implicitConversions
+  private implicit def hexLocOfLoc(loc: Loc): HexLoc = {
+    HexLoc.ofLoc(loc)
   }
+
   private def move(ctx : CanvasRenderingContext2D, hexLoc : HexLoc) : Unit = {
     val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
     ctx.moveTo(Math.floor(pixel.x), Math.floor(pixel.y));
-  }
-  private def line(ctx : CanvasRenderingContext2D, loc : Loc) : Unit = {
-    line(ctx,HexLoc.ofLoc(loc))
   }
   private def line(ctx : CanvasRenderingContext2D, hexLoc : HexLoc) : Unit = {
     val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
@@ -40,11 +39,10 @@ object Drawing {
     hexLoc + HexVec.corners(corner) * scale
   }
 
-  private def drawHex(ctx : CanvasRenderingContext2D, loc : Loc, color : String, scale : Double) : Unit = {
-    drawHex(ctx,HexLoc.ofLoc(loc), color, scale)
-  }
-  private def drawHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double) : Unit = {
-    ctx.globalAlpha = 0.2
+  private def drawHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, doStroke: Boolean, doFill:Boolean, alpha: Double, lineWidth: Double) : Unit = {
+    ctx.globalAlpha = alpha
+    ctx.lineWidth = lineWidth
+    ctx.strokeStyle = color
     ctx.fillStyle = color
     ctx.beginPath()
     move(ctx, hexLoc + HexVec.corners(0) * scale)
@@ -54,45 +52,58 @@ object Drawing {
     line(ctx, hexLoc + HexVec.corners(4) * scale)
     line(ctx, hexLoc + HexVec.corners(5) * scale)
     line(ctx, hexLoc + HexVec.corners(0) * scale)
-    ctx.fill();
-    ctx.closePath();
+    if(doStroke) ctx.stroke()
+    if(doFill)  ctx.fill()
+    ctx.closePath()
+  }
+  private def strokeHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0) : Unit = {
+    drawHex(ctx,hexLoc,color,scale,true,false,alpha,lineWidth);
+  }
+  private def fillHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 0.2) : Unit = {
+    drawHex(ctx,hexLoc,color,scale,false,true,alpha,1.0);
   }
 
-  private def drawTile(ctx : CanvasRenderingContext2D, loc : Loc, tile: Tile) : Unit = {
-    drawTile(ctx,HexLoc.ofLoc(loc),tile)
-  }
   private def drawTile(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, tile: Tile) : Unit = {
     tile.terrain match {
-      case Wall => drawHex(ctx, hexLoc, "white", tileScale)
-      case Ground => drawHex(ctx, hexLoc, "green", tileScale)
-      case Water => drawHex(ctx, hexLoc, "blue", tileScale)
-      case ManaSpire => drawHex(ctx, hexLoc, "orange", tileScale)
+      case Wall => fillHex(ctx, hexLoc, "white", tileScale)
+      case Ground => fillHex(ctx, hexLoc, "green", tileScale)
+      case Water => fillHex(ctx, hexLoc, "blue", tileScale)
+      case ManaSpire => fillHex(ctx, hexLoc, "orange", tileScale)
       case Spawner(S0, _) =>
-        drawHex(ctx, hexLoc, "gray", tileScale)
-        drawHex(ctx, hexLoc, "red", tileScale*0.7)
+        fillHex(ctx, hexLoc, "gray", tileScale)
+        fillHex(ctx, hexLoc, "red", tileScale*0.7)
       case Spawner(S1, _) =>
-        drawHex(ctx, hexLoc, "gray", tileScale)
-        drawHex(ctx, hexLoc, "blue", tileScale*0.7)
+        fillHex(ctx, hexLoc, "gray", tileScale)
+        fillHex(ctx, hexLoc, "blue", tileScale*0.7)
     }
     text(ctx, Loc(hexLoc.x.round.toInt, hexLoc.y.round.toInt).toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
   }
 
-  private def drawPiece(ctx : CanvasRenderingContext2D, loc : Loc, scale : Double, piece: Piece, isSelected: Boolean) : Unit = {
-    drawPiece(ctx,HexLoc.ofLoc(loc),scale,piece,isSelected)
-  }
-  private def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, piece: Piece, isSelected: Boolean) : Unit = {
-    def pieceColor(p : Piece, isSelected: Boolean) : String = {
-      (isSelected, p.side) match {
-        case (true, S0) => "aqua"
-        case (false, S0) => "blue"
-        case (true, S1) => "lightcoral"
-        case (false, S1) => "red"
+  private def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, piece: Piece) : Unit = {
+    val pieceColor =
+      piece.side match {
+        case S0 => "blue"
+        case S1 => "red"
       }
-    }
-    drawHex(ctx, hexLoc, pieceColor(piece,isSelected), scale)
+    fillHex(ctx, hexLoc, pieceColor, scale)
     text(ctx, piece.id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
   }
 
+  private def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
+    val loc = piece.loc
+    board.pieces(loc) match {
+      case Nil => assertUnreachable()
+      case _ :: Nil => (loc,pieceScale)
+      case p1 :: _ :: Nil  =>
+        if(piece.id == p1.id) (HexLoc.ofLoc(loc) + HexVec.corners(5) * smallPieceOffset, smallPieceScale)
+        else                 (HexLoc.ofLoc(loc) + HexVec.corners(2) * smallPieceOffset, smallPieceScale)
+      case p1 :: p2 :: _ :: Nil =>
+        if(piece.id == p1.id)      (HexLoc.ofLoc(loc) + HexVec.corners(5) * smallPieceOffset, smallPieceScale)
+        else if(piece.id == p2.id) (HexLoc.ofLoc(loc) + HexVec.corners(3) * smallPieceOffset, smallPieceScale)
+        else                      (HexLoc.ofLoc(loc) + HexVec.corners(1) * smallPieceOffset, smallPieceScale)
+      case _ => assertUnreachable()
+    }
+  }
 
   def drawEverything(
     canvas: Canvas,
@@ -101,6 +112,7 @@ object Drawing {
     game: Game,
     translateOrigin: PixelVec,
     hoverLoc: Option[Loc],
+    hoverSpec: Option[PieceSpec],
     selected: Option[PieceSpec],
     path : List[Loc]
   ) : Unit = {
@@ -109,7 +121,8 @@ object Drawing {
     ctx.translate(translateOrigin.dx,translateOrigin.dy)
 
     hoverLoc.foreach { hoverLoc => println(hoverLoc) }
-    // Techs / Reinforcements
+
+    //Techs / Reinforcements
     for((pieceStats, i) <- Units.techs.view.zipWithIndex) {
       val s0 = board.reinforcements(S0).filter(x => x == pieceStats).length
       val s1 = board.reinforcements(S1).filter(x => x == pieceStats).length
@@ -126,7 +139,7 @@ object Drawing {
           case (T2, T1) => "#7700ff"
           case (T2, T2) => "#ff00ff"
         }
-      drawHex(ctx, loc, color, tileScale)
+      fillHex(ctx, loc, color, tileScale)
       text(ctx, i.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc), gridSize), "black")
       text(ctx, s0.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(3) * pieceScale, gridSize), "blue")
       text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(4) * techScale, gridSize), "blue")
@@ -134,43 +147,24 @@ object Drawing {
       text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(0) * techScale, gridSize), "red")
     }
 
-    //Mouse hover
-    hoverLoc.foreach { hoverLoc => drawHex(ctx, hoverLoc, "purple", tileScale) }
-
-    //Piece selected by mouse click
-    val selectedPiece = selected.flatMap { selected => board.findPiece(selected) }
-    selectedPiece.foreach { piece => drawHex(ctx, piece.loc, "red", tileScale) }
-
-    def isPieceSelected(piece: Piece) : Boolean = {
-      selectedPiece match {
-        case None => false
-        case Some(p) => piece.id == p.id
-      }
-    }
-
-    board.tiles.iteri {case (loc, tile) =>
+    //Terrain
+    board.tiles.foreachi {case (loc, tile) =>
       drawTile(ctx,loc,tile)
     }
-    board.pieces.iteri {case (loc, pieces) =>
-      pieces match {
-        case Nil => ()
-        case p :: Nil =>
-          drawPiece(ctx, loc, pieceScale, p, isPieceSelected(p))
-        case p1 :: p2 :: Nil  =>
-          val c1 = HexLoc.ofLoc(loc) + HexVec.corners(5) * smallPieceOffset
-          val c2 = HexLoc.ofLoc(loc) + HexVec.corners(2) * smallPieceOffset
-          drawPiece(ctx, c1, smallPieceScale, p1, isPieceSelected(p1))
-          drawPiece(ctx, c2, smallPieceScale, p2, isPieceSelected(p2))
-        case p1 :: p2 :: p3 :: Nil  => ()
-          val c1 = HexLoc.ofLoc(loc) + HexVec.corners(5) * smallPieceOffset
-          val c2 = HexLoc.ofLoc(loc) + HexVec.corners(3) * smallPieceOffset
-          val c3 = HexLoc.ofLoc(loc) + HexVec.corners(1) * smallPieceOffset
-          drawPiece(ctx, c1, smallPieceScale, p1, isPieceSelected(p1))
-          drawPiece(ctx, c2, smallPieceScale, p2, isPieceSelected(p2))
-          drawPiece(ctx, c3, smallPieceScale, p3, isPieceSelected(p3))
-        case _ => ()
+
+    //Pieces
+    board.pieces.foreach { pieces =>
+      pieces.foreach { piece =>
+        val (loc,scale) = locAndScaleOfPiece(board,piece)
+        drawPiece(ctx, loc, scale, piece)
       }
     }
+
+    val hoverPiece = hoverSpec.flatMap { spec => board.findPiece(spec) }
+    val selectedPiece = selected.flatMap { spec => board.findPiece(spec) }
+
+
+    //Highlighted movement paths
     if(path.length > 0) {
       ctx.globalAlpha = 1.0
       ctx.fillStyle = "black"
@@ -186,16 +180,38 @@ object Drawing {
       }
       ctx.stroke()
       ctx.closePath()
+      ctx.setLineDash(scala.scalajs.js.Array())
     }
+
+    //Movement range
     selectedPiece match {
       case None => ()
       case Some(piece) =>
         for((loc, (_d, can_land)) <- board.legalMoves(piece, piece.loc)) {
           if(can_land) {
-            drawHex(ctx, loc, "yellow", tileScale)
+            fillHex(ctx, loc, "yellow", tileScale, 0.1)
           }
         }
     }
+
+    //Mouse hover for hex
+    hoverLoc.foreach { hoverLoc =>
+      if(board.inBounds(hoverLoc) && board.tiles(hoverLoc).terrain != Wall)
+        strokeHex(ctx, hoverLoc, "black", tileScale, alpha=0.3)
+    }
+
+    //Mouse hover for piece
+    hoverPiece.foreach { piece =>
+      val (loc,scale) = locAndScaleOfPiece(board,piece)
+      strokeHex(ctx, loc, "black", scale)
+    }
+
+    //Piece selected by mouse click
+    selectedPiece.foreach { piece =>
+      val (loc,scale) = locAndScaleOfPiece(board,piece)
+      strokeHex(ctx, loc, "purple", scale, lineWidth=2.5)
+    }
+
   }
 
 }
