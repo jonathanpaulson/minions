@@ -386,8 +386,7 @@ class Plane[T:ClassTag] private (
     }
   }
 
-  //TODO rename to foreachi for consistency with foreach?
-  def iteri(f: (Loc, T) => Unit): Unit = {
+  def foreachi(f: (Loc, T) => Unit): Unit = {
     for (x <- 0 to arr.length-1) {
       for(y <- 0 to arr(x).length-1) {
         f(Loc(x,y), arr(x)(y))
