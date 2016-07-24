@@ -54,13 +54,12 @@ with Ordered[SpawnedThisTurn] {
   * Notes:
   * Movements: movements is a list because we need to support piece swaps, triangular rotations, etc.
   * Attack: self-explanatory
-  * Spawn: freeSpawnerSpec should only be specified if spawning something for free, like the per-turn zombie from a graveyard.
   * SpellsAndAbilities: spellsAndAbilities is a list because we need to support playing sorceries and cantrips together.
   */
 sealed trait PlayerAction
 case class Movements(movements: List[Movement]) extends PlayerAction
 case class Attack(attackerSpec: PieceSpec, targetLoc: Loc, targetSpec: PieceSpec) extends PlayerAction
-case class Spawn(spawnLoc: Loc, spawnStats: PieceStats, freeSpawnerSpec: Option[PieceSpec]) extends PlayerAction
+case class Spawn(spawnLoc: Loc, spawnStats: PieceStats) extends PlayerAction
 case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
 
 //Note: path should contain both the start and ending location
@@ -86,14 +85,12 @@ object PlayerAction {
       case Movements(movements) =>
         movements.exists { case Movement(pSpec, _) => pieceSpec == pSpec }
       case Attack(aSpec,_,tSpec) => pieceSpec == aSpec || pieceSpec == tSpec
-      case Spawn(spawnLoc,spawnStats,fSpec) =>
-        fSpec.exists { fSpec => pieceSpec == fSpec } || (
-          pieceSpec match {
-            case StartedTurnWithID(_) => false
-            //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex with that name.
-            case SpawnedThisTurn(name,sLoc,_) => name == spawnStats.name && sLoc == spawnLoc
-          }
-        )
+      case Spawn(spawnLoc,spawnStats) =>
+        pieceSpec match {
+          case StartedTurnWithID(_) => false
+          //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex with that name.
+          case SpawnedThisTurn(name,sLoc,_) => name == spawnStats.name && sLoc == spawnLoc
+        }
       case SpellsAndAbilities(spellsAndAbilities) =>
         spellsAndAbilities.exists { played =>
           played.pieceSpecAndKey.exists { case (pSpec,_) => pieceSpec == pSpec } ||
@@ -683,7 +680,7 @@ class BoardState private (
             failIf(!attackerStats.canHurtNecromancer && targetStats.isNecromancer, "Piece not allowed to hurt necromancer")
         }
 
-      case Spawn(spawnLoc, spawnStats, freeSpawnerSpec) =>
+      case Spawn(spawnLoc, spawnStats) =>
         //A bunch of tests that don't depend on the spawner or on reinforcements state
         trySpawnLegality(side, spawnStats, spawnLoc)
 
@@ -695,19 +692,8 @@ class BoardState private (
           else Success(())
         }
 
-        freeSpawnerSpec match {
-          case None =>
-            failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No piece with spawn in range")
-            failUnless(reinforcements(side).contains(spawnStats), "No such piece in reinforcements")
-          case Some(freeSpawnerSpec) =>
-            findPiece(freeSpawnerSpec) match {
-              case None => fail("Free spawning using a nonexistent or dead piece")
-              case Some(freeSpawner) =>
-                trySpawnUsing(freeSpawner).get : Unit
-                failIf(freeSpawner.hasFreeSpawned, "Piece has already free-spawned")
-                failUnless(freeSpawner.curStats.freeSpawn.contains(spawnStats), "Free-spawning piece of the wrong type")
-            }
-        }
+        failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No piece with spawn in range")
+        failUnless(reinforcements(side).contains(spawnStats), "No such piece in reinforcements")
 
       case SpellsAndAbilities(spellsAndAbilities) =>
         //Ensure no spells played more than once
@@ -827,18 +813,12 @@ class BoardState private (
         if(stats.hasBlink)
           blinkPiece(attacker)
 
-      case Spawn(spawnLoc, spawnStats, freeSpawnerSpec) =>
+      case Spawn(spawnLoc, spawnStats) =>
         spawnPieceInternal(side,spawnStats,spawnLoc) match {
           case Success(_: Piece) => ()
           case Failure(_) => assertUnreachable()
         }
-        freeSpawnerSpec match {
-          case None =>
-            reinforcements(side).filterNotFirst { stats => stats == spawnStats }
-          case Some(spawnerSpec) =>
-            val spawner = findPiece(spawnerSpec).get
-            spawner.hasFreeSpawned = true
-        }
+        reinforcements(side).filterNotFirst { stats => stats == spawnStats }
         val message = "Spawned %s on %s".format(spawnStats.name,spawnLoc.toString())
         addMessage(message,PlayerActionMsgType(side))
 
