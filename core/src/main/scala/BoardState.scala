@@ -165,7 +165,6 @@ object Piece {
       actState = DoneActing,
       hasMoved = false,
       hasAttacked = false,
-      hasFreeSpawned = false,
       spawnedThisTurn = Some(SpawnedThisTurn(baseStats.name,loc,nthAtLoc))
     )
   }
@@ -185,7 +184,6 @@ class Piece private (
   //Indicates what this piece actually DID do this turn so far.
   var hasMoved: Boolean,
   var hasAttacked: Boolean,
-  var hasFreeSpawned: Boolean,
   //If the piece was newly spawned this turn
   var spawnedThisTurn: Option[SpawnedThisTurn]
 ) {
@@ -201,7 +199,6 @@ class Piece private (
       hasMoved = hasMoved,
       actState = actState,
       hasAttacked = hasAttacked,
-      hasFreeSpawned = hasFreeSpawned,
       spawnedThisTurn = spawnedThisTurn
     )
   }
@@ -980,7 +977,6 @@ class BoardState private (
     piece.actState = nextGoodActState(piece,Moving(0))
     piece.hasMoved = false
     piece.hasAttacked = false
-    piece.hasFreeSpawned = false
 
     piece.spawnedThisTurn.foreach { spawnedThisTurn => piecesSpawnedThisTurn = piecesSpawnedThisTurn - spawnedThisTurn }
     piece.spawnedThisTurn = None

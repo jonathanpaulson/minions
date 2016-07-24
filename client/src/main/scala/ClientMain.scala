@@ -37,7 +37,7 @@ object ClientMain extends JSApp {
       terrain(2,0) = Spawner(S1, Units.test)
 
       val boardState = BoardState.create(terrain)
-      boardState.spawnPieceInitial(S0, Units.test, Loc(2,1))
+      boardState.spawnPieceInitial(S0, Units.necromancer, Loc(2,1))
       boardState.spawnPieceInitial(S0, Units.test, Loc(2,2))
       boardState.spawnPieceInitial(S0, Units.test, Loc(2,2))
 
