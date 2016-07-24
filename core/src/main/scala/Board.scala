@@ -1,3 +1,5 @@
+package minionsgame.core
+
 import scala.util.{Try,Success,Failure}
 import scala.collection.immutable.Vector
 

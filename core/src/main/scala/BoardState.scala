@@ -1,3 +1,5 @@
+package minionsgame.core
+
 import scala.util.{Try,Success,Failure}
 import scala.collection.immutable.{Queue, Vector}
 
@@ -211,6 +213,14 @@ class Piece private (
   def curStats: PieceStats = {
     (modsWithDuration ++ board.tiles(loc).modsWithDuration).foldLeft(baseStats) {
       (pieceStats,mod) => mod.mod(pieceStats)
+    }
+  }
+
+  //Get a spec that refers to this piece and can do so stably across undos or actions.
+  def spec: PieceSpec = {
+    spawnedThisTurn match {
+      case None => StartedTurnWithID(id)
+      case Some(spawnedThisTurn) => spawnedThisTurn
     }
   }
 }
@@ -449,6 +459,19 @@ class BoardState private (
     findPiece(spec).nonEmpty
   }
 
+  //Find the piece, if any, matching this spec
+  def findPiece(spec: PieceSpec): Option[Piece] = {
+    spec match {
+      case StartedTurnWithID(pieceId) =>
+        pieceById.get(pieceId).flatMap { piece =>
+          if(piece.spawnedThisTurn.nonEmpty) None
+          else Some(piece)
+        }
+      case (spawnedThisTurn: SpawnedThisTurn) =>
+        piecesSpawnedThisTurn.get(spawnedThisTurn)
+    }
+  }
+
   //Find the set of all legal locations that a piece can end on or move through, along with
   //the number of steps to reach the location and whether or not they can actually end
   //on that square (as opposed to only moving through it)
@@ -487,18 +510,6 @@ class BoardState private (
   //HELPER FUNCTIONS -------------------------------------------------------------------------------------
   private def addMessage(message: String, mtype: MessageType): Unit = {
     messages = messages :+ Message(message,mtype,timeLeft)
-  }
-
-  private def findPiece(spec: PieceSpec): Option[Piece] = {
-    spec match {
-      case StartedTurnWithID(pieceId) =>
-        pieceById.get(pieceId).flatMap { piece =>
-          if(piece.spawnedThisTurn.nonEmpty) None
-          else Some(piece)
-        }
-      case (spawnedThisTurn: SpawnedThisTurn) =>
-        piecesSpawnedThisTurn.get(spawnedThisTurn)
-    }
   }
 
   private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {

@@ -1,3 +1,5 @@
+package minionsgame.core
+
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
 

@@ -1,3 +1,5 @@
+package minionsgame.core
+
 // TODO(jpaulson): Add logic to interact with the rest of the game.
 
 /** TechLevel:

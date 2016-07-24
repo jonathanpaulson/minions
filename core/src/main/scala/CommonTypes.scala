@@ -1,3 +1,5 @@
+package minionsgame.core
+
 import scala.reflect.ClassTag
 
 import RichImplicits._

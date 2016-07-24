@@ -1,3 +1,5 @@
+package minionsgame.core
+
 case object Spells {
   val festerSpell = TargetedSpell(
     key = "fester_spell",

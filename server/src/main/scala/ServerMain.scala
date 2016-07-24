@@ -1,3 +1,5 @@
+package minionsgame.server
+
 object ServerMain {
 
   def main(args: Array[String]): Unit = {

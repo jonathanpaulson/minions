@@ -1,3 +1,5 @@
+package minionsgame.core
+
 // TODO(jpaulson): Add atual unit data
 
 object Units {
