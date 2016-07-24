@@ -173,7 +173,8 @@ object Drawing {
       selectedPiece match {
         case None => sys.error("")
         case Some(piece) =>
-          move(ctx, piece.loc)
+          val (loc,_) = locAndScaleOfPiece(board,piece)
+          move(ctx, loc)
       }
       for(i <- 1 to path.length-1) {
         line(ctx, path(i))
