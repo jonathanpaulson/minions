@@ -121,7 +121,8 @@ object Drawing {
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
     ctx.translate(translateOrigin.dx,translateOrigin.dy)
 
-    hoverLoc.foreach { hoverLoc => println(hoverLoc) }
+    fillHex(ctx, Loc(15, -3), "gray", tileScale)
+    text(ctx, "End Turn", PixelLoc.ofHexLoc(HexLoc.ofLoc(Loc(15, -3)), gridSize), "black")
 
     //Techs / Reinforcements
     for((pieceStats, i) <- Units.techs.view.zipWithIndex) {
@@ -141,7 +142,7 @@ object Drawing {
           case (T2, T2) => "#ff00ff"
         }
       fillHex(ctx, loc, color, tileScale)
-      text(ctx, i.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc), gridSize), "black")
+      text(ctx, pieceStats.displayName.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc), gridSize), "black")
       text(ctx, s0.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(3) * pieceScale, gridSize), "blue")
       text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(4) * techScale, gridSize), "blue")
       text(ctx, s1.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(1) * pieceScale, gridSize), "red")

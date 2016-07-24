@@ -300,16 +300,10 @@ case class Loc(x:Int, y:Int) {
 }
 object Loc {
   def xCoordString(x: Int): String = {
-    if(x < 0)
+    if(x < 0 || x > 26)
       x.toString()
     else {
-      var xx = x+1
-      var s = ""
-      while(xx > 0) {
-        s = s + ('a' + (xx % 26)).toChar
-        xx = xx / 26
-      }
-      s
+      "abcdefghijklmnopqrstuvwxyz"(x).toString 
     }
   }
   def yCoordString(y: Int): String = {

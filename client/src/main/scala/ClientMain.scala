@@ -4,7 +4,7 @@ import scala.scalajs.js.JSApp
 import scala.scalajs.js.annotation.JSExport
 import org.scalajs.jquery.jQuery
 import org.scalajs.dom.CanvasRenderingContext2D
-import org.scalajs.dom.MouseEvent
+import org.scalajs.dom.{MouseEvent, KeyboardEvent}
 import org.scalajs.dom.html.Canvas
 import scala.util.{Try, Success, Failure}
 
@@ -146,6 +146,11 @@ object ClientMain extends JSApp {
     }
 
     def mousedown(e : MouseEvent) : Unit = {
+      println(mouseHexLoc(e))
+      if(mouseHexLoc(e).round == Loc(15, -3)) {
+        println("End Turn")
+        board.endTurn()
+      }
       selected = mousePiece(e).filter(piece => piece.side == board.curState.side).map(piece => piece.spec)
       path = List()
       draw()
