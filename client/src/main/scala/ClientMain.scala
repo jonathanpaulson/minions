@@ -231,6 +231,7 @@ object ClientMain extends JSApp {
   val gridSize = 30.0
   val tileScale = 29.0 / gridSize
   val pieceScale = 25.0 / gridSize
+  val techScale = 20.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
 
@@ -282,7 +283,7 @@ object ClientMain extends JSApp {
   }
   def drawTile(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, tile: Tile) : Unit = {
     tile.terrain match {
-      case Wall => drawHex(ctx, hexLoc, "black", tileScale)
+      case Wall => drawHex(ctx, hexLoc, "white", tileScale)
       case Ground => drawHex(ctx, hexLoc, "green", tileScale)
       case Water => drawHex(ctx, hexLoc, "blue", tileScale)
       case ManaSpire => drawHex(ctx, hexLoc, "orange", tileScale)
@@ -323,9 +324,23 @@ object ClientMain extends JSApp {
     val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
 
     //How much to translate the canvas origin inward from the upper left corner.
-    val translateOrigin = PixelVec(2.0*gridSize, 2.0*gridSize)
+    val translateOrigin = PixelVec(2.0*gridSize, 6.0*gridSize)
 
     val board = BoardState.create(Plane.create(10, 10, HexTopology, Ground))
+    val game = Game(mana = SideArray.create(0), tech = SideArray.create(Array.fill[TechLevel](Units.techs.size)(T0)))
+    game.tech(S1) = Array.fill[TechLevel](Units.techs.size)(T0)
+    game.tech(S0)(3) = T1
+    game.tech(S0)(4) = T1
+    game.tech(S0)(5) = T1
+    game.tech(S0)(6) = T2
+    game.tech(S0)(7) = T2
+    game.tech(S0)(8) = T2
+    game.tech(S1)(1) = T1
+    game.tech(S1)(4) = T1
+    game.tech(S1)(7) = T1
+    game.tech(S1)(2) = T2
+    game.tech(S1)(5) = T2
+    game.tech(S1)(8) = T2
 
     var selected : Option[Piece] = None
     var mouse : Loc = Loc(0, 0)
@@ -339,7 +354,7 @@ object ClientMain extends JSApp {
         case Some(piece) =>
           val moves = board.legalMoves(piece, mouse)
           val distances = moves.transform { case (_k, (d, _not_has_enemy)) => d}
-          if(moves.contains(mouse) && moves(mouse)._2) {
+          if(moves.contains(piece.loc) && moves.contains(mouse) && moves(mouse)._2) {
             if(path.size==0 || path(0)!=piece.loc) {
               path = List(piece.loc)
             }
@@ -371,6 +386,33 @@ object ClientMain extends JSApp {
       ctx.setTransform(1,0,0,1,0,0)
       ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
       ctx.translate(translateOrigin.dx,translateOrigin.dy)
+
+      println(mouse)
+      // Techs / Reinforcements
+      for((pieceStats, i) <- Units.techs.view.zipWithIndex) {
+        val s0 = board.reinforcements(S0).filter(x => x == pieceStats).length
+        val s1 = board.reinforcements(S1).filter(x => x == pieceStats).length
+        val loc = Loc((i/2)+2, if(i%2==0) -3 else -2)
+        val color =
+          (game.tech(S0)(i), game.tech(S1)(i)) match {
+            case (T0, T0) => "#000000"
+            case (T0, T1) => "#770000"
+            case (T0, T2) => "#ff0000"
+            case (T1, T0) => "#000077"
+            case (T1, T1) => "#770077"
+            case (T1, T2) => "#ff0077"
+            case (T2, T0) => "#0000ff"
+            case (T2, T1) => "#7700ff"
+            case (T2, T2) => "#ff00ff"
+          }
+        drawHex(ctx, loc, color, tileScale)
+        text(ctx, i.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc), gridSize), "black")
+        text(ctx, s0.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(3) * pieceScale, gridSize), "blue")
+        text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(4) * techScale, gridSize), "blue")
+        text(ctx, s1.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(1) * pieceScale, gridSize), "red")
+        text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(0) * techScale, gridSize), "red")
+      }
+
       drawHex(ctx, mouse, "purple", tileScale)
       selected match {
         case None => ()
@@ -505,54 +547,27 @@ object ClientMain extends JSApp {
     canvas.onmousemove = mousemove _
     canvas.onmouseup = mouseup _
 
-    val zombie = PieceStats(
-      name = "zombie",
-      displayName = "Zombie",
-      attackEffect = Some(Damage(1)),
-      defense = 2,
-      moveRange = 5,
-      attackRange = 2,
-      cost = 2,
-      rebate = 0,
-      isNecromancer = false,
-      isFlying = true,
-      isLumbering = false,
-      isPersistent = false,
-      isEldritch = false,
-      isWailing = false,
-      hasFlurry = false,
-      hasBlink = false,
-      canHurtNecromancer = true,
-      swarmMax = 3, //Swarming 3 for testing
-      spawnRange = 0,
-      extraMana = 0,
-      deathSpawn = None,
-      freeSpawn = None,
-      abilities = Map.empty
-    )
-
-    //TODO from dwu to jpaulson: board.tiles(x,y) = z   -  syntatic sugar converts this into .update
     //TODO from dwu to jpaulson: Don't mutate directly, instead modify the terrain Plane to be what you want first
     //and then create the BoardState with the desired terain.
-    board.tiles.update(0, 0, Tile.create(ManaSpire))
-    board.tiles.update(0, 1, Tile.create(Wall))
-    board.tiles.update(2, 4, Tile.create(Wall))
-    board.tiles.update(1, 0, Tile.create(Water))
-    board.tiles.update(1, 1, Tile.create(Spawner(S0, zombie)))
-    board.tiles.update(2, 0, Tile.create(Spawner(S1, zombie)))
+    board.tiles(0, 0) = Tile.create(ManaSpire)
+    board.tiles(0, 1) = Tile.create(Wall)
+    board.tiles(2, 4) = Tile.create(Wall)
+    board.tiles(1, 0) = Tile.create(Water)
+    board.tiles(1, 1) = Tile.create(Spawner(S0, Units.zombie))
+    board.tiles(2, 0) = Tile.create(Spawner(S1, Units.zombie))
 
-    board.spawnPieceInitial(S0, zombie, Loc(2, 1))
-    board.spawnPieceInitial(S0, zombie, Loc(2, 2))
-    board.spawnPieceInitial(S0, zombie, Loc(2, 2))
+    board.spawnPieceInitial(S0, Units.zombie, Loc(2, 1))
+    board.spawnPieceInitial(S0, Units.zombie, Loc(2, 2))
+    board.spawnPieceInitial(S0, Units.zombie, Loc(2, 2))
 
-    board.spawnPieceInitial(S0, zombie, Loc(2, 3))
-    board.spawnPieceInitial(S0, zombie, Loc(2, 3))
-    board.spawnPieceInitial(S0, zombie, Loc(2, 3))
+    board.spawnPieceInitial(S0, Units.zombie, Loc(2, 3))
+    board.spawnPieceInitial(S0, Units.zombie, Loc(2, 3))
+    board.spawnPieceInitial(S0, Units.zombie, Loc(2, 3))
 
-    board.spawnPieceInitial(S1, zombie, Loc(3, 2))
-    board.spawnPieceInitial(S1, zombie, Loc(3, 4))
-    board.spawnPieceInitial(S1, zombie, Loc(1, 4))
-    board.spawnPieceInitial(S1, zombie, Loc(2, 5))
+    board.spawnPieceInitial(S1, Units.zombie, Loc(3, 2))
+    board.spawnPieceInitial(S1, Units.zombie, Loc(3, 4))
+    board.spawnPieceInitial(S1, Units.zombie, Loc(1, 4))
+    board.spawnPieceInitial(S1, Units.zombie, Loc(2, 5))
 
     showBoard(board)
     ()
