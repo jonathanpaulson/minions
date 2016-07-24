@@ -33,22 +33,24 @@ object ClientMain extends JSApp {
       terrain(0,1) = Wall
       terrain(2,4) = Wall
       terrain(1,0) = Water
-      terrain(1,1) = Spawner(S0, Units.zombie)
-      terrain(2,0) = Spawner(S1, Units.zombie)
+      terrain(1,1) = Spawner(S0, Units.test)
+      terrain(2,0) = Spawner(S1, Units.test)
 
       val boardState = BoardState.create(terrain)
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,1))
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,2))
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,2))
+      boardState.spawnPieceInitial(S0, Units.test, Loc(2,1))
+      boardState.spawnPieceInitial(S0, Units.test, Loc(2,2))
+      boardState.spawnPieceInitial(S0, Units.test, Loc(2,2))
 
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,3))
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,3))
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,3))
+      boardState.spawnPieceInitial(S0, Units.test, Loc(2,3))
+      boardState.spawnPieceInitial(S0, Units.test, Loc(2,3))
+      boardState.spawnPieceInitial(S0, Units.test, Loc(2,3))
 
-      boardState.spawnPieceInitial(S1, Units.zombie, Loc(3,2))
-      boardState.spawnPieceInitial(S1, Units.zombie, Loc(3,4))
-      boardState.spawnPieceInitial(S1, Units.zombie, Loc(1,4))
-      boardState.spawnPieceInitial(S1, Units.zombie, Loc(2,5))
+      boardState.spawnPieceInitial(S1, Units.wight, Loc(3,2))
+      boardState.spawnPieceInitial(S1, Units.test, Loc(3,4))
+      boardState.spawnPieceInitial(S1, Units.test, Loc(1,4))
+      boardState.spawnPieceInitial(S1, Units.test, Loc(2,5))
+
+      boardState.reinforcements(S0) = List(Units.wight)
 
       Board.create(boardState)
     }
@@ -170,10 +172,10 @@ object ClientMain extends JSApp {
                 if(path.length > 1) {
                   doActions(List(
                     Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector))),
-                    Attack(StartedTurnWithID(piece.id), other.loc, StartedTurnWithID(other.id))
+                    Attack(piece.spec, other.loc, other.spec)
                   ))
                 } else {
-                  doActions(List(Attack(StartedTurnWithID(piece.id), other.loc, StartedTurnWithID(other.id))))
+                  doActions(List(Attack(piece.spec, other.loc, other.spec)))
                 }
               }
           }

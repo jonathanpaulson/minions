@@ -86,7 +86,8 @@ object Drawing {
         case S1 => "red"
       }
     fillHex(ctx, hexLoc, pieceColor, scale)
-    text(ctx, piece.id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
+    text(ctx, piece.id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize)+PixelVec(0, gridSize/3.0), "black")
+    text(ctx, piece.curStats.displayName, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
   }
 
   private def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
