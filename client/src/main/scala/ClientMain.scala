@@ -26,8 +26,9 @@ object ClientMain extends JSApp {
     //How much to translate the canvas origin inward from the upper left corner.
     val translateOrigin = PixelVec(2.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
 
+    val topology = HexTopology
     val board = {
-      val terrain: Plane[Terrain] = Plane.create(10, 10, HexTopology, Ground)
+      val terrain: Plane[Terrain] = Plane.create(10, 10, topology, Ground)
       terrain(0,0) = ManaSpire
       terrain(0,1) = Wall
       terrain(2,4) = Wall
@@ -49,9 +50,7 @@ object ClientMain extends JSApp {
       boardState.spawnPieceInitial(S1, Units.zombie, Loc(1,4))
       boardState.spawnPieceInitial(S1, Units.zombie, Loc(2,5))
 
-      //TODO
-      //Board.create(boardState)
-      boardState
+      Board.create(boardState)
     }
 
     val game = Game(mana = SideArray.create(0), tech = SideArray.create(Array.fill[TechLevel](Units.techs.size)(T0)))
@@ -74,16 +73,16 @@ object ClientMain extends JSApp {
     var path : List[Loc] = List()
 
     def draw() = {
-      Drawing.drawEverything(canvas, ctx, board, game, translateOrigin, hoverLoc = Some(mouse), selected, path)
+      Drawing.drawEverything(canvas, ctx, board.curState, game, translateOrigin, hoverLoc = Some(mouse), selected, path)
     }
 
     // Update path to be a shortest path from [selected] to [mouse] that
     // shares the longest prefix with the current [path]
     def updatePath() : Unit = {
-      selected.flatMap { selected => board.findPiece(selected) } match {
+      selected.flatMap { selected => board.curState.findPiece(selected) } match {
         case None => ()
         case Some(piece) =>
-          val moves = board.legalMoves(piece, mouse)
+          val moves = board.curState.legalMoves(piece, mouse)
           val distances = moves.transform { case (_k, (d, _not_has_enemy)) => d}
           if(moves.contains(piece.loc) && moves.contains(mouse) && moves(mouse)._2) {
             if(path.size==0 || path(0)!=piece.loc) {
@@ -93,14 +92,14 @@ object ClientMain extends JSApp {
               path = path.init
             }
             while(path.last != mouse) {
-              for(p <- board.tiles.topology.adj(path.last)) {
+              for(p <- topology.adj(path.last)) {
                 if(distances.contains(p) && path.length-1 + distances(path.last) == path.length + distances(p)) {
                   path = path :+ p
                 }
               }
             }
           } else if(moves.contains(mouse) && !moves(mouse)._2) { // Enemy unit(s)
-            while(path.length > 1 && board.tiles.topology.distance(path.last, mouse) < piece.curStats.attackRange)
+            while(path.length > 1 && topology.distance(path.last, mouse) < piece.curStats.attackRange)
               path = path.init
           }
       }
@@ -118,7 +117,7 @@ object ClientMain extends JSApp {
       val hexLoc = mouseHexLoc(e)
       val loc = hexLoc.round()
       val hexDelta = hexLoc - loc
-      board.pieces(loc) match {
+      board.curState.pieces(loc) match {
         case Nil => None
         case p :: Nil => Some(p)
         case p1 :: p2 :: Nil =>
@@ -138,22 +137,22 @@ object ClientMain extends JSApp {
     }
 
     def mousedown(e : MouseEvent) : Unit = {
-      selected = mousePiece(e).filter(piece => piece.side == board.side).map(piece => piece.spec)
+      selected = mousePiece(e).filter(piece => piece.side == board.curState.side).map(piece => piece.spec)
       draw()
     }
     def mouseup(e : MouseEvent) : Unit = {
-      def doActions(actions : Seq[PlayerAction]) : Unit = {
+      def doActions(actions : List[PlayerAction]) : Unit = {
         selected = None
         path = List()
-        board.doActions(actions) match {
+        board.doAction(PlayerActions(actions)) match {
           case Success(()) => ()
           case Failure(error) =>
             println(error)
         }
       }
-      selected.flatMap(spec => board.findPiece(spec)) match {
+      selected.flatMap(spec => board.curState.findPiece(spec)) match {
         case None =>
-          selected = mousePiece(e).filter(piece => piece.side == board.side).map(piece => piece.spec)
+          selected = mousePiece(e).filter(piece => piece.side == board.curState.side).map(piece => piece.spec)
         case Some(piece) =>
           mousePiece(e) match {
             case None => doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector)))))
