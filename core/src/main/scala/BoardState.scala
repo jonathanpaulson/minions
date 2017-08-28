@@ -640,6 +640,7 @@ class BoardState private (
 
             val attackerStats = attacker.curStats
             val targetStats = target.curStats
+            failIf(attackerStats.attackEffect.isEmpty || attackerStats.numAttacks == 0, "Piece cannot attack")
             failIf(attackerStats.attackRange <= 0, "Piece cannot attack")
             failIf(attackerStats.isLumbering && attacker.hasMoved, "Lumbering pieces cannot both move and attack on the same turn")
 
@@ -647,7 +648,7 @@ class BoardState private (
             attacker.actState match {
               case Moving(_) => ()
               case Attacking(numAttacks) =>
-                //Quick termination and slightly more specific err message
+                //Slightly more specific err message
                 failIf(attackerStats.numAttacks == 1 && numAttacks > 0, "Piece already attacked")
                 //Fuller check
                 failIf(numAttacks >= attackerStats.numAttacks, "Piece already assigned all of its attacks")
@@ -776,12 +777,7 @@ class BoardState private (
           piece.loc = dest
           piece.hasMoved = true
           piece.actState = piece.actState match {
-            //TODO dwu: This will be a bug because if a vampire uses all its movement, you'd like
-            //it to be able to continue to move if you then sorcery it, but nextGoodActState will
-            //put it at Attacking(0).
-            //Probably do away with nextGoodActState and just ensure everything is capable of handling
-            //act states that might not be maxmimally moved forward.
-            case Moving(n) => nextGoodActState(piece,Moving(n + movement.path.length - 1))
+            case Moving(n) => Moving(n + movement.path.length - 1)
             case Attacking(_) | Spawning | DoneActing => assertUnreachable()
           }
         }
@@ -793,8 +789,8 @@ class BoardState private (
         applyEffect(attackEffect,target)
         attacker.hasAttacked = true
         attacker.actState = attacker.actState match {
-          case Moving(_) => nextGoodActState(attacker,Attacking(1))
-          case Attacking(n) => nextGoodActState(attacker,Attacking(n+1))
+          case Moving(_) => Attacking(1)
+          case Attacking(n) => Attacking(n+1)
           case Spawning | DoneActing => assertUnreachable()
         }
         if(stats.hasBlink)
@@ -843,31 +839,6 @@ class BoardState private (
           played.spellId.foreach { id => spells(side) = spells(side) - id }
         }
     }
-  }
-
-  //Find the next good act state of a piece >= the one specified that makes sense given its stats
-  private def nextGoodActState(piece: Piece, actState: ActState): ActState = {
-    val stats = piece.curStats
-    def loop(actState: ActState): ActState = {
-      actState match {
-        case DoneActing => DoneActing
-        case Spawning => Spawning
-        case Attacking(numAttacks) =>
-          if(stats.attackEffect.isEmpty ||
-            stats.attackRange <= 0 ||
-            stats.isLumbering && piece.hasMoved ||
-            numAttacks >= stats.numAttacks)
-            loop(Spawning)
-          else
-            Attacking(numAttacks)
-        case Moving(numSteps) =>
-          if(numSteps >= stats.moveRange)
-            loop(Attacking(0))
-          else
-            Moving(numSteps)
-      }
-    }
-    loop(actState)
   }
 
   private def applyEffect(effect: TargetEffect, piece: Piece): Unit = {
@@ -964,7 +935,7 @@ class BoardState private (
 
   private def refreshPieceForStartOfTurn(piece: Piece): Unit = {
     piece.damage = 0
-    piece.actState = nextGoodActState(piece,Moving(0))
+    piece.actState = Moving(0)
     piece.hasMoved = false
     piece.hasAttacked = false
     piece.hasFreeSpawned = false
