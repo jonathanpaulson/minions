@@ -140,7 +140,7 @@ class Board private (
                   //If move/attacks fail, then they're flat-out illegal
                   newMoveAttackState.doAction(playerAction).get
                   moveAttackActionsRev = playerAction :: moveAttackActionsRev
-                case Spawn(_,_,_) =>
+                case Spawn(_,_) =>
                   delayedToSpawnRev = playerAction :: delayedToSpawnRev
                 case SpellsAndAbilities(_) =>
                   //When spells fail, it may be because they are targeting units only placed during spawn

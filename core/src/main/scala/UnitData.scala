@@ -10,6 +10,7 @@ object Units {
     defense = 2,
     moveRange = 5,
     attackRange = 2,
+    numAttacks = 1,
     cost = 2,
     rebate = 0,
     isNecromancer = false,
@@ -18,14 +19,12 @@ object Units {
     isPersistent = false,
     isEldritch = false,
     isWailing = false,
-    hasFlurry = false,
     hasBlink = false,
     canHurtNecromancer = true,
     swarmMax = 3, //Swarming 3 for testing
     spawnRange = 0,
     extraMana = 0,
     deathSpawn = None,
-    freeSpawn = None,
     abilities = Map.empty
   )
 
@@ -36,6 +35,7 @@ object Units {
     defense = 1,
     moveRange = 3,
     attackRange = 1,
+    numAttacks = 1,
     cost = 4,
     rebate = 2,
     isNecromancer = false,
@@ -44,14 +44,12 @@ object Units {
     isPersistent = false,
     isEldritch = false,
     isWailing = false,
-    hasFlurry = false,
     hasBlink = false,
     canHurtNecromancer = true,
     swarmMax = 1,
     spawnRange = 0,
     extraMana = 0,
     deathSpawn = None,
-    freeSpawn = None,
     abilities = Map.empty
   )
   val techs = List(bat, bat, bat, bat, bat, bat, bat, bat, bat)

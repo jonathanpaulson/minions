@@ -54,13 +54,13 @@ with Ordered[SpawnedThisTurn] {
   * Notes:
   * Movements: movements is a list because we need to support piece swaps, triangular rotations, etc.
   * Attack: self-explanatory
-  * Spawn: freeSpawnerSpec should only be specified if spawning something for free, like the per-turn zombie from a graveyard.
+  * Spawn: self-explanatory
   * SpellsAndAbilities: spellsAndAbilities is a list because we need to support playing sorceries and cantrips together.
   */
 sealed trait PlayerAction
 case class Movements(movements: List[Movement]) extends PlayerAction
 case class Attack(attackerSpec: PieceSpec, targetLoc: Loc, targetSpec: PieceSpec) extends PlayerAction
-case class Spawn(spawnLoc: Loc, spawnStats: PieceStats, freeSpawnerSpec: Option[PieceSpec]) extends PlayerAction
+case class Spawn(spawnLoc: Loc, spawnStats: PieceStats) extends PlayerAction
 case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
 
 //Note: path should contain both the start and ending location
@@ -86,14 +86,12 @@ object PlayerAction {
       case Movements(movements) =>
         movements.exists { case Movement(pSpec, _) => pieceSpec == pSpec }
       case Attack(aSpec,_,tSpec) => pieceSpec == aSpec || pieceSpec == tSpec
-      case Spawn(spawnLoc,spawnStats,fSpec) =>
-        fSpec.exists { fSpec => pieceSpec == fSpec } || (
-          pieceSpec match {
-            case StartedTurnWithID(_) => false
-            //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex with that name.
-            case SpawnedThisTurn(name,sLoc,_) => name == spawnStats.name && sLoc == spawnLoc
-          }
-        )
+      case Spawn(spawnLoc,spawnStats) =>
+        pieceSpec match {
+          case StartedTurnWithID(_) => false
+          //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex with that name.
+          case SpawnedThisTurn(name,sLoc,_) => name == spawnStats.name && sLoc == spawnLoc
+        }
       case SpellsAndAbilities(spellsAndAbilities) =>
         spellsAndAbilities.exists { played =>
           played.pieceSpecAndKey.exists { case (pSpec,_) => pieceSpec == pSpec } ||
@@ -519,15 +517,6 @@ class BoardState private (
     pieceStats.swarmMax > 1 && otherStats.swarmMax > 1 && pieceStats.name == otherStats.name
   }
 
-  //None means unlimited
-  private def numAttacksLimit(attackEffect: Option[TargetEffect], hasFlurry: Boolean): Option[Int] = {
-    attackEffect match {
-      case None => Some(0)
-      case Some(Kill | Unsummon | Enchant(_) | TransformInto(_)) => if(hasFlurry) None else Some(1)
-      case Some(Damage(n)) => if(hasFlurry) Some(n) else Some(1)
-    }
-  }
-
   //Raises an exception to indicate illegality. Used in tryLegality.
   private def trySpellTargetLegalityExn(spell: Spell, played: PlayedSpellOrAbility): Unit = {
     spell match {
@@ -654,16 +643,14 @@ class BoardState private (
             failIf(attackerStats.attackRange <= 0, "Piece cannot attack")
             failIf(attackerStats.isLumbering && attacker.hasMoved, "Lumbering pieces cannot both move and attack on the same turn")
 
-            //Check attack state + flurry
+            //Check attack state
             attacker.actState match {
               case Moving(_) => ()
               case Attacking(numAttacks) =>
                 //Quick termination and slightly more specific err message
-                failIf(!attackerStats.hasFlurry && numAttacks > 0, "Piece already attacked")
+                failIf(attackerStats.numAttacks == 1 && numAttacks > 0, "Piece already attacked")
                 //Fuller check
-                numAttacksLimit(attackerStats.attackEffect,attackerStats.hasFlurry).foreach { limit =>
-                  failIf(numAttacks >= limit, "Piece already assigned all of its attacks")
-                }
+                failIf(numAttacks >= attackerStats.numAttacks, "Piece already assigned all of its attacks")
               case Spawning | DoneActing =>
                 fail("Piece has already acted or cannot attack any more this turn")
             }
@@ -683,7 +670,7 @@ class BoardState private (
             failIf(!attackerStats.canHurtNecromancer && targetStats.isNecromancer, "Piece not allowed to hurt necromancer")
         }
 
-      case Spawn(spawnLoc, spawnStats, freeSpawnerSpec) =>
+      case Spawn(spawnLoc, spawnStats) =>
         //A bunch of tests that don't depend on the spawner or on reinforcements state
         trySpawnLegality(side, spawnStats, spawnLoc)
 
@@ -695,19 +682,8 @@ class BoardState private (
           else Success(())
         }
 
-        freeSpawnerSpec match {
-          case None =>
-            failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No piece with spawn in range")
-            failUnless(reinforcements(side).contains(spawnStats), "No such piece in reinforcements")
-          case Some(freeSpawnerSpec) =>
-            findPiece(freeSpawnerSpec) match {
-              case None => fail("Free spawning using a nonexistent or dead piece")
-              case Some(freeSpawner) =>
-                trySpawnUsing(freeSpawner).get : Unit
-                failIf(freeSpawner.hasFreeSpawned, "Piece has already free-spawned")
-                failUnless(freeSpawner.curStats.freeSpawn.contains(spawnStats), "Free-spawning piece of the wrong type")
-            }
-        }
+        failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No piece with spawn in range")
+        failUnless(reinforcements(side).contains(spawnStats), "No such piece in reinforcements")
 
       case SpellsAndAbilities(spellsAndAbilities) =>
         //Ensure no spells played more than once
@@ -813,10 +789,7 @@ class BoardState private (
         val attacker = findPiece(attackerSpec).get
         val target = findPiece(targetSpec).get
         val stats = attacker.curStats
-        val attackEffect = stats.attackEffect.get match {
-          case Damage(n) => if(stats.hasFlurry) Damage(n) else Damage(1) //flurry hits 1 at a time
-          case x => x
-        }
+        val attackEffect = stats.attackEffect.get
         applyEffect(attackEffect,target)
         attacker.hasAttacked = true
         attacker.actState = attacker.actState match {
@@ -827,18 +800,12 @@ class BoardState private (
         if(stats.hasBlink)
           blinkPiece(attacker)
 
-      case Spawn(spawnLoc, spawnStats, freeSpawnerSpec) =>
+      case Spawn(spawnLoc, spawnStats) =>
         spawnPieceInternal(side,spawnStats,spawnLoc) match {
           case Success(_: Piece) => ()
           case Failure(_) => assertUnreachable()
         }
-        freeSpawnerSpec match {
-          case None =>
-            reinforcements(side).filterNotFirst { stats => stats == spawnStats }
-          case Some(spawnerSpec) =>
-            val spawner = findPiece(spawnerSpec).get
-            spawner.hasFreeSpawned = true
-        }
+        reinforcements(side).filterNotFirst { stats => stats == spawnStats }
         val message = "Spawned %s on %s".format(spawnStats.name,spawnLoc.toString())
         addMessage(message,PlayerActionMsgType(side))
 
@@ -889,7 +856,7 @@ class BoardState private (
           if(stats.attackEffect.isEmpty ||
             stats.attackRange <= 0 ||
             stats.isLumbering && piece.hasMoved ||
-            numAttacksLimit(stats.attackEffect, stats.hasFlurry).exists { limit => numAttacks >= limit })
+            numAttacks >= stats.numAttacks)
             loop(Spawning)
           else
             Attacking(numAttacks)
