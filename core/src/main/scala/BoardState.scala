@@ -508,7 +508,7 @@ class BoardState private (
 
   //Similar to legalMoves but finds a shortest path whose destination satisfies the desired predicate.
   def findLegalMove(piece : Piece, pathBias: List[Loc])(f: Loc => Boolean): Option[List[Loc]] = {
-    forEachLegalMoveHelper(piece,List()) { case (loc,revPath) =>
+    forEachLegalMoveHelper(piece,pathBias) { case (loc,revPath) =>
       if(f(loc)) {
         return Some(revPath.reverse)
       }

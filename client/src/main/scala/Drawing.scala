@@ -120,8 +120,6 @@ object Drawing {
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
     ctx.translate(translateOrigin.dx,translateOrigin.dy)
 
-    hoverLoc.foreach { hoverLoc => println(hoverLoc) }
-
     //Techs / Reinforcements
     for((pieceStats, i) <- Units.techs.view.zipWithIndex) {
       val s0 = board.reinforcements(S0).filter(x => x == pieceStats).length

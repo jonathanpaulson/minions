@@ -161,8 +161,6 @@ object ClientMain extends JSApp {
     }
     def mouseup(e : MouseEvent) : Unit = {
       def doActions(actions : List[PlayerAction]) : Unit = {
-        selectedSpec = None
-        path = List()
         board.doAction(PlayerActions(actions)) match {
           case Success(()) => ()
           case Failure(error) => println(error)
@@ -172,22 +170,28 @@ object ClientMain extends JSApp {
         case None => ()
         case Some(piece) =>
           mousePiece(e) match {
-            case None => doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
+            case None =>
+              if(path.length > 1)
+                doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
             case Some(other) =>
               if(other.side == piece.side) {
-                doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
-              } else {
+                if(path.length > 1)
+                  doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
+              }
+              else {
                 if(path.length > 1) {
                   doActions(List(
                     Movements(List(Movement(piece.spec, path.toVector))),
                     Attack(piece.spec, other.loc, other.spec)
                   ))
-                } else {
-                  doActions(List(Attack(piece.spec, other.loc, other.spec)))
                 }
+                else
+                  doActions(List(Attack(piece.spec, other.loc, other.spec)))
               }
           }
       }
+      selectedSpec = None
+      path = List()
       draw()
     }
     def mousemove(e : MouseEvent) : Unit = {
