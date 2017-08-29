@@ -68,42 +68,53 @@ object ClientMain extends JSApp {
     game.tech(S1)(5) = T2
     game.tech(S1)(8) = T2
 
-    var selected : Option[PieceSpec] = None
+    //Mouse movement path state
+    var selectedSpec : Option[PieceSpec] = None
     var hoverLoc : Option[Loc] = None
-    var hoverPiece : Option[PieceSpec] = None
+    var hoverSpec : Option[PieceSpec] = None
     var path : List[Loc] = List()
 
     def draw() = {
-      Drawing.drawEverything(canvas, ctx, board.curState, game, translateOrigin, hoverLoc, hoverPiece, selected, path)
+      Drawing.drawEverything(canvas, ctx, board.curState, game, translateOrigin, hoverLoc, hoverSpec, selectedSpec, path)
     }
 
-    // Update path to be a shortest path from [selected] to [hoverLoc] that
-    // shares the longest prefix with the current [path]
+    //Update path to be a shortest path from [selected] to [hoverLoc] that
+    //shares the longest prefix with the current [path]
     def updatePath() : Unit = {
-      (selected.flatMap(selected => board.curState.findPiece(selected)), hoverLoc) match {
+      val selectedPiece = selectedSpec.flatMap(spec => board.curState.findPiece(spec))
+      val hoverPiece = hoverSpec.flatMap(spec => board.curState.findPiece(spec))
+      (selectedPiece, hoverLoc) match {
         case (None,_) | (_,None) =>
           //If no piece is selected or the mouse is nowhere to be found, then clear the path
           path = List()
-        case (Some(piece), Some(hoverLoc)) =>
-          val moves = board.curState.legalMoves(piece, hoverLoc)
-          val distances = moves.transform { case (_k, (d, _not_has_enemy)) => d}
-          if(moves.contains(piece.loc) && moves.contains(hoverLoc) && moves(hoverLoc)._2) {
-            if(path.size==0 || path(0)!=piece.loc) {
-              path = List(piece.loc)
-            }
-            while(path.length > 1 && distances(piece.loc) != path.length-1 + distances(path.last)) {
-              path = path.init
-            }
-            while(path.last != hoverLoc) {
-              for(p <- topology.adj(path.last)) {
-                if(distances.contains(p) && path.length-1 + distances(path.last) == path.length + distances(p)) {
-                  path = path :+ p
+
+        case (Some(selectedPiece), Some(hoverLoc)) =>
+          val newLegalMove = {
+            hoverPiece match {
+              case None =>
+                //Ordinary move to location
+                board.curState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
+              case Some(hoverPiece) =>
+                //Merge into friendly swarm
+                if(hoverPiece.side == selectedPiece.side)
+                  board.curState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
+                //Attack enemy piece
+                else {
+                  if(!board.curState.canAttack(selectedPiece.curStats,attackerHasMoved=false,selectedPiece.actState,hoverPiece.curStats))
+                    None
+                  else {
+                    board.curState.findLegalMove(selectedPiece,pathBias=path) { loc =>
+                      topology.distance(loc, hoverLoc) <= selectedPiece.curStats.attackRange &&
+                      (loc == selectedPiece.loc || !selectedPiece.curStats.isLumbering)
+                    }
+                  }
                 }
-              }
             }
-          } else if(moves.contains(hoverLoc) && !moves(hoverLoc)._2) { // Enemy unit(s)
-            while(path.length > 1 && topology.distance(path.last, hoverLoc) < piece.curStats.attackRange)
-              path = path.init
+          }
+          newLegalMove match {
+            case None => ()
+            case Some(newPath) =>
+              path = newPath
           }
       }
     }
@@ -144,36 +155,35 @@ object ClientMain extends JSApp {
     }
 
     def mousedown(e : MouseEvent) : Unit = {
-      selected = mousePiece(e).filter(piece => piece.side == board.curState.side).map(piece => piece.spec)
+      selectedSpec = mousePiece(e).filter(piece => piece.side == board.curState.side).map(piece => piece.spec)
       path = List()
       draw()
     }
     def mouseup(e : MouseEvent) : Unit = {
       def doActions(actions : List[PlayerAction]) : Unit = {
-        selected = None
+        selectedSpec = None
         path = List()
         board.doAction(PlayerActions(actions)) match {
           case Success(()) => ()
-          case Failure(error) =>
-            println(error)
+          case Failure(error) => println(error)
         }
       }
-      selected.flatMap(spec => board.curState.findPiece(spec)) match {
+      selectedSpec.flatMap(spec => board.curState.findPiece(spec)) match {
         case None => ()
         case Some(piece) =>
           mousePiece(e) match {
-            case None => doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector)))))
+            case None => doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
             case Some(other) =>
               if(other.side == piece.side) {
-                doActions(List(Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector)))))
+                doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
               } else {
                 if(path.length > 1) {
                   doActions(List(
-                    Movements(List(Movement(StartedTurnWithID(piece.id), path.toVector))),
-                    Attack(StartedTurnWithID(piece.id), other.loc, StartedTurnWithID(other.id))
+                    Movements(List(Movement(piece.spec, path.toVector))),
+                    Attack(piece.spec, other.loc, other.spec)
                   ))
                 } else {
-                  doActions(List(Attack(StartedTurnWithID(piece.id), other.loc, StartedTurnWithID(other.id))))
+                  doActions(List(Attack(piece.spec, other.loc, other.spec)))
                 }
               }
           }
@@ -182,14 +192,14 @@ object ClientMain extends JSApp {
     }
     def mousemove(e : MouseEvent) : Unit = {
       hoverLoc = Some(mouseHexLoc(e).round())
-      hoverPiece = mousePiece(e).map(piece => piece.spec)
+      hoverSpec = mousePiece(e).map(piece => piece.spec)
       updatePath()
       draw()
     }
     def mouseout(e : MouseEvent) : Unit = {
       hoverLoc = None
-      hoverPiece = None
-      selected = None
+      hoverSpec = None
+      selectedSpec = None
       updatePath()
       draw()
     }

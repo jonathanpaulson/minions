@@ -188,10 +188,9 @@ object Drawing {
     selectedPiece match {
       case None => ()
       case Some(piece) =>
-        for((loc, (_d, can_land)) <- board.legalMoves(piece, piece.loc)) {
-          if(can_land) {
-            fillHex(ctx, loc, "yellow", tileScale, 0.1)
-          }
+        val moves = board.legalMoves(piece)
+        for((loc,_) <- moves) {
+          fillHex(ctx, loc, "yellow", tileScale, 0.1)
         }
     }
 

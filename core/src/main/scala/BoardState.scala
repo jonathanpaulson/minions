@@ -260,6 +260,8 @@ object BoardState {
       if(b) throw new Exception(message)
     def fail(message: String) =
       throw new Exception(message)
+    def failed[U](message: String): Try[U] =
+      Failure(new Exception(message))
   }
 }
 import BoardState.Imports._
@@ -462,14 +464,10 @@ class BoardState private (
     }
   }
 
-  //Find the set of all legal locations that a piece can end on or move through, along with
-  //the number of steps to reach the location and whether or not they can actually end
-  //on that square (as opposed to only moving through it)
-  def legalMoves(piece : Piece, loc : Loc) : Map[Loc, (Int, Boolean)] = {
+  private def forEachLegalMoveHelper(piece: Piece, pathBias: List[Loc])(f: (Loc,List[Loc]) => Unit): Unit = {
     assert(piece.board eq this);
-    val q = scala.collection.mutable.Queue[(Loc, Int)]()
+    val q = scala.collection.mutable.Queue[(Loc, Int, List[Loc])]()
     val seen = scala.collection.mutable.HashSet[Loc]()
-    val ans = scala.collection.mutable.HashMap[Loc, (Int, Boolean)]()
 
     val pieceStats = piece.curStats
 
@@ -479,22 +477,87 @@ class BoardState private (
     }
 
     //Breadth first floodfill
-    q += ((loc, 0))
+    q += ((piece.loc, 0, List()))
     while(!q.isEmpty) {
-      val (x,d) = q.dequeue
-      if(tiles.inBounds(x) && !seen.contains(x)) {
-        seen += x
-        val terrain_ok = canWalkOnTile(pieceStats, tiles(x))
-        val has_enemy = pieces(x).exists { other => other.side != piece.side }
-        val within_range = d <= range
-        if(terrain_ok && within_range && (!has_enemy || pieceStats.isFlying)) {
-          ans(x) = (d, !has_enemy)
-          if(d < range)
-            topology.forEachAdj(x) { y => q.enqueue((y, d+1)) }
+      val (loc,d,revPath) = q.dequeue
+      if(tiles.inBounds(loc) && !seen.contains(loc)) {
+        seen += loc
+        if(canMoveThroughLoc(piece,loc)) {
+          val nextRevPath = loc :: revPath
+          if(canEndOnLoc(piece.side,piece.spec,piece.curStats,loc,List()))
+            f(loc,nextRevPath)
+
+          if(d < range) {
+            //Enqueue locations that we're biased to prefer first, so that we try those paths first.
+            topology.forEachAdj(loc) { y => if(pathBias.contains(y)) q.enqueue((y, d+1, nextRevPath)) }
+            topology.forEachAdj(loc) { y => q.enqueue((y, d+1, nextRevPath)) }
+          }
         }
       }
     }
+  }
+
+  //Find the set of all legal locations that a piece can move to, along with the number of steps to reach the location
+  def legalMoves(piece : Piece) : Map[Loc, Int] = {
+    val ans = scala.collection.mutable.HashMap[Loc, Int]()
+    forEachLegalMoveHelper(piece,List()) { case (loc,revPath) =>
+      ans(loc) = revPath.length
+    }
     Map() ++ ans
+  }
+
+  //Similar to legalMoves but finds a shortest path whose destination satisfies the desired predicate.
+  def findLegalMove(piece : Piece, pathBias: List[Loc])(f: Loc => Boolean): Option[List[Loc]] = {
+    forEachLegalMoveHelper(piece,List()) { case (loc,revPath) =>
+      if(f(loc)) {
+        return Some(revPath.reverse)
+      }
+    }
+    None
+  }
+
+  def canAttack(attackerStats: PieceStats, attackerHasMoved: Boolean, attackerState: ActState, targetStats: PieceStats): Boolean = {
+    tryCanAttack(attackerStats, attackerHasMoved, attackerState, targetStats).isSuccess
+  }
+
+  def tryCanAttack(attackerStats: PieceStats, attackerHasMoved: Boolean, attackerState: ActState, targetStats: PieceStats): Try[Unit] = {
+    if(attackerStats.attackEffect.isEmpty || attackerStats.numAttacks == 0) failed("Piece cannot attack")
+    else if(attackerStats.attackRange <= 0) failed("Piece cannot attack")
+    else if(attackerStats.isLumbering && attackerHasMoved) failed("Lumbering pieces cannot both move and attack on the same turn")
+    else {
+      val result = attackerState match {
+        case Moving(_) => Success(())
+        case Attacking(numAttacks) =>
+          //Slightly more specific err message
+          if(attackerStats.numAttacks == 1 && numAttacks > 0) failed("Piece already attacked")
+          //Fuller check
+          else if(numAttacks >= attackerStats.numAttacks) failed("Piece already assigned all of its attacks")
+          else Success(())
+        case Spawning | DoneActing =>
+          failed("Piece has already acted or cannot attack any more this turn")
+      }
+      result.flatMap { case () =>
+        val result2 = attackerStats.attackEffect match {
+          case None => failed("Piece cannot attack")
+          case Some(Damage(_)) => Success(())
+          case Some(Kill) =>
+            if(targetStats.isNecromancer) failed("Death attacks cannot hurt necromancers")
+            else Success(())
+          case Some(Unsummon) =>
+            if(targetStats.isPersistent) failed("Target is persistent - cannot be unsummoned")
+            else Success(())
+          case Some(Enchant(_)) => Success(())
+          case Some(TransformInto(_)) =>
+            if(targetStats.isNecromancer) failed("Necromancers cannot be transformed")
+            else Success(())
+        }
+        result2.flatMap { case () =>
+          if(attackerStats.isWailing && targetStats.isNecromancer) failed("Wailing pieces cannot hurt necromancers")
+          else if(!attackerStats.canHurtNecromancer && targetStats.isNecromancer) failed("Piece not allowed to hurt necromancer")
+          else Success(())
+        }
+      }
+    }
   }
 
   def inBounds(loc: Loc): Boolean = {
@@ -513,8 +576,76 @@ class BoardState private (
       case Water => pieceStats.isFlying
     }
   }
+  private def tryCanWalkOnTile(pieceStats: PieceStats, tile: Tile): Try[Unit] = {
+    tile.terrain match {
+      case Wall => failed("Cannot move or spawn through borders")
+      case Ground | ManaSpire | Spawner(_,_) => Success(())
+      case Water => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
+    }
+  }
+
+  private def canMoveThroughLoc(piece: Piece, loc: Loc): Boolean = {
+    canWalkOnTile(piece.curStats,tiles(loc)) &&
+    (piece.curStats.isFlying || pieces(loc).forall { other => other.side == piece.side })
+  }
+  private def tryCanMoveThroughLoc(piece: Piece, loc: Loc): Try[Unit] = {
+    tryCanWalkOnTile(piece.curStats,tiles(loc)).flatMap { case () =>
+      if(piece.curStats.isFlying || pieces(loc).forall { other => other.side == piece.side }) Success(())
+      else failed("Non-flying pieces cannot move through enemies")
+    }
+  }
+
   private def canSwarmTogether(pieceStats: PieceStats, otherStats: PieceStats): Boolean = {
     pieceStats.swarmMax > 1 && otherStats.swarmMax > 1 && pieceStats.name == otherStats.name
+  }
+
+  private def canSwarmToLoc(pieceSpec: PieceSpec, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Boolean = {
+    var piecesOnFinalSquare = 1
+    var minSwarmMax = pieceStats.swarmMax
+    def pieceIfMovingTo(pieceSpec: PieceSpec, path: Vector[Loc], dest: Loc): Option[Piece] =
+      if(path.length > 0 && path.last == dest) findPiece(pieceSpec)
+      else None
+    def okSwarmer(otherStats: PieceStats): Boolean = {
+      if(!canSwarmTogether(otherStats,pieceStats)) false
+      else {
+        piecesOnFinalSquare += 1
+        minSwarmMax = Math.min(minSwarmMax,otherStats.swarmMax)
+        true
+      }
+    }
+    val ok = {
+      pieces(loc).forall { other =>
+        if(other.spec == pieceSpec) true
+        else if(simultaneousMovements.exists { case Movement(spec,_) => pieceSpec == spec }) true
+        else okSwarmer(other.curStats)
+      } && simultaneousMovements.forall { case Movement(otherSpec,otherPath) =>
+          if(pieceSpec == otherSpec) true
+          else pieceIfMovingTo(otherSpec,otherPath,loc).forall { other => okSwarmer(other.curStats) }
+      }
+    }
+    ok && piecesOnFinalSquare <= minSwarmMax
+  }
+
+  private def canEndOnLoc(side: Side, pieceSpec: PieceSpec, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Boolean = {
+    tiles.inBounds(loc) &&
+    canWalkOnTile(pieceStats,tiles(loc)) &&
+    pieces(loc).forall { other => other.side == side } &&
+    canSwarmToLoc(pieceSpec,pieceStats,loc,simultaneousMovements)
+  }
+  private def tryCanEndOnLoc(side: Side, pieceSpec: PieceSpec, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Try[Unit] = {
+    if(!tiles.inBounds(loc)) failed("Location not in bounds")
+    else {
+      tryCanWalkOnTile(pieceStats,tiles(loc)).flatMap { case () =>
+        if(!pieces(loc).forall { other => other.side == side }) failed("Piece would end in the same space as enemies")
+        else {
+          if(!canSwarmToLoc(pieceSpec,pieceStats,loc,simultaneousMovements)) {
+            if(pieceStats.swarmMax > 1) failed("Pieces cannot swarm together or too many in the same space")
+            else failed("Piece would end in same space as other pieces")
+          }
+          else Success(())
+        }
+      }
+    }
   }
 
   //Raises an exception to indicate illegality. Used in tryLegality.
@@ -535,20 +666,10 @@ class BoardState private (
 
   //Raises an exception to indicate illegality. Doesn't test reinforcements (since other things can
   //cause spawns, such as death spawns, this functions handles the most general tests).
-  private def trySpawnLegality(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Unit = {
-    failUnless(tiles.inBounds(spawnLoc), "Spawn location not in bounds")
-
-    failUnless(pieces(spawnLoc).forall { other => other.side == spawnSide },
-      "Cannot spawn on to spaces with enemies")
-    failUnless(canWalkOnTile(spawnStats,tiles(spawnLoc)), "Non-flying pieces cannot spawn over obstacles")
-
-    //Count pieces for swarm
-    var minSwarmMax = spawnStats.swarmMax
-    pieces(spawnLoc).foreach { other =>
-      failUnless(canSwarmTogether(other.curStats,spawnStats), "Piece would spawn in same space as other pieces")
-      minSwarmMax = Math.min(minSwarmMax,other.curStats.swarmMax)
-    }
-    failIf(pieces(spawnLoc).length + 1 > minSwarmMax, "Would exceed maximum allowed swarming pieces in same space")
+  private def trySpawnLegalityExn(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Unit = {
+    //Make up a fake spec that won't match anything else
+    val pieceSpec = SpawnedThisTurn(spawnStats.name, spawnLoc, nthAtLoc = -1)
+    tryCanEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnLoc, List()).get
   }
 
   //Check if a single action is legal
@@ -596,35 +717,9 @@ class BoardState private (
               }
 
               //Check spaces along the path
-              path.foreach { loc =>
-                //Tiles are all walkable by this piece
-                failUnless(canWalkOnTile(pieceStats,tiles(loc)), "Non-flying pieces cannot move over obstacles")
-                failUnless(pieceStats.isFlying || pieces(loc).forall { other => other.side == piece.side },
-                  "Non-flying pieces cannot move through enemies")
-              }
-              failUnless(pieces(path.last).forall { other => other.side == piece.side },
-                "Cannot move on to spaces with enemies")
-
-              //Count pieces on final destination for swarm
-              var piecesOnFinalSquare = 1
-              var minSwarmMax = pieceStats.swarmMax
-              pieces(dest).foreach { other =>
-                if(!isMovingNow(other)) {
-                  failUnless(canSwarmTogether(other.curStats,pieceStats), "Piece would end in same space as other pieces")
-                  piecesOnFinalSquare += 1
-                  minSwarmMax = Math.min(minSwarmMax,other.curStats.swarmMax)
-                }
-              }
-              movements.foreach { case Movement(otherSpec,otherPath) =>
-                if(pieceSpec != otherSpec) {
-                  pieceIfMovingTo(otherSpec,otherPath,dest).foreach { other =>
-                    failUnless(canSwarmTogether(other.curStats,pieceStats), "Piece would end in same space as other pieces")
-                    piecesOnFinalSquare += 1
-                    minSwarmMax = Math.min(minSwarmMax,other.curStats.swarmMax)
-                  }
-                }
-              }
-              failIf(piecesOnFinalSquare > minSwarmMax, "Would exceed maximum allowed swarming pieces in same space")
+              path.foreach { loc => tryCanMoveThroughLoc(piece, loc).get}
+              //Check space at the end of the path
+              tryCanEndOnLoc(piece.side, piece.spec, piece.curStats, path.last, movements).get
           }
         }
 
@@ -637,43 +732,16 @@ class BoardState private (
             failUnless(target.side != side, "Target piece is friendly")
             failUnless(tiles.inBounds(targetLoc), "Target location not in bounds")
             failUnless(target.loc == targetLoc, "Target piece is not or is no longer in the right spot")
+            failUnless(topology.distance(attacker.loc,targetLoc) <= attacker.curStats.attackRange, "Attack range not large enough")
 
             val attackerStats = attacker.curStats
             val targetStats = target.curStats
-            failIf(attackerStats.attackEffect.isEmpty || attackerStats.numAttacks == 0, "Piece cannot attack")
-            failIf(attackerStats.attackRange <= 0, "Piece cannot attack")
-            failIf(attackerStats.isLumbering && attacker.hasMoved, "Lumbering pieces cannot both move and attack on the same turn")
-
-            //Check attack state
-            attacker.actState match {
-              case Moving(_) => ()
-              case Attacking(numAttacks) =>
-                //Slightly more specific err message
-                failIf(attackerStats.numAttacks == 1 && numAttacks > 0, "Piece already attacked")
-                //Fuller check
-                failIf(numAttacks >= attackerStats.numAttacks, "Piece already assigned all of its attacks")
-              case Spawning | DoneActing =>
-                fail("Piece has already acted or cannot attack any more this turn")
-            }
-
-            failUnless(topology.distance(attacker.loc,targetLoc) <= attackerStats.attackRange, "Attack range not large enough")
-
-            attackerStats.attackEffect match {
-              case None => fail("Piece cannot attack")
-              case Some(Damage(_)) => ()
-              case Some(Kill) => failIf(targetStats.isNecromancer, "Death attacks cannot hurt necromancers")
-              case Some(Unsummon) => failIf(targetStats.isPersistent, "Target is persistent - cannot be unsummoned")
-              case Some(Enchant(_)) => ()
-              case Some(TransformInto(_)) => failIf(targetStats.isNecromancer, "Necromancers cannot be transformed")
-            }
-
-            failIf(attackerStats.isWailing && targetStats.isNecromancer, "Wailing pieces cannot hurt necromancers")
-            failIf(!attackerStats.canHurtNecromancer && targetStats.isNecromancer, "Piece not allowed to hurt necromancer")
+            tryCanAttack(attackerStats, attacker.hasMoved, attacker.actState, targetStats).get
         }
 
       case Spawn(spawnLoc, spawnStats) =>
         //A bunch of tests that don't depend on the spawner or on reinforcements state
-        trySpawnLegality(side, spawnStats, spawnLoc)
+        trySpawnLegalityExn(side, spawnStats, spawnLoc)
 
         def trySpawnUsing(piece: Piece): Try[Unit] = {
           val distance = topology.distance(spawnLoc,piece.loc)
@@ -921,7 +989,7 @@ class BoardState private (
   //Doesn't log an event and doesn't produce messages, but does check for legality of spawn
   private def spawnPieceInternal(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Try[Piece] = Try {
     //A bunch of tests that don't depend on the spawner or on reinforcements state
-    trySpawnLegality(spawnSide, spawnStats, spawnLoc)
+    trySpawnLegalityExn(spawnSide, spawnStats, spawnLoc)
 
     val nthAtLoc = numPiecesSpawnedThisTurnAt.get(spawnLoc).getOrElse(0)
     val piece = Piece.create(spawnSide, spawnStats, nextPieceId, spawnLoc, nthAtLoc, this)
