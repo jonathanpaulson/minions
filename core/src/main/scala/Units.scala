@@ -1,4 +1,5 @@
 package minionsgame.core
+import scala.collection.immutable.Map
 
 // TODO(jpaulson): Add atual unit data
 
@@ -52,5 +53,13 @@ object Units {
     deathSpawn = None,
     abilities = Map.empty
   )
+
+  val pieces = Array(zombie,bat)
+  val pieceMap: Map[PieceName,PieceStats] = pieces.groupBy(piece => piece.name).mapValues { pieces =>
+    assert(pieces.length == 1)
+    pieces.head
+  }
+
+
   val techs = List(bat, bat, bat, bat, bat, bat, bat, bat, bat)
 }

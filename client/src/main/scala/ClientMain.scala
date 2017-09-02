@@ -36,18 +36,18 @@ object ClientMain extends JSApp {
       terrain(2,0) = Spawner(S1, Units.zombie)
 
       val boardState = BoardState.create(terrain)
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,1))
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,2))
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,2))
+      boardState.spawnPieceInitial(S0, Units.zombie.name, Loc(2,1))
+      boardState.spawnPieceInitial(S0, Units.zombie.name, Loc(2,2))
+      boardState.spawnPieceInitial(S0, Units.zombie.name, Loc(2,2))
 
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,3))
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,3))
-      boardState.spawnPieceInitial(S0, Units.zombie, Loc(2,3))
+      boardState.spawnPieceInitial(S0, Units.zombie.name, Loc(2,3))
+      boardState.spawnPieceInitial(S0, Units.zombie.name, Loc(2,3))
+      boardState.spawnPieceInitial(S0, Units.zombie.name, Loc(2,3))
 
-      boardState.spawnPieceInitial(S1, Units.zombie, Loc(3,2))
-      boardState.spawnPieceInitial(S1, Units.zombie, Loc(3,4))
-      boardState.spawnPieceInitial(S1, Units.zombie, Loc(1,4))
-      boardState.spawnPieceInitial(S1, Units.zombie, Loc(2,5))
+      boardState.spawnPieceInitial(S1, Units.zombie.name, Loc(3,2))
+      boardState.spawnPieceInitial(S1, Units.zombie.name, Loc(3,4))
+      boardState.spawnPieceInitial(S1, Units.zombie.name, Loc(1,4))
+      boardState.spawnPieceInitial(S1, Units.zombie.name, Loc(2,5))
 
       Board.create(boardState)
     }
