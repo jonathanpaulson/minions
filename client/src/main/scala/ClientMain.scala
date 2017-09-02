@@ -1,7 +1,6 @@
 package minionsgame.jsclient
 
 import scala.scalajs.js.JSApp
-import scala.scalajs.js.annotation.JSExport
 import org.scalajs.jquery.jQuery
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.MouseEvent
@@ -182,11 +181,11 @@ object ClientMain extends JSApp {
                 if(path.length > 1) {
                   doActions(List(
                     Movements(List(Movement(piece.spec, path.toVector))),
-                    Attack(piece.spec, other.loc, other.spec)
+                    Attack(piece.spec, other.spec)
                   ))
                 }
                 else
-                  doActions(List(Attack(piece.spec, other.loc, other.spec)))
+                  doActions(List(Attack(piece.spec, other.spec)))
               }
           }
       }
@@ -201,6 +200,7 @@ object ClientMain extends JSApp {
       draw()
     }
     def mouseout(e : MouseEvent) : Unit = {
+      val _ = e
       hoverLoc = None
       hoverSpec = None
       selectedSpec = None

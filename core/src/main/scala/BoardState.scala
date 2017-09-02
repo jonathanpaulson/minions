@@ -1,7 +1,7 @@
 package minionsgame.core
 
 import scala.util.{Try,Success,Failure}
-import scala.collection.immutable.{Queue, Vector}
+import scala.collection.immutable.Vector
 
 import RichImplicits._
 
@@ -59,7 +59,7 @@ with Ordered[SpawnedThisTurn] {
   */
 sealed trait PlayerAction
 case class Movements(movements: List[Movement]) extends PlayerAction
-case class Attack(attackerSpec: PieceSpec, targetLoc: Loc, targetSpec: PieceSpec) extends PlayerAction
+case class Attack(attackerSpec: PieceSpec, targetSpec: PieceSpec) extends PlayerAction
 case class Spawn(spawnLoc: Loc, spawnStats: PieceStats) extends PlayerAction
 case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
 
@@ -85,7 +85,7 @@ object PlayerAction {
     action match {
       case Movements(movements) =>
         movements.exists { case Movement(pSpec, _) => pieceSpec == pSpec }
-      case Attack(aSpec,_,tSpec) => pieceSpec == aSpec || pieceSpec == tSpec
+      case Attack(aSpec,tSpec) => pieceSpec == aSpec || pieceSpec == tSpec
       case Spawn(spawnLoc,spawnStats) =>
         pieceSpec match {
           case StartedTurnWithID(_) => false
@@ -353,13 +353,13 @@ class BoardState private (
     val list = actions.toList
     list match {
       case Nil => Success(())
-      case action :: Nil => tryLegalitySingle(list.head)
+      case action :: Nil => tryLegalitySingle(action)
       case _ =>
         val board = this.copy()
         def loop(list: List[PlayerAction]): Try[Unit] = {
           list match {
             case Nil => Success(())
-            case action :: Nil => board.tryLegalitySingle(list.head)
+            case action :: Nil => board.tryLegalitySingle(action)
             case action :: rest =>
               board.doActionSingle(action) match {
                 case Success(()) => loop(rest)
@@ -386,10 +386,10 @@ class BoardState private (
     }
 
     //Wailing units that attacked die
-    val attackedWailings = pieceById.iterator.filter { case (pieceId,piece) =>
+    val attackedWailings = pieceById.iterator.filter { case (_,piece) =>
       piece.curStats.isWailing && piece.hasAttacked
     }
-    attackedWailings.toList.foreach { case (_pieceId,piece) => killPiece(piece) }
+    attackedWailings.toList.foreach { case (_,piece) => killPiece(piece) }
 
     //Heal damage, reset piece state, decay modifiers
     pieceById.values.foreach { piece =>
@@ -659,7 +659,7 @@ class BoardState private (
       case (spell: TileSpell) =>
         failUnless(tiles.inBounds(played.loc0), "Target location not in bounds")
         failUnless(spell.canTarget(side,tiles(played.loc0),pieces(played.loc0)), spell.targetError)
-      case (spell: NoEffectSpell) =>
+      case (_: NoEffectSpell) =>
         ()
     }
   }
@@ -677,11 +677,6 @@ class BoardState private (
     failIf(turnNumber < 0, "Game is not started yet")
     action match {
       case Movements(movements) =>
-        def isMovingNow(piece: Piece) = movements.exists { case Movement(id,_) => piece.id == id }
-        def pieceIfMovingTo(pieceSpec: PieceSpec, path: Vector[Loc], dest: Loc): Option[Piece] =
-          if(path.length > 0 && path.last == dest) findPiece(pieceSpec)
-          else None
-
         //Check basic properties of the set of movements
         val pieceIdsMoved = movements.map { case Movement(pieceId,_) => pieceId }
         failIf(pieceIdsMoved.distinct.length != movements.length, "More than one movement for the same piece")
@@ -698,7 +693,6 @@ class BoardState private (
           findPiece(pieceSpec) match {
             case None => fail("Moving a nonexistent or dead piece")
             case Some(piece) =>
-              val dest = path.last
               //Ownership
               failUnless(piece.side == side, "Piece controlled by other side")
 
@@ -723,16 +717,15 @@ class BoardState private (
           }
         }
 
-      case Attack(attackerSpec, targetLoc, targetSpec) =>
+      case Attack(attackerSpec, targetSpec) =>
         (findPiece(attackerSpec),findPiece(targetSpec)) match {
           case (None, _) => fail("Attacking with a nonexistent or dead piece")
           case (Some(_),None) => fail("Attacking a nonexistent or dead piece")
           case (Some(attacker),Some(target)) =>
             failUnless(attacker.side == side, "Attacker is controlled by other side")
             failUnless(target.side != side, "Target piece is friendly")
-            failUnless(tiles.inBounds(targetLoc), "Target location not in bounds")
-            failUnless(target.loc == targetLoc, "Target piece is not or is no longer in the right spot")
-            failUnless(topology.distance(attacker.loc,targetLoc) <= attacker.curStats.attackRange, "Attack range not large enough")
+            failUnless(tiles.inBounds(target.loc), "Target location not in bounds")
+            failUnless(topology.distance(attacker.loc,target.loc) <= attacker.curStats.attackRange, "Attack range not large enough")
 
             val attackerStats = attacker.curStats
             val targetStats = target.curStats
@@ -849,7 +842,7 @@ class BoardState private (
             case Attacking(_) | Spawning | DoneActing => assertUnreachable()
           }
         }
-      case Attack(attackerSpec, targetLoc, targetSpec) =>
+      case Attack(attackerSpec, targetSpec) =>
         val attacker = findPiece(attackerSpec).get
         val target = findPiece(targetSpec).get
         val stats = attacker.curStats
@@ -890,7 +883,7 @@ class BoardState private (
             }
           case (None, Some(spellId)) =>
             spells(side)(spellId) match {
-              case (spell: NoEffectSpell) => ()
+              case (_: NoEffectSpell) => ()
               case (spell: TargetedSpell) =>
                 val target = findPiece(played.target0).get
                 applyEffect(spell.effect,target)

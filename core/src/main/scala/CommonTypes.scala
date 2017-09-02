@@ -409,7 +409,7 @@ trait PlaneTopology {
     thisQueue += loc
 
     for(i <- 1 to steps) {
-      var nextQueue = scala.collection.mutable.Queue[Loc]()
+      val nextQueue = scala.collection.mutable.Queue[Loc]()
       thisQueue.foreach { loc =>
         if(!reached.contains(loc)) {
           reached += loc

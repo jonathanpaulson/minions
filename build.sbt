@@ -3,7 +3,7 @@
 lazy val mainSettings = Seq(
   name := "Minions",
   version := "1.0",
-  scalaVersion := "2.11.8"
+  scalaVersion := "2.12.2"
 )
 
 //Extra scala compiler options
@@ -13,11 +13,19 @@ lazy val extraCompilerOptions = Seq(
   "-language:existentials",
   "-unchecked",
   "-Xfatal-warnings",
-  "-Xlint",
+  "-Xlint:-unused,_",
   "-Yno-adapted-args",
   "-Ywarn-dead-code",
   "-Ywarn-numeric-widen",
+  "-Ywarn-infer-any",
+  "-Ywarn-nullary-unit",
+  "-Ywarn-inaccessible",
   "-Ywarn-value-discard",
+  "-Ywarn-unused:params",
+  "-Ywarn-unused:patvars",
+  "-Ywarn-unused:privates",
+  "-Ywarn-unused:implicits",
+  "-Ywarn-unused:locals",
   "-Xfuture"
 )
 
@@ -64,7 +72,9 @@ lazy val minions = crossProject.crossType(scalaJSCrossType).in(file(".")).
     persistLauncher in Compile := true,
     persistLauncher in Test := false,
     libraryDependencies ++= Seq(
-      "be.doeraene" %%% "scalajs-jquery" % "0.9.0"
+      "org.scala-js" %%% "scalajs-dom" % "0.9.1",
+      "be.doeraene" %%% "scalajs-jquery" % "0.9.1",
+      "com.typesafe.play" %%% "play-json" % "2.6.3"
     )
   )
 

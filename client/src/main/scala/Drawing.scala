@@ -45,13 +45,13 @@ object Drawing {
     ctx.strokeStyle = color
     ctx.fillStyle = color
     ctx.beginPath()
-    move(ctx, hexLoc + HexVec.corners(0) * scale)
-    line(ctx, hexLoc + HexVec.corners(1) * scale)
-    line(ctx, hexLoc + HexVec.corners(2) * scale)
-    line(ctx, hexLoc + HexVec.corners(3) * scale)
-    line(ctx, hexLoc + HexVec.corners(4) * scale)
-    line(ctx, hexLoc + HexVec.corners(5) * scale)
-    line(ctx, hexLoc + HexVec.corners(0) * scale)
+    move(ctx, hexCorner(hexLoc,scale,0))
+    line(ctx, hexCorner(hexLoc,scale,1))
+    line(ctx, hexCorner(hexLoc,scale,2))
+    line(ctx, hexCorner(hexLoc,scale,3))
+    line(ctx, hexCorner(hexLoc,scale,4))
+    line(ctx, hexCorner(hexLoc,scale,5))
+    line(ctx, hexCorner(hexLoc,scale,0))
     if(doStroke) ctx.stroke()
     if(doFill)  ctx.fill()
     ctx.closePath()
@@ -95,12 +95,14 @@ object Drawing {
       case Nil => assertUnreachable()
       case _ :: Nil => (loc,pieceScale)
       case p1 :: _ :: Nil  =>
-        if(piece.id == p1.id) (HexLoc.ofLoc(loc) + HexVec.corners(5) * smallPieceOffset, smallPieceScale)
-        else                 (HexLoc.ofLoc(loc) + HexVec.corners(2) * smallPieceOffset, smallPieceScale)
+        val hexLoc = HexLoc.ofLoc(loc)
+        if(piece.id == p1.id) (hexCorner(hexLoc,smallPieceOffset,5), smallPieceScale)
+        else                 (hexCorner(hexLoc,smallPieceOffset,2), smallPieceScale)
       case p1 :: p2 :: _ :: Nil =>
-        if(piece.id == p1.id)      (HexLoc.ofLoc(loc) + HexVec.corners(5) * smallPieceOffset, smallPieceScale)
-        else if(piece.id == p2.id) (HexLoc.ofLoc(loc) + HexVec.corners(3) * smallPieceOffset, smallPieceScale)
-        else                      (HexLoc.ofLoc(loc) + HexVec.corners(1) * smallPieceOffset, smallPieceScale)
+        val hexLoc = HexLoc.ofLoc(loc)
+        if(piece.id == p1.id)      (hexCorner(hexLoc,smallPieceOffset,5), smallPieceScale)
+        else if(piece.id == p2.id) (hexCorner(hexLoc,smallPieceOffset,3), smallPieceScale)
+        else                       (hexCorner(hexLoc,smallPieceOffset,1), smallPieceScale)
       case _ => assertUnreachable()
     }
   }
@@ -138,11 +140,12 @@ object Drawing {
           case (T2, T2) => "#ff00ff"
         }
       fillHex(ctx, loc, color, tileScale)
-      text(ctx, i.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc), gridSize), "black")
-      text(ctx, s0.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(3) * pieceScale, gridSize), "blue")
-      text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(4) * techScale, gridSize), "blue")
-      text(ctx, s1.toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(1) * pieceScale, gridSize), "red")
-      text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(HexLoc.ofLoc(loc) + HexVec.corners(0) * techScale, gridSize), "red")
+      val hexLoc = HexLoc.ofLoc(loc)
+      text(ctx, i.toString, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
+      text(ctx, s0.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,3), gridSize), "blue")
+      text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,4), gridSize), "blue")
+      text(ctx, s1.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,1), gridSize), "red")
+      text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,0), gridSize), "red")
     }
 
     //Terrain
