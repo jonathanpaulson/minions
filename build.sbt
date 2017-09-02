@@ -69,6 +69,11 @@ lazy val minions = crossProject.crossType(scalaJSCrossType).in(file(".")).
       "com.typesafe.play" %%% "play-json" % "2.6.3"
     )
   ).
+  jvmSettings(
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http" % "10.0.10"
+    )
+  ).
   jsSettings(
     name := "MinionsClient",
     //Create a javascript launcher to call the main class for us
