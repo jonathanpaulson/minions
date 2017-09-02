@@ -17,9 +17,20 @@ import RichImplicits._
 sealed trait Side {
   val int: Int
   def opp: Side = this match { case S0 => S1  case S1 => S0 }
+
+  override def toString: String = this match { case S0 => "S0"  case S1 => "S1" }
 }
 case object S0 extends Side { val int = 0 }
 case object S1 extends Side { val int = 1 }
+object Side {
+  def ofString(s:String): Side = {
+    s match {
+      case "S0" => S0
+      case "S1" => S1
+      case _ => throw new Exception("Could not parse side: " + s)
+    }
+  }
+}
 
 /**
  * TargetEffect:

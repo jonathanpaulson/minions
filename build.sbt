@@ -64,7 +64,10 @@ lazy val scalaJSCrossType = new org.scalajs.sbtplugin.cross.CrossType() {
 lazy val minions = crossProject.crossType(scalaJSCrossType).in(file(".")).
   settings(mainSettings: _*).
   settings(
-    scalacOptions ++= extraCompilerOptions
+    scalacOptions ++= extraCompilerOptions,
+    libraryDependencies ++= Seq (
+      "com.typesafe.play" %%% "play-json" % "2.6.3"
+    )
   ).
   jsSettings(
     name := "MinionsClient",
@@ -73,8 +76,7 @@ lazy val minions = crossProject.crossType(scalaJSCrossType).in(file(".")).
     persistLauncher in Test := false,
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-dom" % "0.9.1",
-      "be.doeraene" %%% "scalajs-jquery" % "0.9.1",
-      "com.typesafe.play" %%% "play-json" % "2.6.3"
+      "be.doeraene" %%% "scalajs-jquery" % "0.9.1"
     )
   )
 
