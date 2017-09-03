@@ -1,5 +1,4 @@
 package minionsgame.core
-
 import scala.reflect.ClassTag
 
 import RichImplicits._
@@ -107,27 +106,6 @@ case class PieceStats(
   //Abilities that a piece can use by discarding a spell
   val abilities: Map[String,PieceAbility]
 )
-
-/**
- * PieceMod:
- * Modifications to piece stats that can happen due to spells, enchanted terrain, abilities.
- * Comparison is done using the key field only, which we rely on as a key to distinguish effects
- * since functions are not comparable in Scala.
- */
-case class PieceMod(
-  val key: String,  //MUST be a UNIQUE key for different modifiers!
-  val name: String, //For display purposes
-  val desc: String,
-  val transform: (PieceStats => PieceStats)
-) {
-  def apply(pieceStats: PieceStats) = transform(pieceStats)
-
-  override def equals(o: Any): Boolean = o match {
-    case that: PieceMod => this.key == that.key
-    case _ => false
-  }
-  override def hashCode: Int = key.hashCode
-}
 
 /**
  * PieceModWithDuration:
@@ -286,9 +264,9 @@ sealed trait Terrain
 case object Wall extends Terrain
 case object Ground extends Terrain
 case object Water extends Terrain
-case object ManaSpire extends Terrain
+case object Graveyard extends Terrain
 //TODO implement this
-case class Spawner(side:Side, pieceStats:PieceStats) extends Terrain
+case class Spawner(side:Side, pieceName:PieceName) extends Terrain
 //TODO implement this
 //case class UnstableGround extends Terrain  //Units unsummon at the end of turn
 
@@ -337,6 +315,7 @@ object Loc {
  */
 object SideArray {
   def create[T:ClassTag](initial: T) = new SideArray[T](Array.fill[T](2)(initial))
+  def ofArrayInplace[T:ClassTag](arr: Array[T]) = new SideArray(arr)
 }
 class SideArray[T:ClassTag] private (
   private val arr: Array[T]
@@ -352,6 +331,8 @@ class SideArray[T:ClassTag] private (
   def find(f: T => Boolean): Option[T] = arr.find(f)
   def findMap[U](f: T => Option[U]): Option[U] = arr.findMap(f)
   def transform(f: T => T): Unit = { arr.transform(f); () }
+
+  def toArrayInplace: Array[T] = arr
 }
 
 /**
@@ -365,54 +346,48 @@ object Plane {
     topology: PlaneTopology,
     initial: T
   ) : Plane[T] = {
-    new Plane(xSize,ySize,topology,Array.fill[T](xSize,ySize)(initial))
+    new Plane(xSize,ySize,topology,Array.fill[T](xSize*ySize)(initial))
   }
 }
-class Plane[T:ClassTag] private (
+class Plane[T:ClassTag] (
   val xSize: Int,
   val ySize: Int,
   val topology: PlaneTopology,
-  private val arr: Array[Array[T]]
+  private val arr: Array[T]
 ) {
-  def apply(x:Int, y:Int): T = arr(x)(y)
-  def apply(loc: Loc): T = arr(loc.x)(loc.y)
-  def update(x:Int, y:Int, elt: T): Unit = arr(x)(y) = elt
-  def update(loc: Loc, elt: T): Unit = arr(loc.x)(loc.y) = elt
+  def apply(x:Int, y:Int): T = arr(x + y * xSize)
+  def apply(loc: Loc): T = arr(loc.x + loc.y * xSize)
+  def update(x:Int, y:Int, elt: T): Unit = arr(x + y * xSize) = elt
+  def update(loc: Loc, elt: T): Unit = arr(loc.x + loc.y * xSize) = elt
 
   def inBounds(x: Int, y: Int): Boolean = x >= 0 && x < xSize && y >= 0 && y < ySize
   def inBounds(loc: Loc): Boolean = inBounds(loc.x,loc.y)
 
-  def copy(): Plane[T] = new Plane[T](xSize,ySize,topology, arr.map { subarr => subarr.clone() })
+  def copy(): Plane[T] = new Plane[T](xSize,ySize,topology,arr.clone())
 
-  def map[U:ClassTag](f: T => U): Plane[U] = new Plane[U](xSize,ySize,topology,arr.map { subarr => subarr.map(f) })
-  def foreach(f: T => Unit): Unit = arr.foreach { subarr => subarr.foreach(f) }
-  def foldLeft[U](z: U)(f: (U,T) => U) = arr.foldLeft(z) { (z,subarr) => subarr.foldLeft(z)(f) }
-  def find(f: T => Boolean): Option[T] = arr.findMap(_.find(f))
-  def findMap[U](f: T => Option[U]): Option[U] = arr.findMap(_.findMap(f))
-  def transform(f: T => T): Unit = { arr.foreach { subarr => subarr.transform(f); () } }
-
-  def mapInPlace(f: T => T): Unit = {
-    for (x <- 0 to arr.length-1) {
-      for(y <- 0 to arr(x).length-1) {
-        arr(x)(y) = f(arr(x)(y))
-      }
-    }
-  }
+  def map[U:ClassTag](f: T => U): Plane[U] = new Plane[U](xSize,ySize,topology,arr.map(f))
+  def foreach(f: T => Unit): Unit = arr.foreach(f)
+  def foldLeft[U](z: U)(f: (U,T) => U) = arr.foldLeft(z)(f)
+  def find(f: T => Boolean): Option[T] = arr.find(f)
+  def findMap[U](f: T => Option[U]): Option[U] = arr.findMap(f)
+  def transform(f: T => T): Unit = { arr.transform(f); () }
 
   def foreachi(f: (Loc, T) => Unit): Unit = {
-    for (x <- 0 to arr.length-1) {
-      for(y <- 0 to arr(x).length-1) {
-        f(Loc(x,y), arr(x)(y))
+    for(y <- 0 to ySize-1) {
+      for (x <- 0 to xSize-1) {
+        f(Loc(x,y), arr(x + y * xSize))
       }
     }
   }
+
+  def getArrayInplace: Array[T] = arr
 }
 
 /**
  * PlaneTopology:
  * Specifies the topology of Plane - i.e. the distance metric and adjacency relationships
  */
-trait PlaneTopology {
+sealed trait PlaneTopology {
   def adj(loc: Loc): Seq[Loc]
   def forEachAdj(loc: Loc)(f: Loc => Unit) : Unit
   def distance(loc0: Loc, loc1: Loc): Int
@@ -434,6 +409,22 @@ trait PlaneTopology {
         }
       }
       thisQueue = nextQueue
+    }
+  }
+
+  override def toString: String = this match {
+    case SquareTopology => "SquareTopology"
+    case ManhattanTopology => "ManhattanTopology"
+    case HexTopology => "HexTopology"
+  }
+}
+object PlaneTopology {
+  def ofString(s:String): PlaneTopology = {
+    s match {
+      case "SquareTopology" => SquareTopology
+      case "ManhattanTopology" => ManhattanTopology
+      case "HexTopology" => HexTopology
+      case _ => throw new Exception("Could not parse topology: " + s)
     }
   }
 }

@@ -29,15 +29,15 @@ import RichImplicits._
   */
 
 
-/** Action:
-  * A single UI/user action that can be made, undone, and redone.
+/** BoardAction:
+  * A single UI/user action that can be made, undone, and redone on a board.
   * These are the objects that conceptually form a stack that global undo/redo operates on - yes, this means that local undos
   * are treated the same way as a group of PlayerActions from the UI perspective - and the local undo itself can be undone/redone.
   */
-sealed trait Action
-case class PlayerActions(actions: List[PlayerAction]) extends Action
-case class DoGeneralBoardAction(action: GeneralBoardAction) extends Action
-case class LocalUndo(pieceSpec: PieceSpec) extends Action
+sealed trait BoardAction
+case class PlayerActions(actions: List[PlayerAction]) extends BoardAction
+case class DoGeneralBoardAction(action: GeneralBoardAction) extends BoardAction
+case class LocalUndo(pieceSpec: PieceSpec) extends BoardAction
 
 //Pairs board states together with the legal history of actions that generated those states, after reordering of actions.
 //A new BoardHistory is created after each Action.
@@ -91,14 +91,14 @@ class Board private (
 
   //actionsThisTurn is defined in a potentially larger range if undos have happened, as it stores the redo history.
   //historiesThisTurn is defined in the range [0,curIdx].
-  private var actionsThisTurn: Vector[Action],
+  private var actionsThisTurn: Vector[BoardAction],
   private var historiesThisTurn: Vector[BoardHistory],
 
   //Current index of action (decrements on undo, increments on redo)
   private var curIdx: Int,
 
   //Accumulates actionsThisTurn at the end of each turn
-  private var actionsPrevTurns: Vector[Vector[Action]],
+  private var actionsPrevTurns: Vector[Vector[BoardAction]],
   //Actions over the history of the board over prior turns, at the internal rearranging level, rather than the UI level.
   private var playerGeneralBoardActionsPrevTurns: Vector[(Vector[PlayerAction],Vector[GeneralBoardAction])]
 ) {
@@ -108,7 +108,7 @@ class Board private (
     historiesThisTurn(curIdx).spawnState
   }
 
-  def tryLegality(action: Action): Try[Unit] = {
+  def tryLegality(action: BoardAction): Try[Unit] = {
     action match {
       case PlayerActions(actions) => curState().tryLegality(actions)
       case DoGeneralBoardAction(_) => Success(())
@@ -122,7 +122,7 @@ class Board private (
 
   //Due to action reordering, might also report some actions illegal that aren't reported as illegal by tryLegality,
   //but this should be extremely rare.
-  def doAction(action: Action): Try[Unit] = {
+  def doAction(action: BoardAction): Try[Unit] = {
     tryLegality(action) match {
       case Failure(err) => Failure(err)
       case Success(()) => Try {
@@ -244,7 +244,7 @@ class Board private (
     curIdx = 0
   }
 
-  //Undo the most recent Action
+  //Undo the most recent BoardAction
   def undo(): Try[Unit] = {
     if(curIdx <= 0)
       Failure(new Exception("Cannot undo, already at the start"))
@@ -254,7 +254,7 @@ class Board private (
     }
   }
 
-  //Redo the most recent undone Action
+  //Redo the most recent undone BoardAction
   def redo(): Try[Unit] = {
     if(curIdx >= actionsThisTurn.length)
       Failure(new Exception("Cannot redo, already at the end"))
@@ -265,7 +265,7 @@ class Board private (
   }
 
   //Return the action that would be undone by a call to undo
-  def prevAction: Option[Action] = {
+  def prevAction: Option[BoardAction] = {
     if(curIdx <= 0)
       None
     else
@@ -273,7 +273,7 @@ class Board private (
   }
 
   //Return the action that would be redone by a call to redo
-  def nextAction: Option[Action] = {
+  def nextAction: Option[BoardAction] = {
     if(curIdx >= actionsThisTurn.length)
       None
     else

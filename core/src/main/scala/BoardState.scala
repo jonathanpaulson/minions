@@ -121,10 +121,6 @@ case class RevealSpell(side: Side, spellId: Int, spellName: SpellName) extends G
  *  A single tile on the board
  *  Possibly enchanted due to spells. Later in list -> spells were played later.
  */
-object Tile {
-  //TODO from dwu to jpaulson: remove this? Outside code shouldn't need to create tiles.
-  def create(terrain : Terrain) = new Tile(terrain, modsWithDuration = List())
-}
 case class Tile(
   val terrain: Terrain,
   val modsWithDuration: List[PieceModWithDuration]
@@ -154,7 +150,7 @@ object Piece {
     )
   }
 }
-class Piece private (
+case class Piece private (
   val side: Side,
   val baseStats: PieceStats,
   val id: Int,
@@ -245,7 +241,7 @@ object BoardState {
 }
 import BoardState.Imports._
 
-class BoardState private (
+case class BoardState private (
   //For convenience, we leave these fields exposed rather than making them private and
   //carefully wrapping them in a bunch of getters and setters. But users of BoardState
   //should NOT modify any of these fields, only read them.
@@ -359,7 +355,7 @@ class BoardState private (
     var newMana = 0
     pieceById.values.foreach { piece =>
       if(piece.side == side)
-        newMana += piece.curStats(this).extraMana + (if(tiles(piece.loc).terrain == ManaSpire) 1 else 0)
+        newMana += piece.curStats(this).extraMana + (if(tiles(piece.loc).terrain == Graveyard) 1 else 0)
     }
 
     //Wailing units that attacked die
@@ -374,7 +370,7 @@ class BoardState private (
       piece.modsWithDuration = piece.modsWithDuration.flatMap(_.decay)
     }
     //Decay tile modifiers
-    tiles.mapInPlace { tile =>
+    tiles.transform { tile =>
       if(tile.modsWithDuration.isEmpty)
         tile
       else
@@ -544,14 +540,14 @@ class BoardState private (
   private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {
     tile.terrain match {
       case Wall => false
-      case Ground | ManaSpire | Spawner(_,_) => true
+      case Ground | Graveyard | Spawner(_,_) => true
       case Water => pieceStats.isFlying
     }
   }
   private def tryCanWalkOnTile(pieceStats: PieceStats, tile: Tile): Try[Unit] = {
     tile.terrain match {
       case Wall => failed("Cannot move or spawn through borders")
-      case Ground | ManaSpire | Spawner(_,_) => Success(())
+      case Ground | Graveyard | Spawner(_,_) => Success(())
       case Water => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
     }
   }
