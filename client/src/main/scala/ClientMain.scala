@@ -27,13 +27,13 @@ object ClientMain extends JSApp {
 
     val topology = HexTopology
     val board = {
-      val terrain: Plane[Terrain] = Plane.create(10, 10, topology, Ground)
-      terrain(0,0) = ManaSpire
+      val terrain: Plane[Terrain] = Plane.create(12, 12, topology, Ground)
+      terrain(0,0) = Graveyard
       terrain(0,1) = Wall
       terrain(2,4) = Wall
       terrain(1,0) = Water
-      terrain(1,1) = Spawner(S0, Units.zombie)
-      terrain(2,0) = Spawner(S1, Units.zombie)
+      terrain(1,1) = Spawner(S0, Units.zombie.name)
+      terrain(2,0) = Spawner(S1, Units.zombie.name)
 
       val boardState = BoardState.create(terrain)
       boardState.spawnPieceInitial(S0, Units.zombie.name, Loc(2,1))
@@ -89,22 +89,25 @@ object ClientMain extends JSApp {
 
         case (Some(selectedPiece), Some(hoverLoc)) =>
           val newLegalMove = {
+            val bState = board.curState
             hoverPiece match {
               case None =>
                 //Ordinary move to location
-                board.curState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
+                bState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
               case Some(hoverPiece) =>
                 //Merge into friendly swarm
                 if(hoverPiece.side == selectedPiece.side)
-                  board.curState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
+                  bState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
                 //Attack enemy piece
                 else {
-                  if(!board.curState.canAttack(selectedPiece.curStats,attackerHasMoved=false,selectedPiece.actState,hoverPiece.curStats))
+                  val spStats = selectedPiece.curStats(bState)
+                  val hpStats = hoverPiece.curStats(bState)
+                  if(!bState.canAttack(spStats,attackerHasMoved=false,selectedPiece.actState,hpStats))
                     None
                   else {
-                    board.curState.findLegalMove(selectedPiece,pathBias=path) { loc =>
-                      topology.distance(loc, hoverLoc) <= selectedPiece.curStats.attackRange &&
-                      (loc == selectedPiece.loc || !selectedPiece.curStats.isLumbering)
+                    bState.findLegalMove(selectedPiece,pathBias=path) { loc =>
+                      topology.distance(loc, hoverLoc) <= spStats.attackRange &&
+                      (loc == selectedPiece.loc || !spStats.isLumbering)
                     }
                   }
                 }

@@ -68,7 +68,7 @@ object Drawing {
       case Wall => fillHex(ctx, hexLoc, "white", tileScale)
       case Ground => fillHex(ctx, hexLoc, "green", tileScale)
       case Water => fillHex(ctx, hexLoc, "blue", tileScale)
-      case ManaSpire => fillHex(ctx, hexLoc, "orange", tileScale)
+      case Graveyard => fillHex(ctx, hexLoc, "orange", tileScale)
       case Spawner(S0, _) =>
         fillHex(ctx, hexLoc, "gray", tileScale)
         fillHex(ctx, hexLoc, "red", tileScale*0.7)

@@ -6,13 +6,13 @@ object Protocol {
   sealed trait Message
   case class Version(version: String) extends Message
   case class NumBoards(numBoards: Int) extends Message
-  case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction) extends Message
-  case class ReportBoardState(boardIdx: Int, boardState: BoardState) extends Message
+  case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction, boardSequence: Int) extends Message
+  case class ReportBoardState(boardIdx: Int, boardState: BoardState, boardSequence: Int) extends Message
 
   sealed trait Query
   case object RequestGeneralState extends Query
   case class RequestBoardState(boardIdx: Int) extends Query
-  case class DoBoardAction(boardIdx: Int, boardBction: BoardAction) extends Query
+  case class DoBoardAction(boardIdx: Int, boardBction: BoardAction, boardSequence: Int) extends Query
 
 
   //Conversions----------------------------------------------------

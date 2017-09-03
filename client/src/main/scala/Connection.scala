@@ -46,8 +46,16 @@ class Connection private (
         s.get match {
           case Protocol.Version(version) =>
             println(version)
-          case Protocol.BoardAction(action) =>
-            println(action)
+          case Protocol.NumBoards(numBoards) =>
+            println(numBoards)
+          case Protocol.ReportBoardAction(boardIdx,boardAction,boardSequence) =>
+            println(boardIdx)
+            println(boardSequence)
+            println(boardAction)
+          case Protocol.ReportBoardState(boardIdx,boardState,boardSequence) =>
+            println(boardIdx)
+            println(boardSequence)
+            println(boardState)
         }
     }
   }
