@@ -16,11 +16,11 @@ import RichImplicits._
   * the turn is done by action reordering in Board.scala, the next layer up. This allows the user
   * to input actions in arbitrary order, yet have the result be consistent with having a spawn phase.
   *
-  * Also implemented are GeneralActions - gaining spells and buying pieces.
+  * Also implemented are GeneralBoardActions - gaining spells and buying pieces.
   * These are recorded separately from PlayerActions. This is because they aren't subject to the same
   * undo/redo/reordering logic that player actions are subject to, since they involve interaction with the broader game.
   *
-  * Given general action G and player action P, an invariant that should hold is:
+  * Given generalBoard action G and player action P, an invariant that should hold is:
   * - If P followed by G is legal, then G followed by P must also be legal and lead to the same board state.
   *
   * See Board.scala for the next layer up in the board implementation stack.
@@ -46,7 +46,7 @@ with Ordered[SpawnedThisTurn] {
 
 /**
   * PlayerAction:
-  * A single action taken by a player. Does not include "General" actions of gaining spells or buying pieces.
+  * A single action taken by a player. Does not include "GeneralBoard" actions of gaining spells or buying pieces.
   * PlayerActions are immutable and their data should be independent of any of the mutable types
   * on the board. That is, it should be meaningful to ask whether an action would be legal
   * on a different board, or if the order of actions were rearranged, etc.
@@ -106,16 +106,16 @@ object PlayerAction {
 
 //TODO think about how to manage the opposing side not being able to see what spells you own...
 
-/** GeneralAction:
+/** GeneralBoardAction:
   * Actions relating to this board that involve interaction with the broader game (a shared spell pool, a shared mana pool).
   * These are NOT part of the normal action stack.
   *
   * Requirement: spellId should be a unique identifier for a particular spell card. Users of BoardState should ensure that this is the case.
   */
-sealed trait GeneralAction
-case class BuyReinforcement(side: Side, pieceName: PieceName) extends GeneralAction
-case class GainSpell(side: Side, spellId: Int) extends GeneralAction
-case class RevealSpell(side: Side, spellId: Int, spellName: SpellName) extends GeneralAction
+sealed trait GeneralBoardAction
+case class BuyReinforcement(side: Side, pieceName: PieceName) extends GeneralBoardAction
+case class GainSpell(side: Side, spellId: Int) extends GeneralBoardAction
+case class RevealSpell(side: Side, spellId: Int, spellName: SpellName) extends GeneralBoardAction
 
 /** Tile:
  *  A single tile on the board
@@ -397,8 +397,8 @@ class BoardState private (
     numPiecesSpawnedThisTurnAt = Map()
   }
 
-  //Perform a GeneralAction. These are always legal.
-  def doGeneralAction(action: GeneralAction): Unit = {
+  //Perform a GeneralBoardAction. These are always legal.
+  def doGeneralBoardAction(action: GeneralBoardAction): Unit = {
     action match {
       case BuyReinforcement(side,pieceName) =>
         if(!Units.pieceMap.contains(pieceName))

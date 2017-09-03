@@ -4,10 +4,13 @@ import play.api.libs.json._
 object Protocol {
   sealed trait Message
   case class Version(version: String) extends Message
-  case class BoardAction(action: Action) extends Message
+  case class NumBoards(numBoards: Int) extends Message
+  case class BoardAction(boardIdx: Int, action: Action) extends Message
 
   sealed trait Query
-  case object RequestFullState extends Query
+  case class RequestGeneralState(boardIdx: Int) extends Query
+  case class RequestBoardState(boardIdx: Int) extends Query
+  case class DoBoardAction(boardIdx: Int, action: Action) extends Query
 
 
   //Conversions----------------------------------------------------
@@ -101,14 +104,14 @@ object Protocol {
   implicit val buyReinforcementFormat = Json.format[BuyReinforcement]
   implicit val gainSpellFormat = Json.format[GainSpell]
   implicit val revealSpellFormat = Json.format[RevealSpell]
-  implicit val generalActionFormat = {
-    val reads: Reads[GeneralAction] = readsFromPair[GeneralAction]("GeneralAction",Map(
+  implicit val generalBoardActionFormat = {
+    val reads: Reads[GeneralBoardAction] = readsFromPair[GeneralBoardAction]("GeneralBoardAction",Map(
       "BuyReinforcement" -> ((json:JsValue) => buyReinforcementFormat.reads(json)),
       "GainSpell" -> ((json:JsValue) => gainSpellFormat.reads(json)),
       "RevealSpell" -> ((json:JsValue) => revealSpellFormat.reads(json))
     ))
-    val writes: Writes[GeneralAction] = new Writes[GeneralAction] {
-      def writes(t: GeneralAction): JsValue = t match {
+    val writes: Writes[GeneralBoardAction] = new Writes[GeneralBoardAction] {
+      def writes(t: GeneralBoardAction): JsValue = t match {
         case (t:BuyReinforcement) => buyReinforcementFormat.writes(t)
         case (t:GainSpell) => gainSpellFormat.writes(t)
         case (t:RevealSpell) => revealSpellFormat.writes(t)
@@ -119,18 +122,18 @@ object Protocol {
 
   //Board.scala
   implicit val playerActionsFormat = Json.format[PlayerActions]
-  implicit val doGeneralActionFormat = Json.format[DoGeneralAction]
+  implicit val doGeneralBoardActionFormat = Json.format[DoGeneralBoardAction]
   implicit val localUndoFormat = Json.format[LocalUndo]
   implicit val actionFormat = {
     val reads: Reads[Action] = readsFromPair[Action]("Action",Map(
       "PlayerActions" -> ((json:JsValue) => playerActionsFormat.reads(json)),
-      "DoGeneralAction" -> ((json:JsValue) => doGeneralActionFormat.reads(json)),
+      "DoGeneralBoardAction" -> ((json:JsValue) => doGeneralBoardActionFormat.reads(json)),
       "LocalUndo" -> ((json:JsValue) => localUndoFormat.reads(json))
     ))
     val writes: Writes[Action] = new Writes[Action] {
       def writes(t: Action): JsValue = t match {
         case (t:PlayerActions) => playerActionsFormat.writes(t)
-        case (t:DoGeneralAction) => doGeneralActionFormat.writes(t)
+        case (t:DoGeneralBoardAction) => doGeneralBoardActionFormat.writes(t)
         case (t:LocalUndo) => localUndoFormat.writes(t)
       }
     }
@@ -139,15 +142,18 @@ object Protocol {
 
   //Protocol.scala
   implicit val versionFormat = Json.format[Version]
+  implicit val numBoardsFormat = Json.format[NumBoards]
   implicit val boardActionFormat = Json.format[BoardAction]
   implicit val messageFormat = {
     val reads: Reads[Message] = readsFromPair[Message]("Message",Map(
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
+      "NumBoards" -> ((json:JsValue) => numBoardsFormat.reads(json)),
       "BoardAction" -> ((json:JsValue) => boardActionFormat.reads(json)),
     ))
     val writes: Writes[Message] = new Writes[Message] {
       def writes(t: Message): JsValue = t match {
         case (t:Version) => versionFormat.writes(t)
+        case (t:NumBoards) => numBoardsFormat.writes(t)
         case (t:BoardAction) => boardActionFormat.writes(t)
       }
     }
