@@ -138,13 +138,12 @@ case class Tile(
 object Piece {
   //This function is used internally by the board implementation.
   //Users should never need to call this function. For setting up initial pieces, see functions like spawnPieceInitial.
-  def createInternal(side: Side, pieceName: String, id: Int, loc: Loc, nthAtLoc: Int, board: BoardState): Piece = {
+  def createInternal(side: Side, pieceName: String, id: Int, loc: Loc, nthAtLoc: Int): Piece = {
     new Piece(
       side = side,
       baseStats = Units.pieceMap(pieceName),
       id = id,
       loc = loc,
-      board = board,
       modsWithDuration = List(),
       damage = 0,
       actState = DoneActing,
@@ -160,7 +159,6 @@ class Piece private (
   val baseStats: PieceStats,
   val id: Int,
   var loc: Loc, //BoardState is responsible for updating this as the piece moves
-  var board: BoardState,
   //Modifiers from spells, etc, along with the number of turns they will last
   var modsWithDuration: List[PieceModWithDuration],
   //Damage dealt to this piece
@@ -174,13 +172,12 @@ class Piece private (
   //If the piece was newly spawned this turn
   var spawnedThisTurn: Option[SpawnedThisTurn]
 ) {
-  def copy(newBoard: BoardState) = {
+  def copy() = {
     new Piece(
       side = side,
       baseStats = baseStats,
       id = id,
       loc = loc,
-      board = newBoard,
       modsWithDuration = modsWithDuration,
       damage = damage,
       hasMoved = hasMoved,
@@ -192,7 +189,7 @@ class Piece private (
   }
 
   //Taking into account all mods on this piece as well as the mods on the tile the piece is standing on
-  def curStats: PieceStats = {
+  def curStats(board: BoardState): PieceStats = {
     (modsWithDuration ++ board.tiles(loc).modsWithDuration).foldLeft(baseStats) {
       (pieceStats,mod) => mod.mod(pieceStats)
     }
@@ -309,7 +306,7 @@ class BoardState private (
       totalMana = totalMana,
       totalCosts = totalCosts
     )
-    val newPieceById = pieceById.transform({ (_k, piece) => piece.copy(newBoard) })
+    val newPieceById = pieceById.transform({ (_k, piece) => piece.copy() })
     val newPiecesSpawnedThisTurn = piecesSpawnedThisTurn.transform { (_k, piece) => newPieceById(piece.id) }
     newBoard.pieceById = newPieceById
     newBoard.piecesSpawnedThisTurn = newPiecesSpawnedThisTurn
@@ -362,12 +359,12 @@ class BoardState private (
     var newMana = 0
     pieceById.values.foreach { piece =>
       if(piece.side == side)
-        newMana += piece.curStats.extraMana + (if(tiles(piece.loc).terrain == ManaSpire) 1 else 0)
+        newMana += piece.curStats(this).extraMana + (if(tiles(piece.loc).terrain == ManaSpire) 1 else 0)
     }
 
     //Wailing units that attacked die
     val attackedWailings = pieceById.iterator.filter { case (_,piece) =>
-      piece.curStats.isWailing && piece.hasAttacked
+      piece.curStats(this).isWailing && piece.hasAttacked
     }
     attackedWailings.toList.foreach { case (_,piece) => killPiece(piece) }
 
@@ -445,11 +442,10 @@ class BoardState private (
   }
 
   private def forEachLegalMoveHelper(piece: Piece, pathBias: List[Loc])(f: (Loc,List[Loc]) => Unit): Unit = {
-    assert(piece.board eq this);
     val q = scala.collection.mutable.Queue[(Loc, Int, List[Loc])]()
     val seen = scala.collection.mutable.HashSet[Loc]()
 
-    val pieceStats = piece.curStats
+    val pieceStats = piece.curStats(this)
 
     val range = piece.actState match {
       case Moving(stepsUsed) => pieceStats.moveRange - stepsUsed
@@ -464,7 +460,7 @@ class BoardState private (
         seen += loc
         if(canMoveThroughLoc(piece,loc)) {
           val nextRevPath = loc :: revPath
-          if(canEndOnLoc(piece.side,piece.spec,piece.curStats,loc,List()))
+          if(canEndOnLoc(piece.side,piece.spec,pieceStats,loc,List()))
             f(loc,nextRevPath)
 
           if(d < range) {
@@ -561,12 +557,14 @@ class BoardState private (
   }
 
   private def canMoveThroughLoc(piece: Piece, loc: Loc): Boolean = {
-    canWalkOnTile(piece.curStats,tiles(loc)) &&
-    (piece.curStats.isFlying || pieces(loc).forall { other => other.side == piece.side })
+    val pieceStats = piece.curStats(this)
+    canWalkOnTile(pieceStats,tiles(loc)) &&
+    (pieceStats.isFlying || pieces(loc).forall { other => other.side == piece.side })
   }
   private def tryCanMoveThroughLoc(piece: Piece, loc: Loc): Try[Unit] = {
-    tryCanWalkOnTile(piece.curStats,tiles(loc)).flatMap { case () =>
-      if(piece.curStats.isFlying || pieces(loc).forall { other => other.side == piece.side }) Success(())
+    val pieceStats = piece.curStats(this)
+    tryCanWalkOnTile(pieceStats,tiles(loc)).flatMap { case () =>
+      if(pieceStats.isFlying || pieces(loc).forall { other => other.side == piece.side }) Success(())
       else failed("Non-flying pieces cannot move through enemies")
     }
   }
@@ -593,10 +591,10 @@ class BoardState private (
       pieces(loc).forall { other =>
         if(other.spec == pieceSpec) true
         else if(simultaneousMovements.exists { case Movement(spec,_) => pieceSpec == spec }) true
-        else okSwarmer(other.curStats)
+        else okSwarmer(other.curStats(this))
       } && simultaneousMovements.forall { case Movement(otherSpec,otherPath) =>
           if(pieceSpec == otherSpec) true
-          else pieceIfMovingTo(otherSpec,otherPath,loc).forall { other => okSwarmer(other.curStats) }
+          else pieceIfMovingTo(otherSpec,otherPath,loc).forall { other => okSwarmer(other.curStats(this)) }
       }
     }
     ok && piecesOnFinalSquare <= minSwarmMax
@@ -694,7 +692,7 @@ class BoardState private (
               //Piece currently at the start of the path
               failUnless(piece.loc == path(0), "Moved piece is not at the head of the path")
 
-              val pieceStats = piece.curStats
+              val pieceStats = piece.curStats(this)
 
               //Piece movement range and state is ok
               failIf(pieceStats.moveRange <= 0, "Piece cannot move")
@@ -708,7 +706,7 @@ class BoardState private (
               //Check spaces along the path
               path.foreach { loc => tryCanMoveThroughLoc(piece, loc).get}
               //Check space at the end of the path
-              tryCanEndOnLoc(piece.side, piece.spec, piece.curStats, path.last, movements).get
+              tryCanEndOnLoc(piece.side, piece.spec, pieceStats, path.last, movements).get
           }
         }
 
@@ -720,10 +718,9 @@ class BoardState private (
             failUnless(attacker.side == side, "Attacker is controlled by other side")
             failUnless(target.side != side, "Target piece is friendly")
             failUnless(tiles.inBounds(target.loc), "Target location not in bounds")
-            failUnless(topology.distance(attacker.loc,target.loc) <= attacker.curStats.attackRange, "Attack range not large enough")
-
-            val attackerStats = attacker.curStats
-            val targetStats = target.curStats
+            val attackerStats = attacker.curStats(this)
+            failUnless(topology.distance(attacker.loc,target.loc) <= attackerStats.attackRange, "Attack range not large enough")
+            val targetStats = target.curStats(this)
             tryCanAttack(attackerStats, attacker.hasMoved, attacker.actState, targetStats).get
         }
 
@@ -735,7 +732,7 @@ class BoardState private (
         def trySpawnUsing(piece: Piece): Try[Unit] = {
           val distance = topology.distance(spawnLoc,piece.loc)
           if(piece.side != side)  Failure(new Exception("Spawner controlled by other side"))
-          else if((!spawnStats.isEldritch || distance > 1) && (piece.curStats.spawnRange < distance))  Failure(new Exception("Location not within range of spawner"))
+          else if((!spawnStats.isEldritch || distance > 1) && (piece.curStats(this).spawnRange < distance))  Failure(new Exception("Location not within range of spawner"))
           else if(piece.actState > Spawning)  Failure(new Exception("Spawner cannot act any more this turn"))
           else Success(())
         }
@@ -760,7 +757,7 @@ class BoardState private (
                 case Some(piece) =>
                   failUnless(piece.side == side, "Piece controlled by other side")
                   failIf(piece.actState >= DoneActing, "Piece has already acted or cannot act any more this turn")
-                  val pieceStats = piece.curStats
+                  val pieceStats = piece.curStats(this)
                   pieceStats.abilities.get(key) match {
                     case None => fail("Piece does not have this ability")
                     case Some(ability:SelfEnchantAbility) =>
@@ -790,7 +787,7 @@ class BoardState private (
         spellsAndAbilities.foreach { played =>
           val isSorcery: Boolean = (played.pieceSpecAndKey, played.spellId) match {
             case (Some((pieceSpec,key)),None) =>
-              findPiece(pieceSpec).get.curStats.abilities(key).isSorcery
+              findPiece(pieceSpec).get.curStats(this).abilities(key).isSorcery
             case (None, Some(spellId)) =>
               val spell = Spells.spellMap(spellsRevealed(side)(spellId))
               spell.spellType match {
@@ -852,8 +849,8 @@ class BoardState private (
       case Attack(attackerSpec, targetSpec) =>
         val attacker = findPiece(attackerSpec).get
         val target = findPiece(targetSpec).get
-        val stats = attacker.curStats
-        val attackEffect = stats.attackEffect.get
+        val attackerStats = attacker.curStats(this)
+        val attackEffect = attackerStats.attackEffect.get
         applyEffect(attackEffect,target)
         attacker.hasAttacked = true
         attacker.actState = attacker.actState match {
@@ -861,8 +858,8 @@ class BoardState private (
           case Attacking(n) => Attacking(n+1)
           case Spawning | DoneActing => assertUnreachable()
         }
-        if(stats.hasBlink)
-          blinkPiece(attacker)
+        if(attackerStats.hasBlink)
+          unsummonPiece(attacker)
 
       case Spawn(spawnLoc, spawnName) =>
         spawnPieceInternal(side,spawnName,spawnLoc) match {
@@ -878,7 +875,7 @@ class BoardState private (
           case (Some(_), Some(_)) => assertUnreachable()
           case (Some((pieceSpec,key)),None) =>
             val piece = findPiece(pieceSpec).get
-            val pieceStats = piece.curStats
+            val pieceStats = piece.curStats(this)
             pieceStats.abilities(key) match {
               case (ability:SelfEnchantAbility) =>
                 piece.modsWithDuration = piece.modsWithDuration :+ ability.mod
@@ -933,7 +930,7 @@ class BoardState private (
 
   //Kill a piece if it has enough accumulated damage
   private def killIfEnoughDamage(piece: Piece): Unit = {
-    val stats = piece.curStats
+    val stats = piece.curStats(this)
     if(piece.damage >= stats.defense)
       killPiece(piece)
   }
@@ -958,15 +955,10 @@ class BoardState private (
   //Kill a piece, for any reason
   private def killPiece(piece: Piece): Unit = {
     removeFromBoard(piece)
-    updateAfterPieceKill(piece.side,piece.curStats,piece.loc)
+    updateAfterPieceKill(piece.side,piece.curStats(this),piece.loc)
   }
 
   private def unsummonPiece(piece: Piece): Unit = {
-    removeFromBoard(piece)
-    addReinforcementInternal(piece.side,piece.baseStats.name)
-  }
-
-  private def blinkPiece(piece: Piece): Unit = {
     removeFromBoard(piece)
     addReinforcementInternal(piece.side,piece.baseStats.name)
   }
@@ -986,7 +978,7 @@ class BoardState private (
       None
     else {
       val nthAtLoc = numPiecesSpawnedThisTurnAt.get(spawnLoc).getOrElse(0)
-      val piece = Piece.createInternal(spawnSide, spawnName, nextPieceId, spawnLoc, nthAtLoc, this)
+      val piece = Piece.createInternal(spawnSide, spawnName, nextPieceId, spawnLoc, nthAtLoc)
       pieces(spawnLoc) = pieces(spawnLoc) :+ piece
       pieceById += (piece.id -> piece)
       nextPieceId += 1

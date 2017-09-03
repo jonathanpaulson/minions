@@ -7,6 +7,7 @@ object Units {
   val zombie = PieceStats(
     name = "zombie",
     displayName = "Zombie",
+    isBaseStats = true,
     attackEffect = Some(Damage(1)),
     defense = 2,
     moveRange = 5,
@@ -32,6 +33,7 @@ object Units {
   val bat = PieceStats(
     name = "bat",
     displayName = "Bat",
+    isBaseStats = true,
     attackEffect = Some(Damage(1)),
     defense = 1,
     moveRange = 3,
