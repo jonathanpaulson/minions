@@ -48,22 +48,45 @@ object ServerMain extends App {
     boards
   }
   val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
+  val boardLocks: Array[Object] = (0 until numBoards).toArray.map { _ => new Object()}
 
   def handleQuery(query: Protocol.Query): Protocol.Response = {
     query match {
       case Protocol.RequestGeneralState =>
         Protocol.QueryError("Not implemented yet")
-      case Protocol.RequestBoardState(boardIdx) =>
+
+      case Protocol.RequestBoardHistory(boardIdx) =>
         if(boardIdx < 0 || boardIdx >= numBoards)
           Protocol.QueryError("Invalid boardIdx")
-        else
-          Protocol.ReportBoardState(boardIdx,boards(boardIdx).curState(),boardSequences(boardIdx))
+        else boardLocks(boardIdx).synchronized {
+          Protocol.ReportBoardHistory(
+            boardIdx,
+            boards(boardIdx).toSummary(),
+            boardSequences(boardIdx)
+          )
+        }
+
       case Protocol.DoBoardAction(boardIdx,boardAction,boardSequence) =>
         if(boardIdx < 0 || boardIdx >= numBoards)
           Protocol.QueryError("Invalid boardIdx")
-        else {
-          val _ = (boardAction,boardSequence)
-          Protocol.QueryError("Not implemented yet")
+        else boardLocks(boardIdx).synchronized {
+          if(boardSequence != boardSequences(boardIdx))
+            Protocol.QueryError("Client board out-of-sync with server board, try refreshing?")
+          else {
+            val _ = (boardAction,boardSequence)
+            Protocol.QueryError("Not implemented yet")
+          }
+        }
+      case Protocol.UndoBoardAction(boardIdx,boardSequence) =>
+        if(boardIdx < 0 || boardIdx >= numBoards)
+          Protocol.QueryError("Invalid boardIdx")
+        else boardLocks(boardIdx).synchronized {
+          if(boardSequence != boardSequences(boardIdx))
+            Protocol.QueryError("Client board out-of-sync with server board, try refreshing?")
+          else {
+            val _ = (boardSequence)
+            Protocol.QueryError("Not implemented yet")
+          }
         }
     }
   }

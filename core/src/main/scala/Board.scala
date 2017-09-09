@@ -65,14 +65,15 @@ object BoardHistory {
   )
 }
 
+case class BoardSummary(
+  val initialStateThisTurn: BoardState,
+  val actionsThisTurn: Vector[BoardAction]
+)
+
 object Board {
   def create(initialState: BoardState): Board = {
-    //Sanity check
-    if(initialState.turnNumber > 0)
-      throw new Exception("Attempting to create board with initial state with turnNumber > 0: " + initialState.turnNumber)
-
     new Board(
-      initialState = initialState,
+      initialState = initialState.copy(),
       initialStateThisTurn = initialState.copy(),
       actionsThisTurn = Vector(),
       historiesThisTurn = Vector(BoardHistory.initial(initialState)),
@@ -80,6 +81,14 @@ object Board {
       actionsPrevTurns = Vector(),
       playerGeneralBoardActionsPrevTurns = Vector()
     )
+  }
+
+  def ofSummary(summary: BoardSummary): Board = {
+    val board = create(summary.initialStateThisTurn)
+    summary.actionsThisTurn.foreach { action =>
+      board.doAction(action).get
+    }
+    board
   }
 }
 
@@ -281,7 +290,16 @@ class Board private (
   }
 
   private def truncateRedos(): Unit = {
-    if(actionsThisTurn.length > curIdx)
+    if(actionsThisTurn.length > curIdx) {
       actionsThisTurn = actionsThisTurn.slice(0,curIdx)
+      historiesThisTurn = historiesThisTurn.slice(0,curIdx)
+    }
+  }
+
+  def toSummary(): BoardSummary = {
+    BoardSummary(
+      initialStateThisTurn.copy(),
+      actionsThisTurn.slice(0,curIdx)
+    )
   }
 }
