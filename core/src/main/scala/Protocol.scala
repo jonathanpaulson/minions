@@ -3,16 +3,17 @@ import scala.reflect.ClassTag
 import play.api.libs.json._
 
 object Protocol {
-  sealed trait Message
-  case class Version(version: String) extends Message
-  case class NumBoards(numBoards: Int) extends Message
-  case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction, boardSequence: Int) extends Message
-  case class ReportBoardState(boardIdx: Int, boardState: BoardState, boardSequence: Int) extends Message
+  sealed trait Response
+  case class Version(version: String) extends Response
+  case class QueryError(err: String) extends Response
+  case class NumBoards(numBoards: Int) extends Response
+  case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction, boardSequence: Int) extends Response
+  case class ReportBoardState(boardIdx: Int, boardState: BoardState, boardSequence: Int) extends Response
 
   sealed trait Query
   case object RequestGeneralState extends Query
   case class RequestBoardState(boardIdx: Int) extends Query
-  case class DoBoardAction(boardIdx: Int, boardBction: BoardAction, boardSequence: Int) extends Query
+  case class DoBoardAction(boardIdx: Int, boardAction: BoardAction, boardSequence: Int) extends Query
 
 
   //Conversions----------------------------------------------------
@@ -293,7 +294,27 @@ object Protocol {
 
   implicit val pieceModWithDurationFormat = Json.format[PieceModWithDuration]
   implicit val pieceFormat = Json.format[Piece]
-  implicit val tileFormat = Json.format[Tile]
+
+  implicit val tileFormat = new Format[Tile] {
+    def fail(): JsResult[Tile] =
+      JsError("Could not parse JSON for tile")
+    def reads(json: JsValue): JsResult[Tile] = json match {
+      case JsArray(arr) =>
+        if(arr.length != 2) fail()
+        else {
+          terrainFormat.reads(arr(0)).flatMap { terrain =>
+            arr(1).validate[List[PieceModWithDuration]].map { modsWithDuration =>
+              Tile(terrain,modsWithDuration)
+            }
+          }
+        }
+      case _ => fail()
+    }
+
+    def writes(t: Tile): JsValue = {
+      JsArray(Array(Json.toJson(t.terrain),Json.toJson(t.modsWithDuration)))
+    }
+  }
   implicit val boardStateFormat = Json.format[BoardState]
 
 
@@ -319,19 +340,22 @@ object Protocol {
 
   //Protocol.scala--------------------------------------------------------------------------------
   implicit val versionFormat = Json.format[Version]
+  implicit val queryErrorFormat = Json.format[QueryError]
   implicit val numBoardsFormat = Json.format[NumBoards]
   implicit val reportBoardActionFormat = Json.format[ReportBoardAction]
   implicit val reportBoardStateFormat = Json.format[ReportBoardState]
-  implicit val messageFormat = {
-    val reads: Reads[Message] = readsFromPair[Message]("Message",Map(
+  implicit val responseFormat = {
+    val reads: Reads[Response] = readsFromPair[Response]("Response",Map(
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
+      "QueryError" -> ((json:JsValue) => queryErrorFormat.reads(json)),
       "NumBoards" -> ((json:JsValue) => numBoardsFormat.reads(json)),
       "ReportBoardAction" -> ((json:JsValue) => reportBoardActionFormat.reads(json)),
       "ReportBoardState" -> ((json:JsValue) => reportBoardStateFormat.reads(json)),
     ))
-    val writes: Writes[Message] = new Writes[Message] {
-      def writes(t: Message): JsValue = t match {
+    val writes: Writes[Response] = new Writes[Response] {
+      def writes(t: Response): JsValue = t match {
         case (t:Version) => jsPair("Version",versionFormat.writes(t))
+        case (t:QueryError) => jsPair("QueryError",queryErrorFormat.writes(t))
         case (t:NumBoards) => jsPair("NumBoards",numBoardsFormat.writes(t))
         case (t:ReportBoardAction) => jsPair("ReportBoardAction",reportBoardActionFormat.writes(t))
         case (t:ReportBoardState) => jsPair("ReportBoardState",reportBoardStateFormat.writes(t))
