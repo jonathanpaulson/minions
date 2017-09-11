@@ -11,8 +11,8 @@ object Protocol {
   case class Version(version: String) extends Response
   case class QueryError(err: String) extends Response
   case class NumBoards(numBoards: Int) extends Response
-  case class PlayerJoined(username: String, side: Side) extends Response
-  case class PlayerLeft(username: String, side: Side) extends Response
+  case class UserJoined(username: String, side: Option[Side]) extends Response
+  case class UserLeft(username: String, side: Option[Side]) extends Response
   case class OkBoardAction(boardIdx: Int, newBoardSequence: Int) extends Response
   case class OkUndoBoardAction(boardIdx: Int, newBoardSequence: Int) extends Response
   case class ReportBoardHistory(boardIdx: Int, summary: BoardSummary, newBoardSequence: Int) extends Response
@@ -352,8 +352,8 @@ object Protocol {
   implicit val versionFormat = Json.format[Version]
   implicit val queryErrorFormat = Json.format[QueryError]
   implicit val numBoardsFormat = Json.format[NumBoards]
-  implicit val playerJoinedFormat = Json.format[PlayerJoined]
-  implicit val playerLeftFormat = Json.format[PlayerLeft]
+  implicit val userJoinedFormat = Json.format[UserJoined]
+  implicit val userLeftFormat = Json.format[UserLeft]
   implicit val okBoardActionFormat = Json.format[OkBoardAction]
   implicit val okUndoBoardActionFormat = Json.format[OkUndoBoardAction]
   implicit val reportBoardHistoryFormat = Json.format[ReportBoardHistory]
@@ -364,8 +364,8 @@ object Protocol {
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
       "QueryError" -> ((json:JsValue) => queryErrorFormat.reads(json)),
       "NumBoards" -> ((json:JsValue) => numBoardsFormat.reads(json)),
-      "PlayerJoined" -> ((json:JsValue) => playerJoinedFormat.reads(json)),
-      "PlayerLeft" -> ((json:JsValue) => playerLeftFormat.reads(json)),
+      "UserJoined" -> ((json:JsValue) => userJoinedFormat.reads(json)),
+      "UserLeft" -> ((json:JsValue) => userLeftFormat.reads(json)),
       "OkBoardAction" -> ((json:JsValue) => okBoardActionFormat.reads(json)),
       "OkUndoBoardAction" -> ((json:JsValue) => okUndoBoardActionFormat.reads(json)),
       "ReportBoardHistory" -> ((json:JsValue) => reportBoardHistoryFormat.reads(json)),
@@ -377,8 +377,8 @@ object Protocol {
         case (t:Version) => jsPair("Version",versionFormat.writes(t))
         case (t:QueryError) => jsPair("QueryError",queryErrorFormat.writes(t))
         case (t:NumBoards) => jsPair("NumBoards",numBoardsFormat.writes(t))
-        case (t:PlayerJoined) => jsPair("PlayerJoined",playerJoinedFormat.writes(t))
-        case (t:PlayerLeft) => jsPair("PlayerLeft",playerLeftFormat.writes(t))
+        case (t:UserJoined) => jsPair("UserJoined",userJoinedFormat.writes(t))
+        case (t:UserLeft) => jsPair("UserLeft",userLeftFormat.writes(t))
         case (t:OkBoardAction) => jsPair("OkBoardAction",okBoardActionFormat.writes(t))
         case (t:OkUndoBoardAction) => jsPair("OkUndoBoardAction",okUndoBoardActionFormat.writes(t))
         case (t:ReportBoardHistory) => jsPair("ReportBoardHistory",reportBoardHistoryFormat.writes(t))

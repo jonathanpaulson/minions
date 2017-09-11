@@ -111,7 +111,6 @@ object Drawing {
     canvas: Canvas,
     ctx: CanvasRenderingContext2D,
     board : BoardState,
-    game: Game,
     translateOrigin: PixelVec,
     hoverLoc: Option[Loc],
     hoverSpec: Option[PieceSpec],
@@ -122,31 +121,31 @@ object Drawing {
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
     ctx.translate(translateOrigin.dx,translateOrigin.dy)
 
-    //Techs / Reinforcements
-    for((pieceStats, i) <- Units.techs.view.zipWithIndex) {
-      val s0 = board.reinforcements(S0).filter(x => x == pieceStats).length
-      val s1 = board.reinforcements(S1).filter(x => x == pieceStats).length
-      val loc = Loc((i/2)+2, if(i%2==0) -3 else -2)
-      val color =
-        (game.tech(S0)(i), game.tech(S1)(i)) match {
-          case (T0, T0) => "#000000"
-          case (T0, T1) => "#770000"
-          case (T0, T2) => "#ff0000"
-          case (T1, T0) => "#000077"
-          case (T1, T1) => "#770077"
-          case (T1, T2) => "#ff0077"
-          case (T2, T0) => "#0000ff"
-          case (T2, T1) => "#7700ff"
-          case (T2, T2) => "#ff00ff"
-        }
-      fillHex(ctx, loc, color, tileScale)
-      val hexLoc = HexLoc.ofLoc(loc)
-      text(ctx, i.toString, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
-      text(ctx, s0.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,3), gridSize), "blue")
-      text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,4), gridSize), "blue")
-      text(ctx, s1.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,1), gridSize), "red")
-      text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,0), gridSize), "red")
-    }
+    // //Techs / Reinforcements
+    // for((pieceStats, i) <- Units.techs.view.zipWithIndex) {
+    //   val s0 = board.reinforcements(S0).filter(x => x == pieceStats).length
+    //   val s1 = board.reinforcements(S1).filter(x => x == pieceStats).length
+    //   val loc = Loc((i/2)+2, if(i%2==0) -3 else -2)
+    //   val color =
+    //     (game.tech(S0)(i), game.tech(S1)(i)) match {
+    //       case (T0, T0) => "#000000"
+    //       case (T0, T1) => "#770000"
+    //       case (T0, T2) => "#ff0000"
+    //       case (T1, T0) => "#000077"
+    //       case (T1, T1) => "#770077"
+    //       case (T1, T2) => "#ff0077"
+    //       case (T2, T0) => "#0000ff"
+    //       case (T2, T1) => "#7700ff"
+    //       case (T2, T2) => "#ff00ff"
+    //     }
+    //   fillHex(ctx, loc, color, tileScale)
+    //   val hexLoc = HexLoc.ofLoc(loc)
+    //   text(ctx, i.toString, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
+    //   text(ctx, s0.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,3), gridSize), "blue")
+    //   text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,4), gridSize), "blue")
+    //   text(ctx, s1.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,1), gridSize), "red")
+    //   text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,0), gridSize), "red")
+    // }
 
     //Terrain
     board.tiles.foreachi {case (loc, tile) =>
