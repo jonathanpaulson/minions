@@ -3,6 +3,7 @@ package minionsgame.server
 import scala.util.{Try,Success,Failure}
 import scala.concurrent.Future
 import java.util.concurrent.atomic.AtomicInteger
+import com.typesafe.config.ConfigFactory
 
 import akka.actor.{ActorSystem, Actor, ActorRef, Terminated, Props, Status}
 import akka.stream.{ActorMaterializer,OverflowStrategy}
@@ -13,12 +14,21 @@ import akka.http.scaladsl.server.Directives._
 
 import minionsgame.core._
 
+object Paths {
+  val applicationConf = "./application.conf"
+  val mainPage = "./web/index.html"
+  val webjs = "./web/js/"
+}
+
 object ServerMain extends App {
   implicit val actorSystem = ActorSystem()
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
 
-  val config = actorSystem.settings.config
+  val cwd = new java.io.File(".").getCanonicalPath
+  println("Running in " + cwd)
+
+  val config = ConfigFactory.parseFile(new java.io.File(Paths.applicationConf))
   val interface = config.getString("app.interface")
   val port = config.getInt("app.port")
 
@@ -212,7 +222,10 @@ object ServerMain extends App {
 
   val route = get {
     pathEndOrSingleSlash {
-      complete("Hello world")
+      getFromFile(Paths.mainPage)
+    } ~
+    pathPrefix("js") {
+      getFromDirectory(Paths.webjs)
     }
   } ~
   path("playGame") {

@@ -89,3 +89,22 @@ lazy val minions = crossProject.crossType(scalaJSCrossType).in(file(".")).
 //Note - do NOT modify the project settings here, instead use jvmSettings and jsSettings above
 lazy val minionsServer = minions.jvm
 lazy val minionsClient = minions.js
+
+//Custom task that copies necessary stuff to web/ directory
+val copyStuffTask = taskKey[Unit]("Copy to web directory")
+copyStuffTask := {
+  val unused = (fastOptJS in Compile in minionsClient).value
+  streams.value.log.info("Copying stuff to web/")
+  def createDirectory(dst: String) = IO.createDirectory(new File(dst))
+  def copyFile(src: String, dst: String) = IO.copyFile(new File(src), new File(dst))
+  createDirectory("web")
+  createDirectory("web/js")
+  copyFile("client/minionsclient_dev.html","web/index.html")
+  copyFile("client/target/scala-2.12/minionsclient-fastopt.js","web/js/minionsclient-fastopt.js")
+  copyFile("client/target/scala-2.12/minionsclient-fastopt.js.map","web/js/minionsclient-fastopt.js.map")
+  copyFile("client/target/scala-2.12/minionsclient-jsdeps.js","web/js/minionsclient-jsdeps.js")
+  copyFile("client/target/scala-2.12/minionsclient-launcher.js","web/js/minionsclient-launcher.js")
+}
+
+//Custom alias that builds everything and copies it
+addCommandAlias("buildEverything", ";project minions;compile;fastOptJS;copyStuffTask")
