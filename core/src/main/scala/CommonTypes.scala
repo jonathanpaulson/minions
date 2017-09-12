@@ -26,6 +26,8 @@ object Side {
     s match {
       case "S0" => S0
       case "S1" => S1
+      case "0" => S0
+      case "1" => S1
       case _ => throw new Exception("Could not parse side: " + s)
     }
   }

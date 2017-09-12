@@ -7,6 +7,7 @@ import org.scalajs.dom.WebSocket
 import org.scalajs.dom.Event
 import org.scalajs.dom.ErrorEvent
 import org.scalajs.dom.MessageEvent
+import org.scalajs.dom.window
 import java.net.URLEncoder
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -18,22 +19,25 @@ import RichImplicits._
 
 object Connection {
   def apply(
-    baseUri: String,
-    side: Side,
-    username: String
+    username: String,
+    side: Option[Side]
   ): Connection = {
-    new Connection(baseUri,side,username)
+    new Connection(username,side)
   }
 }
 
 class Connection private (
-  baseUri: String,
-  side: Side,
-  username: String
+  username: String,
+  side: Option[Side]
 ) {
 
-  def encode(s: String) = URLEncoder.encode(s, "UTF-8")
-  val uri = baseUri + "?" + "username=" + encode(username) + "side=" + side.int
+  private def encode(s: String) = URLEncoder.encode(s, "UTF-8")
+  val uri = "ws://" +
+    (new java.net.URI(window.location.href)).getAuthority() +
+    "/playGame" +
+    "?" +
+    "username=" + encode(username) +
+    (side match { case None => "" case Some(side) => "&side=" + side.int })
 
   def run(f:Try[Protocol.Response] => Unit): Future[Unit] = {
     val done: Promise[Unit] = Promise()

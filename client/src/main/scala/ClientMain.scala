@@ -1,11 +1,14 @@
 package minionsgame.jsclient
 
+import scala.concurrent.Future
+import scala.util.{Try, Success, Failure}
+
 import scala.scalajs.js.JSApp
 import org.scalajs.jquery.jQuery
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.MouseEvent
 import org.scalajs.dom.html.Canvas
-import scala.util.{Try, Success, Failure}
+import org.scalajs.dom.window
 
 import minionsgame.core._
 import RichImplicits._
@@ -18,6 +21,37 @@ object ClientMain extends JSApp {
     ()
   }
 
+  val (username: String, side: Option[Side]) = {
+    val params = (new java.net.URI(window.location.href)).getQuery()
+    val fields = params.split("&").flatMap { piece =>
+      piece.split("=").toList match {
+        case Nil => None
+        case _ :: Nil => None
+        case k :: v :: Nil => Some((k,v))
+        case _ :: _ :: _ :: _ => None
+      }
+    }.toMap
+    val username = fields("username")
+    val side = fields.get("side").map(Side.ofString)
+    (username,side)
+  }
+
+  def reportError(err: String) = {
+    //TODO display to user instead of printing to console
+    println(err)
+  }
+  def reportFatalError(err: String) = {
+    //TODO display to user instead of printing to console
+    println(err)
+  }
+
+  def reportUserJoined(username: String, side: Option[Side]) = {
+    //TODO
+  }
+  def reportUserLeft(username: String, side: Option[Side]) = {
+    //TODO
+  }
+
   def setupUI() : Unit = {
     val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
     val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
@@ -25,13 +59,10 @@ object ClientMain extends JSApp {
     //How much to translate the canvas origin inward from the upper left corner.
     val translateOrigin = PixelVec(2.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
 
-    //TODO
-    val side: Side = ???
-
     //State of boards including our own local edits ot them
-    var localBoards: Array[Board] = Array()
+    var localBoards: Array[Option[Board]] = Array()
     //State of boards as received from the server
-    var serverBoards: Array[Board] = Array()
+    var serverBoards: Array[Option[Board]] = Array()
     var numBoards: Int = 0 //Length of the boards arrays
     var curBoardIdx: Int = 0 //Currently selected board
 
@@ -41,9 +72,75 @@ object ClientMain extends JSApp {
     var hoverSpec : Option[PieceSpec] = None
     var path : List[Loc] = List()
 
+    //Websocket connection!
+    val connection = Connection(username,side)
+
+    def sendWebsocketQuery(query: Protocol.Query): Unit = {
+      //TODO
+    }
+
+    def handleWebsocketEvent(result: Try[Protocol.Response]): Unit = {
+      result match {
+        case Failure(exn) =>
+          reportError("Websocket exn: " + exn.toString)
+        case Success(event) =>
+          event match {
+            case Protocol.Version(version) =>
+              if(CurrentVersion.version != version)
+                reportFatalError("Minions client version " + CurrentVersion.version + " does not match server version " + version)
+              else
+                println("Running minions version " + version)
+            case Protocol.QueryError(err) =>
+              reportError("Error from server: " + err)
+            case Protocol.UserJoined(username,side) =>
+              reportUserJoined(username,side)
+            case Protocol.UserLeft(username,side) =>
+              reportUserLeft(username,side)
+
+            //TODO
+            case Protocol.OkBoardAction(boardIdx,newBoardSequence) =>
+              val _ = (boardIdx,newBoardSequence)
+            case Protocol.OkUndoBoardAction(boardIdx,newBoardSequence) =>
+              val _ = (boardIdx,newBoardSequence)
+
+            case Protocol.NumBoards(n) =>
+              println("Setting numBoards to " + n)
+              numBoards = n
+              curBoardIdx = 0
+              localBoards = Array.fill(n)(None)
+              serverBoards = Array.fill(n)(None)
+
+            //TODO deal with boardSequence properly, and localBoards
+            case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
+              val _ = newBoardSequence
+              serverBoards(boardIdx).foreach { board =>
+                board.doAction(boardAction) match {
+                  case Success(()) => ()
+                  case Failure(exn) => reportFatalError("Server sent illegal action: " + boardAction + " error: " + exn)
+                }
+              }
+
+            //TODO deal with boardSequence properly, and localBoards
+            case Protocol.ReportUndoBoardAction(boardIdx,newBoardSequence) =>
+              val _ = newBoardSequence
+              serverBoards(boardIdx).foreach { board =>
+                board.undo() match {
+                  case Success(()) => ()
+                  case Failure(exn) => reportFatalError("Server sent illegal undo, error: " + exn)
+                }
+              }
+
+            //TODO deal with boardSequence properly, and localBoards
+            case Protocol.ReportBoardHistory(boardIdx,boardSummary,newBoardSequence) =>
+              val _ = newBoardSequence
+              serverBoards(boardIdx) = Some(Board.ofSummary(boardSummary))
+          }
+      }
+    }
+
     def curBoard() : Option[Board] = {
       if(numBoards == 0) None
-      else Some(localBoards(curBoardIdx))
+      else localBoards(curBoardIdx)
     }
 
     def draw() : Unit = {
@@ -149,6 +246,7 @@ object ClientMain extends JSApp {
     }
     def mouseup(e : MouseEvent) : Unit = {
       curBoard().foreach { board =>
+        //TODO
         def doActions(actions : List[PlayerAction]) : Unit = {
           board.doAction(PlayerActions(actions)) match {
             case Success(()) => ()
@@ -205,6 +303,8 @@ object ClientMain extends JSApp {
     canvas.onmouseout = mouseout _
 
     draw()
+
+    val _ : Future[Unit] = connection.run(handleWebsocketEvent)
 
     ()
   }
