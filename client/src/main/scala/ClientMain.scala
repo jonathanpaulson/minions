@@ -76,7 +76,7 @@ object ClientMain extends JSApp {
     val connection = Connection(username,side)
 
     def sendWebsocketQuery(query: Protocol.Query): Unit = {
-      //TODO
+      connection.sendIfOpen(query)
     }
 
     def handleWebsocketEvent(result: Try[Protocol.Response]): Unit = {

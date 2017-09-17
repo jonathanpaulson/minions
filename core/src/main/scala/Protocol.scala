@@ -22,7 +22,7 @@ object Protocol {
   sealed trait Query
   case object RequestGeneralState extends Query
   case class RequestBoardHistory(boardIdx: Int) extends Query
-  case class DoBoardAction(boardIdx: Int, boardAction: BoardAction, boardSequence: Int) extends Query
+  case class DoBoardAction(boardIdx: Int, boardAction: BoardAction) extends Query
   case class UndoBoardAction(boardIdx: Int, boardSequence: Int) extends Query
 
   //Conversions----------------------------------------------------
@@ -330,18 +330,18 @@ object Protocol {
   //Board.scala--------------------------------------------------------------------------------
   implicit val playerActionsFormat = Json.format[PlayerActions]
   implicit val doGeneralBoardActionFormat = Json.format[DoGeneralBoardAction]
-  implicit val localUndoFormat = Json.format[LocalUndo]
+  implicit val localPieceUndoFormat = Json.format[LocalPieceUndo]
   implicit val boardActionFormat = {
     val reads: Reads[BoardAction] = readsFromPair[BoardAction]("BoardAction",Map(
       "PlayerActions" -> ((json:JsValue) => playerActionsFormat.reads(json)),
       "DoGeneralBoardAction" -> ((json:JsValue) => doGeneralBoardActionFormat.reads(json)),
-      "LocalUndo" -> ((json:JsValue) => localUndoFormat.reads(json))
+      "LocalPieceUndo" -> ((json:JsValue) => localPieceUndoFormat.reads(json))
     ))
     val writes: Writes[BoardAction] = new Writes[BoardAction] {
       def writes(t: BoardAction): JsValue = t match {
         case (t:PlayerActions) => jsPair("PlayerActions",playerActionsFormat.writes(t))
         case (t:DoGeneralBoardAction) => jsPair("DoGeneralBoardAction",doGeneralBoardActionFormat.writes(t))
-        case (t:LocalUndo) => jsPair("LocalUndo",localUndoFormat.writes(t))
+        case (t:LocalPieceUndo) => jsPair("LocalPieceUndo",localPieceUndoFormat.writes(t))
       }
     }
     Format(reads,writes)

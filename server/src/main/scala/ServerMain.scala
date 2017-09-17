@@ -100,15 +100,13 @@ object ServerMain extends App {
             )
           }
 
-        case Protocol.DoBoardAction(boardIdx,boardAction,boardSequence) =>
+        case Protocol.DoBoardAction(boardIdx,boardAction) =>
           side match {
             case None =>
               out ! Protocol.QueryError("Cannot perform actions as a spectator")
             case Some(side) =>
               if(boardIdx < 0 || boardIdx >= numBoards)
                 out ! Protocol.QueryError("Invalid boardIdx")
-              else if(boardSequence != boardSequences(boardIdx))
-                out ! Protocol.QueryError("Client board out-of-sync with server board, try refreshing?")
               else if(boards(boardIdx).curState().side != side)
                 out ! Protocol.QueryError("Currently the other team's turn")
               else {
@@ -130,7 +128,7 @@ object ServerMain extends App {
               if(boardIdx < 0 || boardIdx >= numBoards)
                 out ! Protocol.QueryError("Invalid boardIdx")
               else if(boardSequence != boardSequences(boardIdx))
-                out ! Protocol.QueryError("Client board out-of-sync with server board, try refreshing?")
+                out ! Protocol.QueryError("Client board out-of-sync with server board")
               else if(boards(boardIdx).curState().side != side)
                 out ! Protocol.QueryError("Currently the other team's turn")
               else {

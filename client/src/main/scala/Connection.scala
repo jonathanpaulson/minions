@@ -30,6 +30,8 @@ class Connection private (
   username: String,
   side: Option[Side]
 ) {
+  private var socketId: Int = 0
+  private var openSocket: Option[Websocket] = None
 
   private def encode(s: String) = URLEncoder.encode(s, "UTF-8")
   val uri = "ws://" +
@@ -42,6 +44,9 @@ class Connection private (
   def run(f:Try[Protocol.Response] => Unit): Future[Unit] = {
     val done: Promise[Unit] = Promise()
 
+    socketId = socketId + 1
+    val id = socketId
+
     val socket = new WebSocket(uri)
     socket.onopen = { (_: Event) => () }
     socket.onerror = { (event: ErrorEvent) => f(Failure(new Exception(event.message))) }
@@ -53,8 +58,17 @@ class Connection private (
         case Success(s:JsSuccess[Protocol.Response]) => f(Success(s.get))
       }
     }
-    socket.onclose = { (_: Event) => done.success(()) }
+    socket.onclose = { (_: Event) =>
+      if(socketId == id)
+        openSocket = None
+      done.success(())
+    }
 
+    openSocket = Some(socket)
     done.future
+  }
+
+  def sendIfOpen(query: Protocol.Query): Unit = {
+    socket.send(Json.stringify(Json.toJson(query))
   }
 }

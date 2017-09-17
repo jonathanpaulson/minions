@@ -37,7 +37,7 @@ import RichImplicits._
 sealed trait BoardAction
 case class PlayerActions(actions: List[PlayerAction]) extends BoardAction
 case class DoGeneralBoardAction(action: GeneralBoardAction) extends BoardAction
-case class LocalUndo(pieceSpec: PieceSpec) extends BoardAction
+case class LocalPieceUndo(pieceSpec: PieceSpec) extends BoardAction
 
 //Pairs board states together with the legal history of actions that generated those states, after reordering of actions.
 //A new BoardHistory is created after each Action.
@@ -121,7 +121,7 @@ class Board private (
     action match {
       case PlayerActions(actions) => curState().tryLegality(actions)
       case DoGeneralBoardAction(_) => Success(())
-      case LocalUndo(pieceSpec) =>
+      case LocalPieceUndo(pieceSpec) =>
         if(curState().pieceExists(pieceSpec))
           Success(())
         else
@@ -191,7 +191,7 @@ class Board private (
               spawnActionsThisTurn = history.spawnActionsThisTurn,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn :+ generalBoardAction
             )
-          case LocalUndo(pieceSpec) =>
+          case LocalPieceUndo(pieceSpec) =>
             val newMoveAttackState = initialStateThisTurn.copy()
             //Reapply all generalBoard actions
             //Note that this relies on the invariant mentioned at the top of BoardState.scala - that reordering generalBoard actions
