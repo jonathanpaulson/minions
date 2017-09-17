@@ -49,6 +49,14 @@ class Connection private (
     val id = socketId
 
     val socket = new WebSocket(uri)
+
+    var heartbeatIdx = 0
+    val heartbeatLoop = scala.scalajs.js.timers.setInterval(5000) {
+      val query: Protocol.Query = Protocol.Heartbeat(heartbeatIdx)
+      socket.send(Json.stringify(Json.toJson(query)))
+      heartbeatIdx += 1
+    }
+
     socket.onopen = { (_: Event) => () }
     socket.onerror = { (event: ErrorEvent) => f(Failure(new Exception(event.message))) }
     socket.onmessage = { (event: MessageEvent) =>
@@ -62,6 +70,7 @@ class Connection private (
     socket.onclose = { (_: Event) =>
       if(socketId == id)
         openSocket = None
+      scala.scalajs.js.timers.clearInterval(heartbeatLoop)
       done.success(())
     }
 

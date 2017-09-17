@@ -93,9 +93,11 @@ object ClientMain extends JSApp {
     def syncLocalAndServerBoards(boardIdx: Int): Unit = {
       var localActionsToReplay: Vector[BoardActionOrUndoRedo] = Vector()
       var foundDifference: Boolean = false
+      //Look for difference between the server and the local history
       for(i <- 0 until serverActionSequence(boardIdx).length) {
-        //Found a difference between the server and the local history!
-        if(serverActionSequence(boardIdx)(i) != localActionSequence(boardIdx)(i)) {
+        if(i >= localActionSequence(boardIdx).length)
+          foundDifference = true
+        else if(serverActionSequence(boardIdx)(i) != localActionSequence(boardIdx)(i)) {
           //Store the local action to try to replay it afterward
           localActionsToReplay = localActionsToReplay :+ localActionSequence(boardIdx)(i)
           foundDifference = true
@@ -125,6 +127,7 @@ object ClientMain extends JSApp {
               numActionsLocalAhead = numActionsLocalAhead + 1
           }
         }
+        draw()
       }
     }
 
@@ -134,6 +137,7 @@ object ClientMain extends JSApp {
       localSequence(boardIdx) = serverSequence(boardIdx)
       localActionSequence(boardIdx) = serverActionSequence(boardIdx)
       numActionsLocalAhead = 0
+      draw()
     }
 
     def handleResponse(response: Protocol.Response): Unit = {
@@ -145,6 +149,8 @@ object ClientMain extends JSApp {
             println("Running minions version " + version)
         case Protocol.QueryError(err) =>
           reportError("Error from server: " + err)
+        case Protocol.OkHeartbeat(_) =>
+          ()
         case Protocol.UserJoined(username,side) =>
           reportUserJoined(username,side)
         case Protocol.UserLeft(username,side) =>

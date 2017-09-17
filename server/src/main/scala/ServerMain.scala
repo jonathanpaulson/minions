@@ -4,6 +4,8 @@ import scala.util.{Try,Success,Failure}
 import scala.concurrent.Future
 import java.util.concurrent.atomic.AtomicInteger
 import com.typesafe.config.ConfigFactory
+import java.util.Calendar
+import java.text.SimpleDateFormat
 
 import akka.actor.{ActorSystem, Actor, ActorRef, Terminated, Props, Status}
 import akka.stream.{ActorMaterializer,OverflowStrategy}
@@ -11,6 +13,7 @@ import akka.stream.scaladsl.{Flow,Sink,Source}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.ws.{Message,TextMessage}
 import akka.http.scaladsl.server.Directives._
+import akka.event.Logging
 
 import minionsgame.core._
 
@@ -21,14 +24,20 @@ object Paths {
 }
 
 object ServerMain extends App {
-  implicit val actorSystem = ActorSystem()
+  val config = ConfigFactory.parseFile(new java.io.File(Paths.applicationConf))
+
+  implicit val actorSystem = ActorSystem("gameSystem",config)
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = actorSystem.dispatcher
 
-  val cwd = new java.io.File(".").getCanonicalPath
-  println("Running in " + cwd)
+  val timeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSZ")
+  def log(s: String): Unit = {
+    println(timeFormat.format(Calendar.getInstance().getTime()) + " " + s)
+  }
 
-  val config = ConfigFactory.parseFile(new java.io.File(Paths.applicationConf))
+  val cwd = new java.io.File(".").getCanonicalPath
+  log("Running in " + cwd)
+
   val interface = config.getString("app.interface")
   val port = config.getInt("app.port")
 
@@ -86,7 +95,11 @@ object ServerMain extends App {
 
     private def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side]): Unit = {
       query match {
+        case Protocol.Heartbeat(i) =>
+          out ! Protocol.OkHeartbeat(i)
+
         case Protocol.RequestGeneralState =>
+          //TODO
           out ! Protocol.QueryError("Not implemented yet")
 
         case Protocol.RequestBoardHistory(boardIdx) =>
@@ -101,6 +114,7 @@ object ServerMain extends App {
           }
 
         case Protocol.DoBoardAction(boardIdx,boardAction) =>
+          log("Received board " + boardIdx + " action " + boardAction)
           side match {
             case None =>
               out ! Protocol.QueryError("Cannot perform actions as a spectator")
@@ -182,18 +196,19 @@ object ServerMain extends App {
           out ! Protocol.Version(CurrentVersion.version)
           out ! Protocol.InitializeBoards(boards.map { board => board.toSummary()},boardSequences.clone())
           broadcastAll(Protocol.UserJoined(username,side))
-          println("UserJoined: " + username)
+          log("UserJoined: " + username + " Side: " + side)
         }
       case UserLeft(sessionId) =>
         if(usernames.contains(sessionId)) {
           val username = usernames(sessionId)
-          broadcastAll(Protocol.UserLeft(username,userSides(sessionId)))
+          val side = userSides(sessionId)
+          broadcastAll(Protocol.UserLeft(username,side))
           val out = userOuts(sessionId)
           usernames = usernames - sessionId
           userSides = userSides - sessionId
           userOuts = userOuts - sessionId
           out ! Status.Success("")
-          println("UserLeft: " + username)
+          log("UserLeft: " + username + " Side: " + side)
         }
       case QueryStr(sessionId, queryStr) =>
         if(usernames.contains(sessionId)) {
@@ -295,13 +310,13 @@ object ServerMain extends App {
 
   binding.onComplete {
     case Failure(e) =>
-      println(s"Server http binding failed ${e.getMessage}")
+      log(s"Server http binding failed ${e.getMessage}")
       actorSystem.terminate()
     case Success(binding) =>
       val localAddress = binding.localAddress
-      println(s"Server is listening on ${localAddress.getHostName}:${localAddress.getPort}")
+      log(s"Server is listening on ${localAddress.getHostName}:${localAddress.getPort}")
       scala.io.StdIn.readLine()
-      println("Done")
+      log("Done")
       actorSystem.terminate()
   }
 

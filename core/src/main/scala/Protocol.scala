@@ -10,6 +10,7 @@ object Protocol {
   sealed trait Response
   case class Version(version: String) extends Response
   case class QueryError(err: String) extends Response
+  case class OkHeartbeat(i: Int) extends Response
   case class InitializeBoards(summaries: Array[BoardSummary], boardSequences: Array[Int]) extends Response
   case class UserJoined(username: String, side: Option[Side]) extends Response
   case class UserLeft(username: String, side: Option[Side]) extends Response
@@ -22,6 +23,7 @@ object Protocol {
   case class ReportRedoBoardAction(boardIdx: Int, actionId: String, newBoardSequence: Int) extends Response
 
   sealed trait Query
+  case class Heartbeat(i: Int) extends Query
   case object RequestGeneralState extends Query
   case class RequestBoardHistory(boardIdx: Int) extends Query
   case class DoBoardAction(boardIdx: Int, boardAction: BoardAction) extends Query
@@ -354,6 +356,7 @@ object Protocol {
   //Protocol.scala--------------------------------------------------------------------------------
   implicit val versionFormat = Json.format[Version]
   implicit val queryErrorFormat = Json.format[QueryError]
+  implicit val okHeartbeatFormat = Json.format[OkHeartbeat]
   implicit val initializeBoardsFormat = Json.format[InitializeBoards]
   implicit val userJoinedFormat = Json.format[UserJoined]
   implicit val userLeftFormat = Json.format[UserLeft]
@@ -368,6 +371,7 @@ object Protocol {
     val reads: Reads[Response] = readsFromPair[Response]("Response",Map(
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
       "QueryError" -> ((json:JsValue) => queryErrorFormat.reads(json)),
+      "OkHeartbeat" -> ((json:JsValue) => okHeartbeatFormat.reads(json)),
       "InitializeBoards" -> ((json:JsValue) => initializeBoardsFormat.reads(json)),
       "UserJoined" -> ((json:JsValue) => userJoinedFormat.reads(json)),
       "UserLeft" -> ((json:JsValue) => userLeftFormat.reads(json)),
@@ -383,6 +387,7 @@ object Protocol {
       def writes(t: Response): JsValue = t match {
         case (t:Version) => jsPair("Version",versionFormat.writes(t))
         case (t:QueryError) => jsPair("QueryError",queryErrorFormat.writes(t))
+        case (t:OkHeartbeat) => jsPair("OkHeartbeat",okHeartbeatFormat.writes(t))
         case (t:InitializeBoards) => jsPair("InitializeBoards",initializeBoardsFormat.writes(t))
         case (t:UserJoined) => jsPair("UserJoined",userJoinedFormat.writes(t))
         case (t:UserLeft) => jsPair("UserLeft",userLeftFormat.writes(t))
@@ -398,12 +403,14 @@ object Protocol {
     Format(reads,writes)
   }
 
+  implicit val heartbeatFormat = Json.format[Heartbeat]
   implicit val requestBoardHistoryFormat = Json.format[RequestBoardHistory]
   implicit val doBoardActionFormat = Json.format[DoBoardAction]
   implicit val undoBoardActionFormat = Json.format[UndoBoardAction]
   implicit val redoBoardActionFormat = Json.format[RedoBoardAction]
   implicit val queryFormat = {
     val reads: Reads[Query] = readsFromPair[Query]("Query",Map(
+      "Heartbeat" -> ((json:JsValue) => heartbeatFormat.reads(json)),
       "RequestGeneralState" -> ((_:JsValue) => JsSuccess(RequestGeneralState: Query)),
       "RequestBoardHistory" -> ((json:JsValue) => requestBoardHistoryFormat.reads(json)),
       "DoBoardAction" -> ((json:JsValue) => doBoardActionFormat.reads(json)),
@@ -412,6 +419,7 @@ object Protocol {
     ))
     val writes: Writes[Query] = new Writes[Query] {
       def writes(t: Query): JsValue = t match {
+        case (t:Heartbeat) => jsPair("Heartbeat",heartbeatFormat.writes(t))
         case (RequestGeneralState) => jsPair("RequestGeneralState",JsString(""))
         case (t:RequestBoardHistory) => jsPair("RequestBoardHistory",requestBoardHistoryFormat.writes(t))
         case (t:DoBoardAction) => jsPair("DoBoardAction",doBoardActionFormat.writes(t))
