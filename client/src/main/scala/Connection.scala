@@ -8,7 +8,6 @@ import org.scalajs.dom.Event
 import org.scalajs.dom.ErrorEvent
 import org.scalajs.dom.MessageEvent
 import org.scalajs.dom.window
-import java.net.URLEncoder
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -33,7 +32,9 @@ class Connection private (
   private var socketId: Int = 0
   private var openSocket: Option[WebSocket] = None
 
-  private def encode(s: String) = URLEncoder.encode(s, "UTF-8")
+  private def encode(s: String) =
+    scala.scalajs.js.URIUtils.encodeURIComponent(s)
+
   val uri = "ws://" +
     (new java.net.URI(window.location.href)).getAuthority() +
     "/playGame" +
