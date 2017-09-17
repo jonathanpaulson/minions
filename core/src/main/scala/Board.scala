@@ -33,11 +33,17 @@ import RichImplicits._
   * A single UI/user action that can be made, undone, and redone on a board.
   * These are the objects that conceptually form a stack that global undo/redo operates on - yes, this means that local undos
   * are treated the same way as a group of PlayerActions from the UI perspective - and the local undo itself can be undone/redone.
+  * The actionId values are simply strings intended to disambiguate different actions, so that when we merge and dedup action sequences
+  * we can tell which actions were actually distinct.
   */
 sealed trait BoardAction
-case class PlayerActions(actions: List[PlayerAction]) extends BoardAction
-case class DoGeneralBoardAction(action: GeneralBoardAction) extends BoardAction
-case class LocalPieceUndo(pieceSpec: PieceSpec) extends BoardAction
+sealed trait BoardActionOrUndoRedo
+case class PlayerActions(actions: List[PlayerAction], actionId: String) extends BoardAction with BoardActionOrUndoRedo
+case class DoGeneralBoardAction(action: GeneralBoardAction, actionId: String) extends BoardAction with BoardActionOrUndoRedo
+case class LocalPieceUndo(pieceSpec: PieceSpec, actionId: String) extends BoardAction with BoardActionOrUndoRedo
+
+case class UndoAction(actionId: String) extends BoardActionOrUndoRedo
+case class RedoAction(actionId: String) extends BoardActionOrUndoRedo
 
 //Pairs board states together with the legal history of actions that generated those states, after reordering of actions.
 //A new BoardHistory is created after each Action.
@@ -111,6 +117,19 @@ class Board private (
   //Actions over the history of the board over prior turns, at the internal rearranging level, rather than the UI level.
   private var playerGeneralBoardActionsPrevTurns: Vector[(Vector[PlayerAction],Vector[GeneralBoardAction])]
 ) {
+  //Copies the board (but not the Boardstates within, since we never modify those directly)
+  def copy(): Board = {
+    val newBoard = new Board(
+      initialState = initialState,
+      initialStateThisTurn = initialStateThisTurn,
+      actionsThisTurn = actionsThisTurn,
+      historiesThisTurn = historiesThisTurn,
+      curIdx = curIdx,
+      actionsPrevTurns = actionsPrevTurns,
+      playerGeneralBoardActionsPrevTurns = playerGeneralBoardActionsPrevTurns
+    )
+    newBoard
+  }
 
   //Users should NOT modify the BoardState returned by this function!
   def curState(): BoardState = {
@@ -119,9 +138,9 @@ class Board private (
 
   def tryLegality(action: BoardAction): Try[Unit] = {
     action match {
-      case PlayerActions(actions) => curState().tryLegality(actions)
-      case DoGeneralBoardAction(_) => Success(())
-      case LocalPieceUndo(pieceSpec) =>
+      case PlayerActions(actions,_) => curState().tryLegality(actions)
+      case DoGeneralBoardAction(_,_) => Success(())
+      case LocalPieceUndo(pieceSpec,_) =>
         if(curState().pieceExists(pieceSpec))
           Success(())
         else
@@ -137,7 +156,7 @@ class Board private (
       case Success(()) => Try {
         val history = historiesThisTurn(curIdx)
         val newHistory = action match {
-          case PlayerActions(playerActions) =>
+          case PlayerActions(playerActions,_) =>
             val newMoveAttackState = history.moveAttackState.copy()
 
             //Try all the move/attack actions that are legal now in a row. Delay other actions to the spawn phase.
@@ -179,7 +198,7 @@ class Board private (
               spawnActionsThisTurn = history.spawnActionsThisTurn ++ spawnActions,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
             )
-          case DoGeneralBoardAction(generalBoardAction) =>
+          case DoGeneralBoardAction(generalBoardAction,_) =>
             val newMoveAttackState = history.moveAttackState.copy()
             val newSpawnState = history.spawnState.copy()
             newMoveAttackState.doGeneralBoardAction(generalBoardAction)
@@ -191,7 +210,7 @@ class Board private (
               spawnActionsThisTurn = history.spawnActionsThisTurn,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn :+ generalBoardAction
             )
-          case LocalPieceUndo(pieceSpec) =>
+          case LocalPieceUndo(pieceSpec,_) =>
             val newMoveAttackState = initialStateThisTurn.copy()
             //Reapply all generalBoard actions
             //Note that this relies on the invariant mentioned at the top of BoardState.scala - that reordering generalBoard actions

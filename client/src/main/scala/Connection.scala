@@ -31,7 +31,7 @@ class Connection private (
   side: Option[Side]
 ) {
   private var socketId: Int = 0
-  private var openSocket: Option[Websocket] = None
+  private var openSocket: Option[WebSocket] = None
 
   private def encode(s: String) = URLEncoder.encode(s, "UTF-8")
   val uri = "ws://" +
@@ -69,6 +69,8 @@ class Connection private (
   }
 
   def sendIfOpen(query: Protocol.Query): Unit = {
-    socket.send(Json.stringify(Json.toJson(query))
+    openSocket.foreach { socket =>
+      socket.send(Json.stringify(Json.toJson(query)))
+    }
   }
 }

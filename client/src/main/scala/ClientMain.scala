@@ -46,9 +46,11 @@ object ClientMain extends JSApp {
   }
 
   def reportUserJoined(username: String, side: Option[Side]) = {
+    val _ = (username,side)
     //TODO
   }
   def reportUserLeft(username: String, side: Option[Side]) = {
+    val _ = (username,side)
     //TODO
   }
 
@@ -60,11 +62,19 @@ object ClientMain extends JSApp {
     val translateOrigin = PixelVec(2.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
 
     //State of boards including our own local edits ot them
-    var localBoards: Array[Option[Board]] = Array()
+    var localBoards: Array[Board] = Array()
+    var localSequence: Array[Int] = Array()
+    var localActionSequence: Array[Vector[BoardActionOrUndoRedo]] = Array()
+    var numActionsLocalAhead: Int = 0
     //State of boards as received from the server
-    var serverBoards: Array[Option[Board]] = Array()
+    var serverBoards: Array[Board] = Array()
+    var serverSequence: Array[Int] = Array()
+    var serverActionSequence: Array[Vector[BoardActionOrUndoRedo]] = Array()
+
     var numBoards: Int = 0 //Length of the boards arrays
     var curBoardIdx: Int = 0 //Currently selected board
+
+    var nextActionIdSuffix: Int = 0 //For generating unique action ids
 
     //Mouse movement path state
     var selectedSpec : Option[PieceSpec] = None
@@ -79,72 +89,173 @@ object ClientMain extends JSApp {
       connection.sendIfOpen(query)
     }
 
-    def handleWebsocketEvent(result: Try[Protocol.Response]): Unit = {
-      result match {
-        case Failure(exn) =>
-          reportError("Websocket exn: " + exn.toString)
-        case Success(event) =>
-          event match {
-            case Protocol.Version(version) =>
-              if(CurrentVersion.version != version)
-                reportFatalError("Minions client version " + CurrentVersion.version + " does not match server version " + version)
-              else
-                println("Running minions version " + version)
-            case Protocol.QueryError(err) =>
-              reportError("Error from server: " + err)
-            case Protocol.UserJoined(username,side) =>
-              reportUserJoined(username,side)
-            case Protocol.UserLeft(username,side) =>
-              reportUserLeft(username,side)
+    //Upon receiving an update from the server, update local boards to be consistent
+    def syncLocalAndServerBoards(boardIdx: Int): Unit = {
+      var localActionsToReplay: Vector[BoardActionOrUndoRedo] = Vector()
+      var foundDifference: Boolean = false
+      for(i <- 0 until serverActionSequence(boardIdx).length) {
+        //Found a difference between the server and the local history!
+        if(serverActionSequence(boardIdx)(i) != localActionSequence(boardIdx)(i)) {
+          //Store the local action to try to replay it afterward
+          localActionsToReplay = localActionsToReplay :+ localActionSequence(boardIdx)(i)
+          foundDifference = true
+        }
+      }
+      if(foundDifference) {
+        //Also grab all the extra actions afterwards locally
+        for(i <- serverActionSequence(boardIdx).length until localActionSequence(boardIdx).length) {
+          localActionsToReplay = localActionsToReplay :+ localActionSequence(boardIdx)(i)
+        }
+        localBoards(boardIdx) = serverBoards(boardIdx).copy()
+        localSequence(boardIdx) = serverSequence(boardIdx)
+        localActionSequence(boardIdx) = serverActionSequence(boardIdx)
+        numActionsLocalAhead = 0
 
-            //TODO
-            case Protocol.OkBoardAction(boardIdx,newBoardSequence) =>
-              val _ = (boardIdx,newBoardSequence)
-            case Protocol.OkUndoBoardAction(boardIdx,newBoardSequence) =>
-              val _ = (boardIdx,newBoardSequence)
-
-            case Protocol.NumBoards(n) =>
-              println("Setting numBoards to " + n)
-              numBoards = n
-              curBoardIdx = 0
-              localBoards = Array.fill(n)(None)
-              serverBoards = Array.fill(n)(None)
-
-            //TODO deal with boardSequence properly, and localBoards
-            case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
-              val _ = newBoardSequence
-              serverBoards(boardIdx).foreach { board =>
-                board.doAction(boardAction) match {
-                  case Success(()) => ()
-                  case Failure(exn) => reportFatalError("Server sent illegal action: " + boardAction + " error: " + exn)
-                }
-              }
-
-            //TODO deal with boardSequence properly, and localBoards
-            case Protocol.ReportUndoBoardAction(boardIdx,newBoardSequence) =>
-              val _ = newBoardSequence
-              serverBoards(boardIdx).foreach { board =>
-                board.undo() match {
-                  case Success(()) => ()
-                  case Failure(exn) => reportFatalError("Server sent illegal undo, error: " + exn)
-                }
-              }
-
-            //TODO deal with boardSequence properly, and localBoards
-            case Protocol.ReportBoardHistory(boardIdx,boardSummary,newBoardSequence) =>
-              val _ = newBoardSequence
-              serverBoards(boardIdx) = Some(Board.ofSummary(boardSummary))
+        localActionsToReplay.foreach { action =>
+          val result = action match {
+            case (a: BoardAction) => localBoards(boardIdx).doAction(a)
+            case UndoAction(_) => localBoards(boardIdx).undo()
+            case RedoAction(_) => localBoards(boardIdx).redo()
           }
+          result match {
+            case Failure(err) => reportError(err.toString)
+            case Success(()) =>
+              localSequence(boardIdx) = localSequence(boardIdx) + 1
+              localActionSequence(boardIdx) = localActionSequence(boardIdx) :+ action
+              numActionsLocalAhead = numActionsLocalAhead + 1
+          }
+        }
       }
     }
 
-    def curBoard() : Option[Board] = {
+    //Wipe all history and restore the local boards to be the same as the server board
+    def resetLocalBoards(boardIdx: Int): Unit = {
+      localBoards(boardIdx) = serverBoards(boardIdx).copy()
+      localSequence(boardIdx) = serverSequence(boardIdx)
+      localActionSequence(boardIdx) = serverActionSequence(boardIdx)
+      numActionsLocalAhead = 0
+    }
+
+    def handleResponse(response: Protocol.Response): Unit = {
+      response match {
+        case Protocol.Version(version) =>
+          if(CurrentVersion.version != version)
+            reportFatalError("Minions client version " + CurrentVersion.version + " does not match server version " + version)
+          else
+            println("Running minions version " + version)
+        case Protocol.QueryError(err) =>
+          reportError("Error from server: " + err)
+        case Protocol.UserJoined(username,side) =>
+          reportUserJoined(username,side)
+        case Protocol.UserLeft(username,side) =>
+          reportUserLeft(username,side)
+
+        case Protocol.OkBoardAction(_,_) =>
+          ()
+        case Protocol.OkUndoBoardAction(_,_,_) =>
+          ()
+        case Protocol.OkRedoBoardAction(_,_,_) =>
+          ()
+
+        case Protocol.InitializeBoards(summaries,boardSequences) =>
+          println("Setting numBoards to " + summaries.length)
+          numBoards = summaries.length
+          curBoardIdx = 0
+          serverBoards = summaries.map { summary => Board.ofSummary(summary) }
+          serverSequence = boardSequences.clone()
+          serverActionSequence = Array.fill(summaries.length)(Vector())
+          localBoards = serverBoards.map { board => board.copy() }
+          localSequence = serverSequence.clone()
+          localActionSequence = Array.fill(summaries.length)(Vector())
+          numActionsLocalAhead = 0
+
+        case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
+          serverBoards(boardIdx).doAction(boardAction) match {
+            case Success(()) => ()
+            case Failure(exn) => reportFatalError("Server sent illegal action: " + boardAction + " error: " + exn)
+          }
+          serverSequence(boardIdx) = newBoardSequence
+          serverActionSequence(boardIdx) = serverActionSequence(boardIdx) :+ boardAction.asInstanceOf[BoardActionOrUndoRedo]
+          syncLocalAndServerBoards(boardIdx)
+
+        case Protocol.ReportUndoBoardAction(boardIdx,actionId,newBoardSequence) =>
+          serverBoards(boardIdx).undo() match {
+            case Success(()) => ()
+            case Failure(exn) => reportFatalError("Server sent illegal undo, error: " + exn)
+          }
+          serverSequence(boardIdx) = newBoardSequence
+          serverActionSequence(boardIdx) = serverActionSequence(boardIdx) :+ UndoAction(actionId)
+          syncLocalAndServerBoards(boardIdx)
+
+        case Protocol.ReportRedoBoardAction(boardIdx,actionId,newBoardSequence) =>
+          serverBoards(boardIdx).redo() match {
+            case Success(()) => ()
+            case Failure(exn) => reportFatalError("Server sent illegal redo, error: " + exn)
+          }
+          serverSequence(boardIdx) = newBoardSequence
+          serverActionSequence(boardIdx) = serverActionSequence(boardIdx) :+ RedoAction(actionId)
+          syncLocalAndServerBoards(boardIdx)
+
+        case Protocol.ReportBoardHistory(boardIdx,boardSummary,newBoardSequence) =>
+          serverBoards(boardIdx) = Board.ofSummary(boardSummary)
+          serverSequence(boardIdx) = newBoardSequence
+          serverActionSequence(boardIdx) = Vector()
+          resetLocalBoards(boardIdx)
+      }
+    }
+
+    def handleWebsocketEvent(result: Try[Protocol.Response]): Unit = {
+      result match {
+        case Failure(exn) => reportError("Websocket exn: " + exn.toString)
+        case Success(response) => handleResponse(response)
+      }
+    }
+
+    def makeActionId(): String = {
+      nextActionIdSuffix = nextActionIdSuffix + 1
+      username + nextActionIdSuffix.toString
+    }
+
+    def doActionOnCurBoard(action : BoardAction) : Unit = {
+      localBoards(curBoardIdx).doAction(action) match {
+        case Failure(error) => reportError(error.toString)
+        case Success(()) =>
+          localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
+          localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action.asInstanceOf[BoardActionOrUndoRedo]
+          numActionsLocalAhead = numActionsLocalAhead + 1
+          sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+      }
+    }
+    // def undoOnCurBoard() : Unit = {
+    //   localBoards(curBoardIdx).undo() match {
+    //     case Failure(error) => reportError(error.toString)
+    //     case Success(()) =>
+    //       val actionId = makeActionId()
+    //       localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
+    //       localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ UndoAction(actionId)
+    //       numActionsLocalAhead = numActionsLocalAhead + 1
+    //       sendWebsocketQuery(Protocol.UndoBoardAction(curBoardIdx,actionId,localSequence(curBoardIdx)))
+    //   }
+    // }
+    // def redoOnCurBoard() : Unit = {
+    //   localBoards(curBoardIdx).redo() match {
+    //     case Failure(error) => reportError(error.toString)
+    //     case Success(()) =>
+    //       val actionId = makeActionId()
+    //       localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
+    //       localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ RedoAction(actionId)
+    //       numActionsLocalAhead = numActionsLocalAhead + 1
+    //       sendWebsocketQuery(Protocol.RedoBoardAction(curBoardIdx,actionId,localSequence(curBoardIdx)))
+    //   }
+    // }
+
+    def curLocalBoard() : Option[Board] = {
       if(numBoards == 0) None
-      else localBoards(curBoardIdx)
+      else Some(localBoards(curBoardIdx))
     }
 
     def draw() : Unit = {
-      curBoard().foreach { board =>
+      curLocalBoard().foreach { board =>
         Drawing.drawEverything(canvas, ctx, board.curState, translateOrigin, hoverLoc, hoverSpec, selectedSpec, path)
       }
     }
@@ -152,9 +263,9 @@ object ClientMain extends JSApp {
     //Update path to be a shortest path from [selected] to [hoverLoc] that
     //shares the longest prefix with the current [path]
     def updatePath() : Unit = {
-      curBoard().foreach { board =>
+      curLocalBoard().foreach { board =>
         //If it's not our turn, then deselect all path stuff
-        if(board.curState.side != side)
+        if(side != Some(board.curState.side))
           path = List()
         else {
           val selectedPiece = selectedSpec.flatMap(spec => board.curState.findPiece(spec))
@@ -212,7 +323,7 @@ object ClientMain extends JSApp {
       val hexLoc = mouseHexLoc(e)
       val loc = hexLoc.round()
       val hexDelta = hexLoc - loc
-      curBoard() match {
+      curLocalBoard() match {
         case None => None
         case Some(board) =>
           if(!board.curState.pieces.inBounds(loc))
@@ -240,19 +351,19 @@ object ClientMain extends JSApp {
     }
 
     def mousedown(e : MouseEvent) : Unit = {
-      selectedSpec = mousePiece(e).filter(piece => piece.side == side).map(piece => piece.spec)
+      selectedSpec = side match {
+        case None => None
+        case Some(side) => mousePiece(e).filter(piece => piece.side == side).map(piece => piece.spec)
+      }
       path = List()
       draw()
     }
     def mouseup(e : MouseEvent) : Unit = {
-      curBoard().foreach { board =>
-        //TODO
-        def doActions(actions : List[PlayerAction]) : Unit = {
-          board.doAction(PlayerActions(actions)) match {
-            case Success(()) => ()
-            case Failure(error) => println(error)
-          }
-        }
+      def doActions(actions: List[PlayerAction]): Unit = {
+        doActionOnCurBoard(PlayerActions(actions,makeActionId()))
+      }
+
+      curLocalBoard().foreach { board =>
         selectedSpec.flatMap(spec => board.curState.findPiece(spec)) match {
           case None => ()
           case Some(piece) =>
