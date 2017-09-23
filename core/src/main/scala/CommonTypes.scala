@@ -297,11 +297,15 @@ object Loc {
     if(x < 0)
       x.toString()
     else {
-      var xx = x+1
+      var xx = x
       var s = ""
-      while(xx > 0) {
+      var looping = true
+      while(looping) {
         s = s + ('a' + (xx % 26)).toChar
-        xx = xx / 26
+        if(xx <= 25)
+          looping = false
+        else
+          xx = xx / 26 - 1
       }
       s
     }
