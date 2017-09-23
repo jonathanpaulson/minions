@@ -77,8 +77,8 @@ object ServerMain extends App {
   private class GameActor extends Actor {
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
     //to the players logged into the server
-    var usernamesUsed: Set[String] = Set()
-    var usernames: Map[Int,String] = Map()
+    var sessionOfUsername: Map[String,Int] = Map()
+    var usernameOfSession: Map[Int,String] = Map()
     var userSides: Map[Int,Option[Side]] = Map()
     var userOuts: Map[Int,ActorRef] = Map()
 
@@ -182,36 +182,55 @@ object ServerMain extends App {
       }
     }
 
+    def terminateWebsocket(out: ActorRef): Unit = {
+      //Websocket closes if you send it Status.Success
+      out ! Status.Success("")
+    }
+
+    def handleUserLeft(sessionId: Int) = {
+      if(usernameOfSession.contains(sessionId)) {
+        val username = usernameOfSession(sessionId)
+        val side = userSides(sessionId)
+        broadcastAll(Protocol.UserLeft(username,side))
+        val out = userOuts(sessionId)
+        usernameOfSession = usernameOfSession - sessionId
+        userSides = userSides - sessionId
+        userOuts = userOuts - sessionId
+        terminateWebsocket(out)
+        log("UserLeft: " + username + " Side: " + side)
+      }
+    }
+
     override def receive: Receive = {
       case UserJoined(sessionId, username, side, out) =>
-        if(usernamesUsed.contains(username)) {
-          out ! Protocol.QueryError("Username already taken: " + username)
-          out ! Status.Success("")
+        if(sessionOfUsername.contains(username)) {
+          val oldSessionId = sessionOfUsername(username)
+          handleUserLeft(oldSessionId)
         }
-        else {
-          usernamesUsed = usernamesUsed + username
-          usernames = usernames + (sessionId -> username)
-          userSides = userSides + (sessionId -> side)
-          userOuts = userOuts + (sessionId -> out)
-          out ! Protocol.Version(CurrentVersion.version)
-          out ! Protocol.InitializeBoards(boards.map { board => board.toSummary()},boardSequences.clone())
-          broadcastAll(Protocol.UserJoined(username,side))
-          log("UserJoined: " + username + " Side: " + side)
-        }
+
+        sessionOfUsername = sessionOfUsername + (username -> sessionId)
+        usernameOfSession = usernameOfSession + (sessionId -> username)
+        userSides = userSides + (sessionId -> side)
+        userOuts = userOuts + (sessionId -> out)
+        out ! Protocol.Version(CurrentVersion.version)
+        out ! Protocol.InitializeBoards(boards.map { board => board.toSummary()},boardSequences.clone())
+        broadcastAll(Protocol.UserJoined(username,side))
+        log("UserJoined: " + username + " Side: " + side)
+
       case UserLeft(sessionId) =>
-        if(usernames.contains(sessionId)) {
-          val username = usernames(sessionId)
+        if(usernameOfSession.contains(sessionId)) {
+          val username = usernameOfSession(sessionId)
           val side = userSides(sessionId)
           broadcastAll(Protocol.UserLeft(username,side))
           val out = userOuts(sessionId)
-          usernames = usernames - sessionId
+          usernameOfSession = usernameOfSession - sessionId
           userSides = userSides - sessionId
           userOuts = userOuts - sessionId
           out ! Status.Success("")
           log("UserLeft: " + username + " Side: " + side)
         }
       case QueryStr(sessionId, queryStr) =>
-        if(usernames.contains(sessionId)) {
+        if(usernameOfSession.contains(sessionId)) {
           val out = userOuts(sessionId)
           import play.api.libs.json._
           Try(Json.parse(queryStr)) match {

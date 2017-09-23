@@ -59,7 +59,7 @@ object ClientMain extends JSApp {
     val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
 
     //How much to translate the canvas origin inward from the upper left corner.
-    val translateOrigin = PixelVec(2.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
+    val translateOrigin = PixelVec(3.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
 
     //State of boards including our own local edits ot them
     var localBoards: Array[Board] = Array()
@@ -75,6 +75,8 @@ object ClientMain extends JSApp {
     var curBoardIdx: Int = 0 //Currently selected board
 
     var nextActionIdSuffix: Int = 0 //For generating unique action ids
+
+    val flipDisplay: Boolean = side == Some(S1) //Flip so that 0,0 is in the lower right
 
     //Mouse movement path state
     var selectedSpec : Option[PieceSpec] = None
@@ -262,7 +264,7 @@ object ClientMain extends JSApp {
 
     def draw() : Unit = {
       curLocalBoard().foreach { board =>
-        Drawing.drawEverything(canvas, ctx, board.curState, translateOrigin, hoverLoc, hoverSpec, selectedSpec, path)
+        Drawing.drawEverything(canvas, ctx, board.curState, translateOrigin, hoverLoc, hoverSpec, selectedSpec, path, flipDisplay)
       }
     }
 
@@ -327,11 +329,10 @@ object ClientMain extends JSApp {
 
     def mousePiece(e : MouseEvent) : Option[Piece] = {
       val hexLoc = mouseHexLoc(e)
-      val loc = hexLoc.round()
-      val hexDelta = hexLoc - loc
       curLocalBoard() match {
         case None => None
         case Some(board) =>
+          val (loc,hexDelta) = hexLoc.round(flipDisplay,board.curState)
           if(!board.curState.pieces.inBounds(loc))
             None
           else {
@@ -400,10 +401,15 @@ object ClientMain extends JSApp {
       draw()
     }
     def mousemove(e : MouseEvent) : Unit = {
-      hoverLoc = Some(mouseHexLoc(e).round())
-      hoverSpec = mousePiece(e).map(piece => piece.spec)
-      updatePath()
-      draw()
+      curLocalBoard() match {
+        case None => mouseout(e)
+        case Some(board) =>
+          val (loc,_) = mouseHexLoc(e).round(flipDisplay,board.curState)
+          hoverLoc = Some(loc)
+          hoverSpec = mousePiece(e).map(piece => piece.spec)
+          updatePath()
+          draw()
+      }
     }
     def mouseout(e : MouseEvent) : Unit = {
       val _ = e

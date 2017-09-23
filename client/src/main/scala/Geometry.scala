@@ -106,7 +106,12 @@ case class PixelVec(dx: Double, dy: Double){
 object HexLoc {
   def midpoint(a: HexLoc, b: HexLoc): HexLoc = HexLoc((a.x+b.x)/2.0,(a.y+b.y)/2.0)
 
-  def ofLoc(loc: Loc) = HexLoc(loc.x.toDouble,loc.y.toDouble)
+  def ofLoc(loc: Loc, flipDisplay: Boolean, board: BoardState): HexLoc = {
+    if(flipDisplay && board.tiles.inBounds(loc))
+      HexLoc((board.tiles.xSize - loc.x - 1).toDouble, (board.tiles.ySize - loc.y - 1).toDouble)
+    else
+      HexLoc(loc.x.toDouble,loc.y.toDouble)
+  }
 
   def ofPixel(p: PixelLoc, gridSize: Double): HexLoc = {
     HexLoc((p.x * Math.sqrt(3)/3 - p.y/3) / gridSize, p.y * 2.0/3.0 / gridSize)
@@ -119,8 +124,10 @@ case class HexLoc(x: Double, y: Double) {
   def -(p: HexLoc): HexVec = HexVec(x - p.x, y - p.y)
   def -(p: Loc): HexVec = HexVec(x - p.x, y - p.y)
 
-  //Find the Loc for the hex that contains this HexLoc, taking into account the hexagon shape of a cell.
-  def round(): Loc = {
+  //Find the Loc for the hex that contains this HexLoc, taking into account the hexagon shape of a cell,
+  //And also whether or not we're flipping the board display around.
+  //Also returns the extra offset within the cell.
+  def round(flipDisplay: Boolean, board: BoardState): (Loc,HexVec) = {
     /*
      This algorithm is magic. Here's how it works:
      Given a hexagon H, let H' be the inscribed hexagon formed by connecting the midpoints of the sides of H.
@@ -154,14 +161,23 @@ case class HexLoc(x: Double, y: Double) {
     val dx = Math.abs(x - rx)
     val dy = Math.abs(y - ry)
     val dz = Math.abs(z - rz)
-    if(dx >= dy && dx >= dz)
-      Loc(-(ry+rz).toInt, ry.toInt) //create loc from y and z
-    else if(dz >= dx && dz >= dy)
-      Loc(rx.toInt, ry.toInt)       //create loc from x and y
-    else {
-      assert(dy >= dx && dy>=dz);
-      Loc(rx.toInt, -(rx+rz).toInt) //create loc from x and z
+
+    val loc = {
+      if(dx >= dy && dx >= dz)
+        Loc(-(ry+rz).toInt, ry.toInt) //create loc from y and z
+      else if(dz >= dx && dz >= dy)
+        Loc(rx.toInt, ry.toInt)       //create loc from x and y
+      else {
+        assert(dy >= dx && dy>=dz);
+        Loc(rx.toInt, -(rx+rz).toInt) //create loc from x and z
+      }
     }
+
+    val delta = this - loc
+    if(flipDisplay && board.tiles.inBounds(loc))
+      (Loc(board.tiles.xSize - loc.x - 1, board.tiles.ySize - loc.y - 1), delta)
+    else
+      (loc, delta)
   }
 }
 

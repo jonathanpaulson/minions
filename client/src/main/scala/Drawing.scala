@@ -15,98 +15,6 @@ object Drawing {
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
 
-  import scala.language.implicitConversions
-  private implicit def hexLocOfLoc(loc: Loc): HexLoc = {
-    HexLoc.ofLoc(loc)
-  }
-
-  private def move(ctx : CanvasRenderingContext2D, hexLoc : HexLoc) : Unit = {
-    val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
-    ctx.moveTo(Math.floor(pixel.x), Math.floor(pixel.y));
-  }
-  private def line(ctx : CanvasRenderingContext2D, hexLoc : HexLoc) : Unit = {
-    val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
-    ctx.lineTo(Math.floor(pixel.x), Math.floor(pixel.y));
-  }
-  private def text(ctx : CanvasRenderingContext2D, text : String, pixel : PixelLoc, color : String) : Unit = {
-    ctx.globalAlpha = 1.0
-    ctx.fillStyle = color
-    ctx.textAlign = "center"
-    ctx.fillText(text, Math.floor(pixel.x), Math.floor(pixel.y))
-  }
-
-  private def hexCorner(hexLoc : HexLoc, scale : Double, corner : Int) : HexLoc = {
-    hexLoc + HexVec.corners(corner) * scale
-  }
-
-  private def drawHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, doStroke: Boolean, doFill:Boolean, alpha: Double, lineWidth: Double) : Unit = {
-    ctx.globalAlpha = alpha
-    ctx.lineWidth = lineWidth
-    ctx.strokeStyle = color
-    ctx.fillStyle = color
-    ctx.beginPath()
-    move(ctx, hexCorner(hexLoc,scale,0))
-    line(ctx, hexCorner(hexLoc,scale,1))
-    line(ctx, hexCorner(hexLoc,scale,2))
-    line(ctx, hexCorner(hexLoc,scale,3))
-    line(ctx, hexCorner(hexLoc,scale,4))
-    line(ctx, hexCorner(hexLoc,scale,5))
-    line(ctx, hexCorner(hexLoc,scale,0))
-    if(doStroke) ctx.stroke()
-    if(doFill)  ctx.fill()
-    ctx.closePath()
-  }
-  private def strokeHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0) : Unit = {
-    drawHex(ctx,hexLoc,color,scale,true,false,alpha,lineWidth);
-  }
-  private def fillHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 0.2) : Unit = {
-    drawHex(ctx,hexLoc,color,scale,false,true,alpha,1.0);
-  }
-
-  private def drawTile(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, tile: Tile) : Unit = {
-    tile.terrain match {
-      case Wall => fillHex(ctx, hexLoc, "white", tileScale)
-      case Ground => fillHex(ctx, hexLoc, "green", tileScale)
-      case Water => fillHex(ctx, hexLoc, "blue", tileScale)
-      case Graveyard => fillHex(ctx, hexLoc, "orange", tileScale)
-      case Spawner(S0, _) =>
-        fillHex(ctx, hexLoc, "gray", tileScale)
-        fillHex(ctx, hexLoc, "red", tileScale*0.7)
-      case Spawner(S1, _) =>
-        fillHex(ctx, hexLoc, "gray", tileScale)
-        fillHex(ctx, hexLoc, "blue", tileScale*0.7)
-    }
-    text(ctx, Loc(hexLoc.x.round.toInt, hexLoc.y.round.toInt).toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
-  }
-
-  private def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, piece: Piece) : Unit = {
-    val pieceColor =
-      piece.side match {
-        case S0 => "blue"
-        case S1 => "red"
-      }
-    fillHex(ctx, hexLoc, pieceColor, scale)
-    text(ctx, piece.id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
-  }
-
-  private def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
-    val loc = piece.loc
-    board.pieces(loc) match {
-      case Nil => assertUnreachable()
-      case _ :: Nil => (loc,pieceScale)
-      case p1 :: _ :: Nil  =>
-        val hexLoc = HexLoc.ofLoc(loc)
-        if(piece.id == p1.id) (hexCorner(hexLoc,smallPieceOffset,5), smallPieceScale)
-        else                 (hexCorner(hexLoc,smallPieceOffset,2), smallPieceScale)
-      case p1 :: p2 :: _ :: Nil =>
-        val hexLoc = HexLoc.ofLoc(loc)
-        if(piece.id == p1.id)      (hexCorner(hexLoc,smallPieceOffset,5), smallPieceScale)
-        else if(piece.id == p2.id) (hexCorner(hexLoc,smallPieceOffset,3), smallPieceScale)
-        else                       (hexCorner(hexLoc,smallPieceOffset,1), smallPieceScale)
-      case _ => assertUnreachable()
-    }
-  }
-
   def drawEverything(
     canvas: Canvas,
     ctx: CanvasRenderingContext2D,
@@ -115,8 +23,103 @@ object Drawing {
     hoverLoc: Option[Loc],
     hoverSpec: Option[PieceSpec],
     selected: Option[PieceSpec],
-    path : List[Loc]
+    path : List[Loc],
+    flipDisplay: Boolean
   ) : Unit = {
+
+    import scala.language.implicitConversions
+    implicit def hexLocOfLoc(loc: Loc): HexLoc = {
+      HexLoc.ofLoc(loc,flipDisplay,board)
+    }
+
+    def move(ctx : CanvasRenderingContext2D, hexLoc : HexLoc) : Unit = {
+      val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
+      ctx.moveTo(Math.floor(pixel.x), Math.floor(pixel.y));
+    }
+    def line(ctx : CanvasRenderingContext2D, hexLoc : HexLoc) : Unit = {
+      val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
+      ctx.lineTo(Math.floor(pixel.x), Math.floor(pixel.y));
+    }
+    def text(ctx : CanvasRenderingContext2D, text : String, pixel : PixelLoc, color : String) : Unit = {
+      ctx.globalAlpha = 1.0
+      ctx.fillStyle = color
+      ctx.textAlign = "center"
+      ctx.fillText(text, Math.floor(pixel.x), Math.floor(pixel.y))
+    }
+
+    def hexCorner(hexLoc : HexLoc, scale : Double, corner : Int) : HexLoc = {
+      hexLoc + HexVec.corners(corner) * scale
+    }
+
+    def drawHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, doStroke: Boolean, doFill:Boolean, alpha: Double, lineWidth: Double) : Unit = {
+      ctx.globalAlpha = alpha
+      ctx.lineWidth = lineWidth
+      ctx.strokeStyle = color
+      ctx.fillStyle = color
+      ctx.beginPath()
+      move(ctx, hexCorner(hexLoc,scale,0))
+      line(ctx, hexCorner(hexLoc,scale,1))
+      line(ctx, hexCorner(hexLoc,scale,2))
+      line(ctx, hexCorner(hexLoc,scale,3))
+      line(ctx, hexCorner(hexLoc,scale,4))
+      line(ctx, hexCorner(hexLoc,scale,5))
+      line(ctx, hexCorner(hexLoc,scale,0))
+      if(doStroke) ctx.stroke()
+      if(doFill)  ctx.fill()
+      ctx.closePath()
+    }
+    def strokeHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0) : Unit = {
+      drawHex(ctx,hexLoc,color,scale,true,false,alpha,lineWidth);
+    }
+    def fillHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 0.2) : Unit = {
+      drawHex(ctx,hexLoc,color,scale,false,true,alpha,1.0);
+    }
+
+    def drawTile(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, tile: Tile) : Unit = {
+      tile.terrain match {
+        case Wall => fillHex(ctx, hexLoc, "white", tileScale)
+        case Ground => fillHex(ctx, hexLoc, "green", tileScale)
+        case Water => fillHex(ctx, hexLoc, "blue", tileScale)
+        case Graveyard => fillHex(ctx, hexLoc, "orange", tileScale)
+        case Spawner(S0, _) =>
+          fillHex(ctx, hexLoc, "gray", tileScale)
+          fillHex(ctx, hexLoc, "red", tileScale*0.7)
+        case Spawner(S1, _) =>
+          fillHex(ctx, hexLoc, "gray", tileScale)
+          fillHex(ctx, hexLoc, "blue", tileScale*0.7)
+      }
+      val (loc,_) = hexLoc.round(flipDisplay,board)
+      text(ctx, loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
+    }
+
+    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, piece: Piece) : Unit = {
+      val pieceColor =
+        piece.side match {
+          case S0 => "blue"
+          case S1 => "red"
+        }
+      fillHex(ctx, hexLoc, pieceColor, scale)
+      text(ctx, piece.id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
+    }
+
+    def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
+      val loc = piece.loc
+      board.pieces(loc) match {
+        case Nil => assertUnreachable()
+        case _ :: Nil => (loc,pieceScale)
+        case p1 :: _ :: Nil  =>
+          val hexLoc = hexLocOfLoc(loc)
+          if(piece.id == p1.id) (hexCorner(hexLoc,smallPieceOffset,5), smallPieceScale)
+          else                 (hexCorner(hexLoc,smallPieceOffset,2), smallPieceScale)
+        case p1 :: p2 :: _ :: Nil =>
+          val hexLoc = hexLocOfLoc(loc)
+          if(piece.id == p1.id)      (hexCorner(hexLoc,smallPieceOffset,5), smallPieceScale)
+          else if(piece.id == p2.id) (hexCorner(hexLoc,smallPieceOffset,3), smallPieceScale)
+          else                       (hexCorner(hexLoc,smallPieceOffset,1), smallPieceScale)
+        case _ => assertUnreachable()
+      }
+    }
+
     ctx.setTransform(1,0,0,1,0,0)
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
     ctx.translate(translateOrigin.dx,translateOrigin.dy)
