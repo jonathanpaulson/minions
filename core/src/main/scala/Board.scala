@@ -213,8 +213,8 @@ class Board private (
 
             //Reapply all the spawn actions so far
             val newSpawnState = newMoveAttackState.copy()
-            history.spawnActionsThisTurn.foreach { playerActions =>
-              newSpawnState.doActions(playerActions).get
+            reapplyLegal(history.spawnActionsThisTurn) { playerActions =>
+              newSpawnState.doActions(playerActions)
             }
 
             //And now apply all the deferred actions
