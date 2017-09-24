@@ -213,7 +213,7 @@ object BoardState {
       piecesSpawnedThisTurn = Map(),
       numPiecesSpawnedThisTurnAt = Map(),
       turnNumber = 0,
-      reinforcements = SideArray.create(List()),
+      reinforcements = SideArray.create(Map()),
       spellsRevealed = SideArray.create(Map()),
       spellsInHand = SideArray.create(List()),
       side = S0,
@@ -259,8 +259,8 @@ case class BoardState private (
   //Number of turns completed
   var turnNumber: Int,
 
-  //List of all reinforcement pieces in hand
-  val reinforcements: SideArray[List[PieceName]],
+  //Count of reinforcement pieces in hand by name
+  val reinforcements: SideArray[Map[PieceName,Int]],
 
   //Map of all spells that have been revealed, by side.
   val spellsRevealed: SideArray[Map[Int,SpellName]],
@@ -731,7 +731,7 @@ case class BoardState private (
         }
 
         failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No piece with spawn in range")
-        failUnless(reinforcements(side).contains(spawnStats), "No such piece in reinforcements")
+        failUnless(reinforcements(side).contains(spawnName), "No such piece in reinforcements")
 
       case SpellsAndAbilities(spellsAndAbilities) =>
         //Ensure no spells played more than once
@@ -859,7 +859,14 @@ case class BoardState private (
           case Some(_: Piece) => ()
           case None => assertUnreachable()
         }
-        reinforcements(side) = reinforcements(side).filterNotFirst { name => name == spawnName }
+        reinforcements(side) = {
+          reinforcements(side).get(spawnName) match {
+            case None => assertUnreachable()
+            case Some(n) =>
+              if(n <= 1) reinforcements(side) - spawnName
+              else reinforcements(side) + (spawnName -> (n-1))
+          }
+        }
 
       case SpellsAndAbilities(spellsAndAbilities) =>
         //Apply spell effects
@@ -962,7 +969,7 @@ case class BoardState private (
   }
 
   private def addReinforcementInternal(side: Side, pieceName: PieceName): Unit = {
-    reinforcements(side) = reinforcements(side) :+ pieceName
+    reinforcements(side) = reinforcements(side) + (pieceName -> (reinforcements(side).getOrElse(pieceName,0) + 1))
   }
 
   //Does check for legality of spawn, returning the piece on success

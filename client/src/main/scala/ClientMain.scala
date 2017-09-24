@@ -79,10 +79,7 @@ object ClientMain extends JSApp {
     val flipDisplay: Boolean = side == Some(S1) //Flip so that 0,0 is in the lower right
 
     //Mouse movement path state
-    var selectedSpec : Option[PieceSpec] = None
-    var hoverLoc : Option[Loc] = None
-    var hoverSpec : Option[PieceSpec] = None
-    var path : List[Loc] = List()
+    val mouseState = MouseState()
 
     //Websocket connection!
     val connection = Connection(username,side)
@@ -264,159 +261,133 @@ object ClientMain extends JSApp {
 
     def draw() : Unit = {
       curLocalBoard().foreach { board =>
-        Drawing.drawEverything(canvas, ctx, board.curState, translateOrigin, hoverLoc, hoverSpec, selectedSpec, path, flipDisplay)
+        Drawing.drawEverything(canvas, ctx, board.curState, translateOrigin, mouseState, flipDisplay)
       }
     }
 
     //Update path to be a shortest path from [selected] to [hoverLoc] that
     //shares the longest prefix with the current [path]
-    def updatePath() : Unit = {
-      curLocalBoard().foreach { board =>
-        //If it's not our turn, then deselect all path stuff
-        if(side != Some(board.curState.side))
-          path = List()
-        else {
-          val selectedPiece = selectedSpec.flatMap(spec => board.curState.findPiece(spec))
-          val hoverPiece = hoverSpec.flatMap(spec => board.curState.findPiece(spec))
-            (selectedPiece, hoverLoc) match {
-            case (None,_) | (_,None) =>
-              //If no piece is selected or the mouse is nowhere to be found, then clear the path
-              path = List()
+    // def updatePath() : Unit = {
+    //   curLocalBoard().foreach { board =>
+    //     //If it's not our turn, then deselect all path stuff
+    //     if(side != Some(board.curState.side))
+    //       path = List()
+    //     else {
+    //       val selectedPiece = selectedSpec.flatMap(spec => board.curState.findPiece(spec))
+    //       val hoverPiece = hoverSpec.flatMap(spec => board.curState.findPiece(spec))
+    //         (selectedPiece, hoverLoc) match {
+    //         case (None,_) | (_,None) =>
+    //           //If no piece is selected or the mouse is nowhere to be found, then clear the path
+    //           path = List()
 
-            case (Some(selectedPiece), Some(hoverLoc)) =>
-              val newLegalMove = {
-                val bState = board.curState
-                hoverPiece match {
-                  case None =>
-                    //Ordinary move to location
-                    bState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
-                  case Some(hoverPiece) =>
-                    //Merge into friendly swarm
-                    if(hoverPiece.side == selectedPiece.side)
-                      bState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
-                    //Attack enemy piece
-                    else {
-                      val spStats = selectedPiece.curStats(bState)
-                      val hpStats = hoverPiece.curStats(bState)
-                      if(!bState.canAttack(spStats,attackerHasMoved=false,selectedPiece.actState,hpStats))
-                        None
-                      else {
-                        bState.findLegalMove(selectedPiece,pathBias=path) { loc =>
-                          bState.tiles.topology.distance(loc, hoverLoc) <= spStats.attackRange &&
-                          (loc == selectedPiece.loc || !spStats.isLumbering)
-                        }
-                      }
-                    }
-                }
-              }
-              newLegalMove match {
-                case None => ()
-                case Some(newPath) =>
-                  path = newPath
-              }
-          }
-        }
-      }
-    }
+    //         case (Some(selectedPiece), Some(hoverLoc)) =>
+    //           val newLegalMove = {
+    //             val bState = board.curState
+    //             hoverPiece match {
+    //               case None =>
+    //                 //Ordinary move to location
+    //                 bState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
+    //               case Some(hoverPiece) =>
+    //                 //Merge into friendly swarm
+    //                 if(hoverPiece.side == selectedPiece.side)
+    //                   bState.findLegalMove(selectedPiece,pathBias=path) { loc => loc == hoverLoc }
+    //                 //Attack enemy piece
+    //                 else {
+    //                   val spStats = selectedPiece.curStats(bState)
+    //                   val hpStats = hoverPiece.curStats(bState)
+    //                   if(!bState.canAttack(spStats,attackerHasMoved=false,selectedPiece.actState,hpStats))
+    //                     None
+    //                   else {
+    //                     bState.findLegalMove(selectedPiece,pathBias=path) { loc =>
+    //                       bState.tiles.topology.distance(loc, hoverLoc) <= spStats.attackRange &&
+    //                       (loc == selectedPiece.loc || !spStats.isLumbering)
+    //                     }
+    //                   }
+    //                 }
+    //             }
+    //           }
+    //           newLegalMove match {
+    //             case None => ()
+    //             case Some(newPath) =>
+    //               path = newPath
+    //           }
+    //       }
+    //     }
+    //   }
+    // }
 
     def mousePixel(e : MouseEvent) : PixelLoc = {
       val rect = canvas.getBoundingClientRect()
       PixelLoc(e.clientX - rect.left, e.clientY - rect.top) - translateOrigin
     }
-    def mouseHexLoc(e : MouseEvent) : HexLoc = {
-      HexLoc.ofPixel(mousePixel(e), Drawing.gridSize)
-    }
+    // def mouseHexLoc(e : MouseEvent) : HexLoc = {
+    //   HexLoc.ofPixel(mousePixel(e), Drawing.gridSize)
+    // }
 
-    def mousePiece(e : MouseEvent) : Option[Piece] = {
-      val hexLoc = mouseHexLoc(e)
+    // def mousePiece(e : MouseEvent) : Option[Piece] = {
+    //   val hexLoc = mouseHexLoc(e)
+    //   curLocalBoard() match {
+    //     case None => None
+    //     case Some(board) =>
+    //       val (loc,hexDelta) = hexLoc.round(flipDisplay,board.curState)
+    //       if(!board.curState.pieces.inBounds(loc))
+    //         None
+    //       else {
+    //         board.curState.pieces(loc) match {
+    //           case Nil => None
+    //           case p :: Nil => Some(p)
+    //           case p1 :: p2 :: Nil =>
+    //             hexDelta.closestCorner() match {
+    //               case 0 | 4 | 5 => Some(p1)
+    //               case 1 | 2 | 3 => Some(p2)
+    //             }
+    //           case p1 :: p2 :: p3 :: Nil =>
+    //             hexDelta.hexant() match {
+    //               case 4 | 5 => Some(p1)
+    //               case 2 | 3 => Some(p2)
+    //               case 0 | 1 => Some(p3)
+    //               case _ => assertUnreachable()
+    //             }
+    //           case _ => None
+    //         }
+    //       }
+    //   }
+    // }
+
+    def withBoardForMouse(f: Board => Unit): Unit = {
       curLocalBoard() match {
-        case None => None
-        case Some(board) =>
-          val (loc,hexDelta) = hexLoc.round(flipDisplay,board.curState)
-          if(!board.curState.pieces.inBounds(loc))
-            None
-          else {
-            board.curState.pieces(loc) match {
-              case Nil => None
-              case p :: Nil => Some(p)
-              case p1 :: p2 :: Nil =>
-                hexDelta.closestCorner() match {
-                  case 0 | 4 | 5 => Some(p1)
-                  case 1 | 2 | 3 => Some(p2)
-                }
-              case p1 :: p2 :: p3 :: Nil =>
-                hexDelta.hexant() match {
-                  case 4 | 5 => Some(p1)
-                  case 2 | 3 => Some(p2)
-                  case 0 | 1 => Some(p3)
-                  case _ => assertUnreachable()
-                }
-              case _ => None
-            }
-          }
+        case None => mouseState.clear()
+        case Some(board) => f(board)
       }
     }
 
-    def mousedown(e : MouseEvent) : Unit = {
-      selectedSpec = side match {
-        case None => None
-        case Some(side) => mousePiece(e).filter(piece => piece.side == side).map(piece => piece.spec)
+    def mousedown(e: MouseEvent) : Unit = {
+      withBoardForMouse { board =>
+        val pixelLoc = mousePixel(e)
+        mouseState.handleMouseDown(pixelLoc,board,flipDisplay,side)
       }
-      path = List()
       draw()
     }
     def mouseup(e : MouseEvent) : Unit = {
       def doActions(actions: List[PlayerAction]): Unit = {
         doActionOnCurBoard(PlayerActions(actions,makeActionId()))
       }
-
-      curLocalBoard().foreach { board =>
-        selectedSpec.flatMap(spec => board.curState.findPiece(spec)) match {
-          case None => ()
-          case Some(piece) =>
-            mousePiece(e) match {
-              case None =>
-                if(path.length > 1)
-                  doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
-              case Some(other) =>
-                if(other.side == piece.side) {
-                  if(path.length > 1)
-                    doActions(List(Movements(List(Movement(piece.spec, path.toVector)))))
-                }
-                else {
-                  if(path.length > 1) {
-                    doActions(List(
-                      Movements(List(Movement(piece.spec, path.toVector))),
-                      Attack(piece.spec, other.spec)
-                    ))
-                  }
-                  else
-                    doActions(List(Attack(piece.spec, other.spec)))
-                }
-            }
-        }
+      withBoardForMouse { board =>
+        val pixelLoc = mousePixel(e)
+        mouseState.handleMouseUp(pixelLoc,board,flipDisplay)(doActions)
       }
-      selectedSpec = None
-      path = List()
       draw()
     }
     def mousemove(e : MouseEvent) : Unit = {
-      curLocalBoard() match {
-        case None => mouseout(e)
-        case Some(board) =>
-          val (loc,_) = mouseHexLoc(e).round(flipDisplay,board.curState)
-          hoverLoc = Some(loc)
-          hoverSpec = mousePiece(e).map(piece => piece.spec)
-          updatePath()
-          draw()
+      withBoardForMouse { board =>
+        val pixelLoc = mousePixel(e)
+        mouseState.handleMouseMove(pixelLoc,board,flipDisplay,side)
       }
+      draw()
     }
     def mouseout(e : MouseEvent) : Unit = {
       val _ = e
-      hoverLoc = None
-      hoverSpec = None
-      selectedSpec = None
-      updatePath()
+      mouseState.clear()
       draw()
     }
 

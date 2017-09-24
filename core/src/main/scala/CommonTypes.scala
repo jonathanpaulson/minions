@@ -31,6 +31,11 @@ object Side {
       case _ => throw new Exception("Could not parse side: " + s)
     }
   }
+
+  def foreach(f: Side => Unit): Unit = {
+    f(S0)
+    f(S1)
+  }
 }
 
 /**

@@ -11,6 +11,7 @@ object Drawing {
   val gridSize = 30.0
   val tileScale = 29.0 / gridSize
   val pieceScale = 25.0 / gridSize
+  val reinforcementScale = 22.0 / gridSize
   val techScale = 20.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
@@ -20,10 +21,7 @@ object Drawing {
     ctx: CanvasRenderingContext2D,
     board : BoardState,
     translateOrigin: PixelVec,
-    hoverLoc: Option[Loc],
-    hoverSpec: Option[PieceSpec],
-    selected: Option[PieceSpec],
-    path : List[Loc],
+    mouseState: MouseState,
     flipDisplay: Boolean
   ) : Unit = {
 
@@ -92,14 +90,14 @@ object Drawing {
       text(ctx, loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
     }
 
-    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, piece: Piece) : Unit = {
+    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, pieceName: PieceName, side: Side) : Unit = {
       val pieceColor =
-        piece.side match {
+        side match {
           case S0 => "blue"
           case S1 => "red"
         }
+      val _ = pieceName
       fillHex(ctx, hexLoc, pieceColor, scale)
-      text(ctx, piece.id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
     def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
@@ -120,9 +118,30 @@ object Drawing {
       }
     }
 
+    def locsOfReinforcement(loc: Loc, count: Int): Array[HexLoc] = {
+      val hexLoc = hexLocOfLoc(loc)
+      val stackSpacingHeight = 0.10 / Math.sqrt(count.toDouble)
+      val offsetVec = HexVec(-0.5,-1.0)
+      val result = (0 until count).map { i =>
+        hexLoc + offsetVec * (i * stackSpacingHeight)
+      }.toArray
+      result
+    }
+
     ctx.setTransform(1,0,0,1,0,0)
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
     ctx.translate(translateOrigin.dx,translateOrigin.dy)
+
+    //Reinforcements
+    Side.foreach { side =>
+      val locsAndContents = Reinforcements.getLocsAndContents(side,flipDisplay,board)
+      locsAndContents.foreach { case (loc,pieceName,count) =>
+        val locs = locsOfReinforcement(loc,count)
+        locs.foreach { hexLoc =>
+          drawPiece(ctx, hexLoc, reinforcementScale, pieceName, side)
+        }
+      }
+    }
 
     // //Techs / Reinforcements
     // for((pieceStats, i) <- Units.techs.view.zipWithIndex) {
@@ -159,16 +178,14 @@ object Drawing {
     board.pieces.foreach { pieces =>
       pieces.foreach { piece =>
         val (loc,scale) = locAndScaleOfPiece(board,piece)
-        drawPiece(ctx, loc, scale, piece)
+        drawPiece(ctx, loc, scale, piece.baseStats.name, piece.side)
       }
     }
 
-    val hoverPiece = hoverSpec.flatMap { spec => board.findPiece(spec) }
-    val selectedPiece = selected.flatMap { spec => board.findPiece(spec) }
-
+    val selectedPiece = mouseState.selected.flatMap { target => target.findPiece(board) }
 
     //Highlighted movement paths
-    if(path.length > 0) {
+    if(mouseState.path.length > 0) {
       ctx.globalAlpha = 1.0
       ctx.fillStyle = "black"
       ctx.setLineDash(scala.scalajs.js.Array(5.0, 10.0))
@@ -179,8 +196,8 @@ object Drawing {
           val (loc,_) = locAndScaleOfPiece(board,piece)
           move(ctx, loc)
       }
-      for(i <- 1 to path.length-1) {
-        line(ctx, path(i))
+      for(i <- 1 to mouseState.path.length-1) {
+        line(ctx, mouseState.path(i))
       }
       ctx.stroke()
       ctx.closePath()
@@ -197,24 +214,53 @@ object Drawing {
         }
     }
 
-    //Mouse hover for hex
-    hoverLoc.foreach { hoverLoc =>
-      if(board.inBounds(hoverLoc) && board.tiles(hoverLoc).terrain != Wall)
+    //Mouse hover
+    mouseState.hovered.foreach { mouseTarget =>
+      //Highlight hex tile on mouse hover
+      mouseState.hoverLoc.foreach { hoverLoc =>
         strokeHex(ctx, hoverLoc, "black", tileScale, alpha=0.3)
-    }
+      }
 
-    //Mouse hover for piece
-    hoverPiece.foreach { piece =>
-      val (loc,scale) = locAndScaleOfPiece(board,piece)
-      strokeHex(ctx, loc, "black", scale)
+      //Highlight mouse's target on mouse hover
+      mouseTarget match {
+        case MouseTile(_) => ()
+        case MouseReinforcement(pieceName,side) =>
+          Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
+            case None => ()
+            case Some((loc,count)) =>
+              val locs = locsOfReinforcement(loc,count)
+              strokeHex(ctx,locs.last, "black", reinforcementScale)
+          }
+        case MousePiece(spec) =>
+          board.findPiece(spec) match {
+            case None => ()
+            case Some(piece) =>
+              val (loc,scale) = locAndScaleOfPiece(board,piece)
+              strokeHex(ctx, loc, "black", scale)
+          }
+      }
     }
 
     //Piece selected by mouse click
-    selectedPiece.foreach { piece =>
-      val (loc,scale) = locAndScaleOfPiece(board,piece)
-      strokeHex(ctx, loc, "purple", scale, lineWidth=2.5)
+    mouseState.selected.foreach { mouseTarget =>
+      mouseTarget match {
+        case MouseTile(_) => ()
+        case MouseReinforcement(pieceName,side) =>
+          Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
+            case None => ()
+            case Some((loc,count)) =>
+              val locs = locsOfReinforcement(loc,count)
+              strokeHex(ctx,locs.last, "black", reinforcementScale)
+          }
+        case MousePiece(spec) =>
+          board.findPiece(spec) match {
+            case None => ()
+            case Some(piece) =>
+              val (loc,scale) = locAndScaleOfPiece(board,piece)
+              strokeHex(ctx, loc, "black", scale)
+          }
+      }
     }
-
   }
 
 }
