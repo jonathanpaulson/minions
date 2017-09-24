@@ -139,7 +139,7 @@ case class MouseState() {
     }
   }
 
-  private def getTarget(pixelLoc: PixelLoc, board: Board, flipDisplay: Boolean, side: Option[Side]): Option[MouseTarget] = {
+  private def getTarget(pixelLoc: PixelLoc, board: Board, flipDisplay: Boolean, side: Option[Side], requireSide: Option[Side]): Option[MouseTarget] = {
     val (loc,hexDelta) = getLocAndDelta(pixelLoc,board,flipDisplay)
     side match {
       case None => None
@@ -148,7 +148,7 @@ case class MouseState() {
         if(side != bState.side)
           None
         else {
-          getPiece(loc,hexDelta,board,requireSide=Some(side)) match {
+          getPiece(loc,hexDelta,board,requireSide) match {
             case Some(piece) => Some(MousePiece(piece.spec))
             case None =>
               Reinforcements.getSelectedPiece(side, flipDisplay, bState, loc) match {
@@ -165,7 +165,7 @@ case class MouseState() {
   }
 
   def handleMouseDown(pixelLoc: PixelLoc, board: Board, flipDisplay: Boolean, side: Option[Side]) : Unit = {
-    selected = getTarget(pixelLoc,board,flipDisplay,side)
+    selected = getTarget(pixelLoc,board,flipDisplay,side,requireSide=side)
     clearPath()
   }
 
@@ -203,7 +203,7 @@ case class MouseState() {
   def handleMouseMove(pixelLoc: PixelLoc, board: Board, flipDisplay: Boolean, side: Option[Side]) : Unit = {
     val (loc,_) = getLocAndDelta(pixelLoc,board,flipDisplay)
     hoverLoc = Some(loc)
-    hovered = getTarget(pixelLoc,board,flipDisplay,side)
+    hovered = getTarget(pixelLoc,board,flipDisplay,side,requireSide=None)
     updatePath(board)
   }
 
