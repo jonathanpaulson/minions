@@ -264,7 +264,8 @@ object ClientMain extends JSApp {
     }
     def mouseup(e : MouseEvent) : Unit = {
       def doActions(actions: List[PlayerAction]): Unit = {
-        doActionOnCurBoard(PlayerActions(actions,makeActionId()))
+        if(actions.length > 0)
+          doActionOnCurBoard(PlayerActions(actions,makeActionId()))
       }
       withBoardForMouse { board =>
         val pixelLoc = mousePixel(e)
