@@ -15,20 +15,14 @@ object Protocol {
   case class UserJoined(username: String, side: Option[Side]) extends Response
   case class UserLeft(username: String, side: Option[Side]) extends Response
   case class OkBoardAction(boardIdx: Int, newBoardSequence: Int) extends Response
-  case class OkUndoBoardAction(boardIdx: Int, actionId: String, newBoardSequence: Int) extends Response
-  case class OkRedoBoardAction(boardIdx: Int, actionId: String, newBoardSequence: Int) extends Response
   case class ReportBoardHistory(boardIdx: Int, summary: BoardSummary, newBoardSequence: Int) extends Response
   case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction, newBoardSequence: Int) extends Response
-  case class ReportUndoBoardAction(boardIdx: Int, actionId: String, newBoardSequence: Int) extends Response
-  case class ReportRedoBoardAction(boardIdx: Int, actionId: String, newBoardSequence: Int) extends Response
 
   sealed trait Query
   case class Heartbeat(i: Int) extends Query
   case object RequestGeneralState extends Query
   case class RequestBoardHistory(boardIdx: Int) extends Query
   case class DoBoardAction(boardIdx: Int, boardAction: BoardAction) extends Query
-  case class UndoBoardAction(boardIdx: Int, actionId: String, boardSequence: Int) extends Query
-  case class RedoBoardAction(boardIdx: Int, actionId: String, boardSequence: Int) extends Query
 
   //Conversions----------------------------------------------------
   def readsFromString[T](typeName: String)(f: String => T): Reads[T] = {
@@ -336,17 +330,20 @@ object Protocol {
   implicit val playerActionsFormat = Json.format[PlayerActions]
   implicit val doGeneralBoardActionFormat = Json.format[DoGeneralBoardAction]
   implicit val localPieceUndoFormat = Json.format[LocalPieceUndo]
+  implicit val buyReinforcementUndoFormat = Json.format[BuyReinforcementUndo]
   implicit val boardActionFormat = {
     val reads: Reads[BoardAction] = readsFromPair[BoardAction]("BoardAction",Map(
       "PlayerActions" -> ((json:JsValue) => playerActionsFormat.reads(json)),
       "DoGeneralBoardAction" -> ((json:JsValue) => doGeneralBoardActionFormat.reads(json)),
-      "LocalPieceUndo" -> ((json:JsValue) => localPieceUndoFormat.reads(json))
+      "LocalPieceUndo" -> ((json:JsValue) => localPieceUndoFormat.reads(json)),
+      "BuyReinforcementUndo" -> ((json:JsValue) => buyReinforcementUndoFormat.reads(json))
     ))
     val writes: Writes[BoardAction] = new Writes[BoardAction] {
       def writes(t: BoardAction): JsValue = t match {
         case (t:PlayerActions) => jsPair("PlayerActions",playerActionsFormat.writes(t))
         case (t:DoGeneralBoardAction) => jsPair("DoGeneralBoardAction",doGeneralBoardActionFormat.writes(t))
         case (t:LocalPieceUndo) => jsPair("LocalPieceUndo",localPieceUndoFormat.writes(t))
+        case (t:BuyReinforcementUndo) => jsPair("BuyReinforcementUndo",buyReinforcementUndoFormat.writes(t))
       }
     }
     Format(reads,writes)
@@ -361,12 +358,8 @@ object Protocol {
   implicit val userJoinedFormat = Json.format[UserJoined]
   implicit val userLeftFormat = Json.format[UserLeft]
   implicit val okBoardActionFormat = Json.format[OkBoardAction]
-  implicit val okUndoBoardActionFormat = Json.format[OkUndoBoardAction]
-  implicit val okRedoBoardActionFormat = Json.format[OkRedoBoardAction]
   implicit val reportBoardHistoryFormat = Json.format[ReportBoardHistory]
   implicit val reportBoardActionFormat = Json.format[ReportBoardAction]
-  implicit val reportUndoBoardActionFormat = Json.format[ReportUndoBoardAction]
-  implicit val reportRedoBoardActionFormat = Json.format[ReportRedoBoardAction]
   implicit val responseFormat = {
     val reads: Reads[Response] = readsFromPair[Response]("Response",Map(
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
@@ -376,12 +369,8 @@ object Protocol {
       "UserJoined" -> ((json:JsValue) => userJoinedFormat.reads(json)),
       "UserLeft" -> ((json:JsValue) => userLeftFormat.reads(json)),
       "OkBoardAction" -> ((json:JsValue) => okBoardActionFormat.reads(json)),
-      "OkUndoBoardAction" -> ((json:JsValue) => okUndoBoardActionFormat.reads(json)),
-      "OkRedoBoardAction" -> ((json:JsValue) => okRedoBoardActionFormat.reads(json)),
       "ReportBoardHistory" -> ((json:JsValue) => reportBoardHistoryFormat.reads(json)),
-      "ReportBoardAction" -> ((json:JsValue) => reportBoardActionFormat.reads(json)),
-      "ReportUndoBoardAction" -> ((json:JsValue) => reportUndoBoardActionFormat.reads(json)),
-      "ReportRedoBoardAction" -> ((json:JsValue) => reportRedoBoardActionFormat.reads(json)),
+      "ReportBoardAction" -> ((json:JsValue) => reportBoardActionFormat.reads(json))
     ))
     val writes: Writes[Response] = new Writes[Response] {
       def writes(t: Response): JsValue = t match {
@@ -392,12 +381,8 @@ object Protocol {
         case (t:UserJoined) => jsPair("UserJoined",userJoinedFormat.writes(t))
         case (t:UserLeft) => jsPair("UserLeft",userLeftFormat.writes(t))
         case (t:OkBoardAction) => jsPair("OkBoardAction",okBoardActionFormat.writes(t))
-        case (t:OkUndoBoardAction) => jsPair("OkUndoBoardAction",okUndoBoardActionFormat.writes(t))
-        case (t:OkRedoBoardAction) => jsPair("OkRedoBoardAction",okRedoBoardActionFormat.writes(t))
         case (t:ReportBoardHistory) => jsPair("ReportBoardHistory",reportBoardHistoryFormat.writes(t))
         case (t:ReportBoardAction) => jsPair("ReportBoardAction",reportBoardActionFormat.writes(t))
-        case (t:ReportUndoBoardAction) => jsPair("ReportUndoBoardAction",reportUndoBoardActionFormat.writes(t))
-        case (t:ReportRedoBoardAction) => jsPair("ReportRedoBoardAction",reportRedoBoardActionFormat.writes(t))
       }
     }
     Format(reads,writes)
@@ -406,16 +391,12 @@ object Protocol {
   implicit val heartbeatFormat = Json.format[Heartbeat]
   implicit val requestBoardHistoryFormat = Json.format[RequestBoardHistory]
   implicit val doBoardActionFormat = Json.format[DoBoardAction]
-  implicit val undoBoardActionFormat = Json.format[UndoBoardAction]
-  implicit val redoBoardActionFormat = Json.format[RedoBoardAction]
   implicit val queryFormat = {
     val reads: Reads[Query] = readsFromPair[Query]("Query",Map(
       "Heartbeat" -> ((json:JsValue) => heartbeatFormat.reads(json)),
       "RequestGeneralState" -> ((_:JsValue) => JsSuccess(RequestGeneralState: Query)),
       "RequestBoardHistory" -> ((json:JsValue) => requestBoardHistoryFormat.reads(json)),
       "DoBoardAction" -> ((json:JsValue) => doBoardActionFormat.reads(json)),
-      "UndoBoardAction" -> ((json:JsValue) => undoBoardActionFormat.reads(json)),
-      "RedoBoardAction" -> ((json:JsValue) => redoBoardActionFormat.reads(json)),
     ))
     val writes: Writes[Query] = new Writes[Query] {
       def writes(t: Query): JsValue = t match {
@@ -423,8 +404,6 @@ object Protocol {
         case (RequestGeneralState) => jsPair("RequestGeneralState",JsString(""))
         case (t:RequestBoardHistory) => jsPair("RequestBoardHistory",requestBoardHistoryFormat.writes(t))
         case (t:DoBoardAction) => jsPair("DoBoardAction",doBoardActionFormat.writes(t))
-        case (t:UndoBoardAction) => jsPair("UndoBoardAction",undoBoardActionFormat.writes(t))
-        case (t:RedoBoardAction) => jsPair("RedoBoardAction",redoBoardActionFormat.writes(t))
       }
     }
     Format(reads,writes)

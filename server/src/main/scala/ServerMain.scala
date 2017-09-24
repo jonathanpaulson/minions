@@ -144,51 +144,8 @@ object ServerMain extends App {
                 }
               }
           }
-        case Protocol.UndoBoardAction(boardIdx,actionId,boardSequence) =>
-          side match {
-            case None =>
-              out ! Protocol.QueryError("Cannot perform actions as a spectator")
-            case Some(side) =>
-              if(boardIdx < 0 || boardIdx >= numBoards)
-                out ! Protocol.QueryError("Invalid boardIdx")
-              else if(boardSequence != boardSequences(boardIdx))
-                out ! Protocol.QueryError("Client board out-of-sync with server board")
-              else if(boards(boardIdx).curState().side != side)
-                out ! Protocol.QueryError("Currently the other team's turn")
-              else {
-                boards(boardIdx).undo() match {
-                  case Failure(e) =>
-                    out ! Protocol.QueryError("Illegal undo: " + e.toString)
-                  case Success(()) =>
-                    boardSequences(boardIdx) += 1
-                    out ! Protocol.OkUndoBoardAction(boardIdx,actionId,boardSequences(boardIdx))
-                    broadcastAll(Protocol.ReportUndoBoardAction(boardIdx,actionId,boardSequences(boardIdx)))
-                }
-              }
-          }
-        case Protocol.RedoBoardAction(boardIdx,actionId,boardSequence) =>
-          side match {
-            case None =>
-              out ! Protocol.QueryError("Cannot perform actions as a spectator")
-            case Some(side) =>
-              if(boardIdx < 0 || boardIdx >= numBoards)
-                out ! Protocol.QueryError("Invalid boardIdx")
-              else if(boardSequence != boardSequences(boardIdx))
-                out ! Protocol.QueryError("Client board out-of-sync with server board")
-              else if(boards(boardIdx).curState().side != side)
-                out ! Protocol.QueryError("Currently the other team's turn")
-              else {
-                //TODO will need to check general stuffs
-                boards(boardIdx).redo() match {
-                  case Failure(e) =>
-                    out ! Protocol.QueryError("Illegal redo: " + e.toString)
-                  case Success(()) =>
-                    boardSequences(boardIdx) += 1
-                    out ! Protocol.OkRedoBoardAction(boardIdx,actionId,boardSequences(boardIdx))
-                    broadcastAll(Protocol.ReportRedoBoardAction(boardIdx,actionId,boardSequences(boardIdx)))
-                }
-              }
-          }
+
+
       }
     }
 

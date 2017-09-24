@@ -30,20 +30,21 @@ import RichImplicits._
 
 
 /** BoardAction:
-  * A single UI/user action that can be made, undone, and redone on a board.
+  * A single UI/user action that can be made on a board.
   * These are the objects that conceptually form a stack that global undo/redo operates on - yes, this means that local undos
   * are treated the same way as a group of PlayerActions from the UI perspective - and the local undo itself can be undone/redone.
   * The actionId values are simply strings intended to disambiguate different actions, so that when we merge and dedup action sequences
   * we can tell which actions were actually distinct.
   */
 sealed trait BoardAction
-sealed trait BoardActionOrUndoRedo
-case class PlayerActions(actions: List[PlayerAction], actionId: String) extends BoardAction with BoardActionOrUndoRedo
-case class DoGeneralBoardAction(action: GeneralBoardAction, actionId: String) extends BoardAction with BoardActionOrUndoRedo
-case class LocalPieceUndo(pieceSpec: PieceSpec, actionId: String) extends BoardAction with BoardActionOrUndoRedo
+case class PlayerActions(actions: List[PlayerAction], actionId: String) extends BoardAction
+case class DoGeneralBoardAction(action: GeneralBoardAction, actionId: String) extends BoardAction
 
-case class UndoAction(actionId: String) extends BoardActionOrUndoRedo
-case class RedoAction(actionId: String) extends BoardActionOrUndoRedo
+//Undo the most recent List[PlayerAction] involving this piece.
+case class LocalPieceUndo(pieceSpec: PieceSpec, actionId: String) extends BoardAction
+//Undo the most recent GeneralBoardAction buying this reinforcement.
+case class BuyReinforcementUndo(pieceName: PieceName, actionId: String) extends BoardAction
+
 
 //Pairs board states together with the legal history of actions that generated those states, after reordering of actions.
 //A new BoardHistory is created after each Action.
@@ -54,9 +55,9 @@ case class BoardHistory(
   val spawnState: BoardState,
 
   //Moving/attacking actions taken by the side to move this turn
-  val moveAttackActionsThisTurn: Vector[PlayerAction],
+  val moveAttackActionsThisTurn: Vector[List[PlayerAction]],
   //Spawning actions taken by the side to move this turn
-  val spawnActionsThisTurn: Vector[PlayerAction],
+  val spawnActionsThisTurn: Vector[List[PlayerAction]],
   //GeneralBoard actions taken by the side to move this turn
   val generalBoardActionsThisTurn: Vector[GeneralBoardAction]
 )
@@ -115,7 +116,7 @@ class Board private (
   //Accumulates actionsThisTurn at the end of each turn
   private var actionsPrevTurns: Vector[Vector[BoardAction]],
   //Actions over the history of the board over prior turns, at the internal rearranging level, rather than the UI level.
-  private var playerGeneralBoardActionsPrevTurns: Vector[(Vector[PlayerAction],Vector[GeneralBoardAction])]
+  private var playerGeneralBoardActionsPrevTurns: Vector[(Vector[List[PlayerAction]],Vector[GeneralBoardAction])]
 ) {
   //Copies the board (but not the Boardstates within, since we never modify those directly)
   def copy(): Board = {
@@ -141,10 +142,41 @@ class Board private (
       case PlayerActions(actions,_) => curState().tryLegality(actions)
       case DoGeneralBoardAction(_,_) => Success(())
       case LocalPieceUndo(pieceSpec,_) =>
-        if(curState().pieceExists(pieceSpec))
-          Success(())
+        if(!curState().pieceExists(pieceSpec))
+          Failure(new Exception("Cannot undo actions for a piece that doesn't exist"))
+        else {
+          val history = historiesThisTurn(curIdx)
+          val anyActionInvolvesPiece = {
+            history.moveAttackActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } } ||
+            history.spawnActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
+          }
+          if(!anyActionInvolvesPiece)
+            Failure(new Exception("Cannot undo actions for a piece that hasn't acted"))
+          else
+            Success(())
+        }
+      case BuyReinforcementUndo(pieceName,_) =>
+        val history = historiesThisTurn(curIdx)
+        if(!history.generalBoardActionsThisTurn.exists { generalAction => generalAction.involvesBuyPiece(pieceName) })
+          Failure(new Exception("Cannot undo buying a piece that was not bought this turn"))
         else
-          Failure(new Exception("Cannot local-undo for a piece that doesn't exist"))
+          Success(())
+    }
+  }
+
+  def dropLastMatch[T](vec: Vector[T])(f: T => Boolean): Vector[T] = {
+    val index = vec.lastIndexWhere(f)
+    if(index < 0) //No match
+      vec
+    else vec.take(index) ++ vec.drop(index+1)
+  }
+
+  def reapplyLegal[T](vec: Vector[T])(tryAction: T => Try[Unit]): Vector[T] = {
+    vec.filter { action =>
+      tryAction(action) match {
+        case Success(()) => true
+        case Failure(_) => false
+      }
     }
   }
 
@@ -181,21 +213,19 @@ class Board private (
 
             //Reapply all the spawn actions so far
             val newSpawnState = newMoveAttackState.copy()
-            history.spawnActionsThisTurn.foreach { playerAction =>
-              newSpawnState.doAction(playerAction).get
+            history.spawnActionsThisTurn.foreach { playerActions =>
+              newSpawnState.doActions(playerActions).get
             }
 
             //And now apply all the deferred actions
             val spawnActions = delayedToSpawnRev.reverse
-            spawnActions.foreach { playerAction =>
-              newSpawnState.doAction(playerAction).get
-            }
+            newSpawnState.doActions(spawnActions).get
 
             BoardHistory(
               moveAttackState = newMoveAttackState,
               spawnState = newSpawnState,
-              moveAttackActionsThisTurn = history.moveAttackActionsThisTurn ++ moveAttackActionsRev.reverse,
-              spawnActionsThisTurn = history.spawnActionsThisTurn ++ spawnActions,
+              moveAttackActionsThisTurn = history.moveAttackActionsThisTurn :+ moveAttackActionsRev.reverse,
+              spawnActionsThisTurn = history.spawnActionsThisTurn :+ spawnActions,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
             )
           case DoGeneralBoardAction(generalBoardAction,_) =>
@@ -218,24 +248,23 @@ class Board private (
             history.generalBoardActionsThisTurn.foreach { generalBoardAction =>
               newMoveAttackState.doGeneralBoardAction(generalBoardAction)
             }
-            //Attempts to reapply a player action. Returns true if reapplied, false if not (illegal or involves the undo)
-            def maybeApplyAction(state: BoardState, playerAction: PlayerAction) = {
-              if(PlayerAction.involvesPiece(playerAction,pieceSpec))
-                false
-              else {
-                state.doAction(playerAction) match {
-                  case Success(()) => true
-                  case Failure(_) => false
-                }
-              }
+
+            //Drop the most recent action involving the piece
+            val keptSpawnActionsThisTurn =
+              dropLastMatch(history.spawnActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
+            val keptMoveAttackActionsThisTurn = {
+              if(keptSpawnActionsThisTurn.length == history.spawnActionsThisTurn.length)
+                history.moveAttackActionsThisTurn
+              else
+                dropLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
             }
-            val newMoveAttackActionsThisTurn = history.moveAttackActionsThisTurn.filter { playerAction =>
-              maybeApplyAction(newMoveAttackState,playerAction)
-            }
+
+            //And then reapply the actions, dropping any illegal ones.
+            val newMoveAttackActionsThisTurn =
+              reapplyLegal(keptMoveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions) }
             val newSpawnState = newMoveAttackState.copy()
-            val newSpawnActionsThisTurn = history.spawnActionsThisTurn.filter { playerAction =>
-              maybeApplyAction(newSpawnState,playerAction)
-            }
+            val newSpawnActionsThisTurn =
+              reapplyLegal(keptSpawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions) }
             BoardHistory(
               moveAttackState = newMoveAttackState,
               spawnState = newSpawnState,
@@ -243,9 +272,35 @@ class Board private (
               spawnActionsThisTurn = newSpawnActionsThisTurn,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
             )
+
+          case BuyReinforcementUndo(pieceName,_) =>
+            val newMoveAttackState = initialStateThisTurn.copy()
+            //Reapply all generalBoard actions, after filtering
+            val keptGeneralActionsThisTurn =
+              dropLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction =>
+                generalBoardAction.involvesBuyPiece(pieceName)
+              }
+
+            //General actions cannot be made illegal via one another
+            keptGeneralActionsThisTurn.foreach { generalBoardAction =>
+              newMoveAttackState.doGeneralBoardAction(generalBoardAction)
+            }
+
+            val newMoveAttackActionsThisTurn =
+              reapplyLegal(history.moveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions) }
+            val newSpawnState = newMoveAttackState.copy()
+            val newSpawnActionsThisTurn =
+              reapplyLegal(history.spawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions) }
+
+            BoardHistory(
+              moveAttackState = newMoveAttackState,
+              spawnState = newSpawnState,
+              moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
+              spawnActionsThisTurn = newSpawnActionsThisTurn,
+              generalBoardActionsThisTurn = keptGeneralActionsThisTurn
+            )
         }
 
-        truncateRedos()
         actionsThisTurn = actionsThisTurn :+ action
         historiesThisTurn = historiesThisTurn :+ newHistory
         curIdx = curIdx + 1
@@ -270,49 +325,6 @@ class Board private (
     )
     playerGeneralBoardActionsPrevTurns = playerGeneralBoardActionsPrevTurns :+ playerGeneralBoardActions
     curIdx = 0
-  }
-
-  //Undo the most recent BoardAction
-  def undo(): Try[Unit] = {
-    if(curIdx <= 0)
-      Failure(new Exception("Cannot undo, already at the start"))
-    else {
-      curIdx = curIdx - 1
-      Success(())
-    }
-  }
-
-  //Redo the most recent undone BoardAction
-  def redo(): Try[Unit] = {
-    if(curIdx >= actionsThisTurn.length)
-      Failure(new Exception("Cannot redo, already at the end"))
-    else {
-      curIdx = curIdx + 1
-      Success(())
-    }
-  }
-
-  //Return the action that would be undone by a call to undo
-  def prevAction: Option[BoardAction] = {
-    if(curIdx <= 0)
-      None
-    else
-      Some(actionsThisTurn(curIdx-1))
-  }
-
-  //Return the action that would be redone by a call to redo
-  def nextAction: Option[BoardAction] = {
-    if(curIdx >= actionsThisTurn.length)
-      None
-    else
-      Some(actionsThisTurn(curIdx))
-  }
-
-  private def truncateRedos(): Unit = {
-    if(actionsThisTurn.length > curIdx) {
-      actionsThisTurn = actionsThisTurn.slice(0,curIdx)
-      historiesThisTurn = historiesThisTurn.slice(0,curIdx)
-    }
   }
 
   def toSummary(): BoardSummary = {

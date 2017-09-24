@@ -22,6 +22,7 @@ import RichImplicits._
   *
   * Given generalBoard action G and player action P, an invariant that should hold is:
   * - If P followed by G is legal, then G followed by P must also be legal and lead to the same board state.
+  * - Also generalBoardActions commute with each other.
   *
   * See Board.scala for the next layer up in the board implementation stack.
   */
@@ -57,7 +58,29 @@ with Ordered[SpawnedThisTurn] {
   * Spawn: self-explanatory
   * SpellsAndAbilities: spellsAndAbilities is a list because we need to support playing sorceries and cantrips together.
   */
-sealed trait PlayerAction
+sealed trait PlayerAction {
+  //Does this action directly involve pieceSpec?
+  def involvesPiece(pieceSpec: PieceSpec): Boolean = {
+    this match {
+      case Movements(movements) =>
+        movements.exists { case Movement(pSpec, _) => pieceSpec == pSpec }
+      case Attack(aSpec,tSpec) => pieceSpec == aSpec || pieceSpec == tSpec
+      case Spawn(spawnLoc,spawnName) =>
+        pieceSpec match {
+          case StartedTurnWithID(_) => false
+          //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex with that name.
+          case SpawnedThisTurn(pieceName,sLoc,_) => pieceName == spawnName && sLoc == spawnLoc
+        }
+      case SpellsAndAbilities(spellsAndAbilities) =>
+        spellsAndAbilities.exists { played =>
+          played.pieceSpecAndKey.exists { case (pSpec,_) => pieceSpec == pSpec } ||
+          pieceSpec == played.target0 ||
+          pieceSpec == played.target1
+        }
+    }
+  }
+}
+
 case class Movements(movements: List[Movement]) extends PlayerAction
 case class Attack(attackerSpec: PieceSpec, targetSpec: PieceSpec) extends PlayerAction
 case class Spawn(spawnLoc: Loc, pieceName: PieceName) extends PlayerAction
@@ -80,29 +103,6 @@ case class PlayedSpellOrAbility(
   val discardingId: Option[Int]
 )
 
-object PlayerAction {
-  //Does action involve pieceSpec in any way?
-  def involvesPiece(action: PlayerAction, pieceSpec: PieceSpec): Boolean = {
-    action match {
-      case Movements(movements) =>
-        movements.exists { case Movement(pSpec, _) => pieceSpec == pSpec }
-      case Attack(aSpec,tSpec) => pieceSpec == aSpec || pieceSpec == tSpec
-      case Spawn(spawnLoc,spawnName) =>
-        pieceSpec match {
-          case StartedTurnWithID(_) => false
-          //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex with that name.
-          case SpawnedThisTurn(pieceName,sLoc,_) => pieceName == spawnName && sLoc == spawnLoc
-        }
-      case SpellsAndAbilities(spellsAndAbilities) =>
-        spellsAndAbilities.exists { played =>
-          played.pieceSpecAndKey.exists { case (pSpec,_) => pieceSpec == pSpec } ||
-          pieceSpec == played.target0 ||
-          pieceSpec == played.target1
-        }
-    }
-  }
-}
-
 
 //TODO think about how to manage the opposing side not being able to see what spells you own...
 
@@ -112,7 +112,16 @@ object PlayerAction {
   *
   * Requirement: spellId should be a unique identifier for a particular spell card. Users of BoardState should ensure that this is the case.
   */
-sealed trait GeneralBoardAction
+sealed trait GeneralBoardAction {
+  //Does this action involve buying the named piece?
+  def involvesBuyPiece(pieceName: PieceName): Boolean = {
+    this match {
+      case BuyReinforcement(_,name) => pieceName == name
+      case GainSpell(_,_) | RevealSpell(_,_,_) => false
+    }
+  }
+}
+
 case class BuyReinforcement(side: Side, pieceName: PieceName) extends GeneralBoardAction
 case class GainSpell(side: Side, spellId: Int) extends GeneralBoardAction
 case class RevealSpell(side: Side, spellId: Int, spellName: SpellName) extends GeneralBoardAction
@@ -338,6 +347,22 @@ case class BoardState private (
   //Perform an action
   def doAction(action: PlayerAction): Try[Unit] = {
     doActionSingle(action)
+  }
+
+  //Perform a sequence of actions, except if any part of the sequence is illegal, perform none of them.
+  def doActions(actions: Seq[PlayerAction]): Try[Unit] = {
+    val list = actions.toList
+    list match {
+      case Nil => Success(())
+      case action :: Nil => doActionSingle(action)
+      case _ =>
+        tryLegality(actions) match {
+          case Failure(err) => Failure(err)
+          case Success(()) =>
+            list.foreach { action => doActionUnsafeAssumeLegal(action) }
+            Success(())
+        }
+    }
   }
 
   //Perform an action, assuming that it's legal without checking. Could lead to

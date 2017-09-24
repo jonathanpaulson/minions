@@ -64,12 +64,12 @@ object ClientMain extends JSApp {
     //State of boards including our own local edits ot them
     var localBoards: Array[Board] = Array()
     var localSequence: Array[Int] = Array()
-    var localActionSequence: Array[Vector[BoardActionOrUndoRedo]] = Array()
+    var localActionSequence: Array[Vector[BoardAction]] = Array()
     var numActionsLocalAhead: Int = 0
     //State of boards as received from the server
     var serverBoards: Array[Board] = Array()
     var serverSequence: Array[Int] = Array()
-    var serverActionSequence: Array[Vector[BoardActionOrUndoRedo]] = Array()
+    var serverActionSequence: Array[Vector[BoardAction]] = Array()
 
     var numBoards: Int = 0 //Length of the boards arrays
     var curBoardIdx: Int = 0 //Currently selected board
@@ -90,7 +90,7 @@ object ClientMain extends JSApp {
 
     //Upon receiving an update from the server, update local boards to be consistent
     def syncLocalAndServerBoards(boardIdx: Int): Unit = {
-      var localActionsToReplay: Vector[BoardActionOrUndoRedo] = Vector()
+      var localActionsToReplay: Vector[BoardAction] = Vector()
       var foundDifference: Boolean = false
       //Look for difference between the server and the local history
       for(i <- 0 until serverActionSequence(boardIdx).length) {
@@ -115,8 +115,6 @@ object ClientMain extends JSApp {
         localActionsToReplay.foreach { action =>
           val result = action match {
             case (a: BoardAction) => localBoards(boardIdx).doAction(a)
-            case UndoAction(_) => localBoards(boardIdx).undo()
-            case RedoAction(_) => localBoards(boardIdx).redo()
           }
           result match {
             case Failure(err) => reportError(err.toString)
@@ -157,10 +155,6 @@ object ClientMain extends JSApp {
 
         case Protocol.OkBoardAction(_,_) =>
           ()
-        case Protocol.OkUndoBoardAction(_,_,_) =>
-          ()
-        case Protocol.OkRedoBoardAction(_,_,_) =>
-          ()
 
         case Protocol.InitializeBoards(summaries,boardSequences) =>
           println("Setting numBoards to " + summaries.length)
@@ -180,25 +174,7 @@ object ClientMain extends JSApp {
             case Failure(exn) => reportFatalError("Server sent illegal action: " + boardAction + " error: " + exn)
           }
           serverSequence(boardIdx) = newBoardSequence
-          serverActionSequence(boardIdx) = serverActionSequence(boardIdx) :+ boardAction.asInstanceOf[BoardActionOrUndoRedo]
-          syncLocalAndServerBoards(boardIdx)
-
-        case Protocol.ReportUndoBoardAction(boardIdx,actionId,newBoardSequence) =>
-          serverBoards(boardIdx).undo() match {
-            case Success(()) => ()
-            case Failure(exn) => reportFatalError("Server sent illegal undo, error: " + exn)
-          }
-          serverSequence(boardIdx) = newBoardSequence
-          serverActionSequence(boardIdx) = serverActionSequence(boardIdx) :+ UndoAction(actionId)
-          syncLocalAndServerBoards(boardIdx)
-
-        case Protocol.ReportRedoBoardAction(boardIdx,actionId,newBoardSequence) =>
-          serverBoards(boardIdx).redo() match {
-            case Success(()) => ()
-            case Failure(exn) => reportFatalError("Server sent illegal redo, error: " + exn)
-          }
-          serverSequence(boardIdx) = newBoardSequence
-          serverActionSequence(boardIdx) = serverActionSequence(boardIdx) :+ RedoAction(actionId)
+          serverActionSequence(boardIdx) = serverActionSequence(boardIdx) :+ boardAction
           syncLocalAndServerBoards(boardIdx)
 
         case Protocol.ReportBoardHistory(boardIdx,boardSummary,newBoardSequence) =>
@@ -226,7 +202,7 @@ object ClientMain extends JSApp {
         case Failure(error) => reportError(error.toString)
         case Success(()) =>
           localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
-          localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action.asInstanceOf[BoardActionOrUndoRedo]
+          localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
           numActionsLocalAhead = numActionsLocalAhead + 1
           sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
       }
