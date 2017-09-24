@@ -730,7 +730,7 @@ case class BoardState private (
           else Success(())
         }
 
-        failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No piece with spawn in range")
+        failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No non-newly-spawned piece with spawn in range")
         failUnless(reinforcements(side).contains(spawnName), "No such piece in reinforcements")
 
       case SpellsAndAbilities(spellsAndAbilities) =>

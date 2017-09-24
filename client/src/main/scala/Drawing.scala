@@ -11,7 +11,7 @@ object Drawing {
   val gridSize = 30.0
   val tileScale = 29.0 / gridSize
   val pieceScale = 25.0 / gridSize
-  val reinforcementScale = 22.0 / gridSize
+  val reinforcementScale = 23.0 / gridSize
   val techScale = 20.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
@@ -121,9 +121,9 @@ object Drawing {
     def locsOfReinforcement(loc: Loc, count: Int): Array[HexLoc] = {
       val hexLoc = hexLocOfLoc(loc)
       val stackSpacingHeight = 0.10 / Math.sqrt(count.toDouble)
-      val offsetVec = HexVec(-0.5,-1.0)
+      val offsetVec = HexVec(0.5,-1.0)
       val result = (0 until count).map { i =>
-        hexLoc + offsetVec * (i * stackSpacingHeight)
+        hexLoc + offsetVec * (i * stackSpacingHeight - 0.05)
       }.toArray
       result
     }

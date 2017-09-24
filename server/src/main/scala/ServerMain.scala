@@ -63,6 +63,16 @@ object ServerMain extends App {
       state.spawnPieceInitial(S1, Units.zombie.name, Loc(1,4))
       state.spawnPieceInitial(S1, Units.zombie.name, Loc(2,5))
 
+      state.doGeneralBoardAction(BuyReinforcement(S0,"zombie"))
+      state.doGeneralBoardAction(BuyReinforcement(S0,"bat"))
+      state.doGeneralBoardAction(BuyReinforcement(S0,"bat"))
+      state.doGeneralBoardAction(BuyReinforcement(S0,"bat"))
+
+      state.doGeneralBoardAction(BuyReinforcement(S1,"zombie"))
+      state.doGeneralBoardAction(BuyReinforcement(S1,"zombie"))
+      state.doGeneralBoardAction(BuyReinforcement(S1,"bat"))
+      state.doGeneralBoardAction(BuyReinforcement(S1,"bat"))
+
       Board.create(state)
     }
     boards

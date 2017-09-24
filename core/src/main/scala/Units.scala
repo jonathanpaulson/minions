@@ -24,7 +24,7 @@ object Units {
     hasBlink = false,
     canHurtNecromancer = true,
     swarmMax = 3, //Swarming 3 for testing
-    spawnRange = 0,
+    spawnRange = 1,
     extraMana = 0,
     deathSpawn = None,
     abilities = Map.empty
