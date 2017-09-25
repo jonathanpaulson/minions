@@ -69,6 +69,7 @@ object ServerMain extends App {
     )
     game
   }
+  var gameSequence = 0
 
   val boards: Array[Board] = {
     val topology = HexTopology
@@ -90,15 +91,15 @@ object ServerMain extends App {
       state.spawnPieceInitial(S1, Units.zombie.name, Loc(1,4))
       state.spawnPieceInitial(S1, Units.zombie.name, Loc(2,5))
 
-      state.doGeneralBoardAction(BuyReinforcement(S0,"zombie"))
-      state.doGeneralBoardAction(BuyReinforcement(S0,"bat"))
-      state.doGeneralBoardAction(BuyReinforcement(S0,"bat"))
-      state.doGeneralBoardAction(BuyReinforcement(S0,"bat"))
+      state.addReinforcementInitial(S0,"zombie")
+      state.addReinforcementInitial(S0,"bat")
+      state.addReinforcementInitial(S0,"bat")
+      state.addReinforcementInitial(S0,"bat")
 
-      state.doGeneralBoardAction(BuyReinforcement(S1,"zombie"))
-      state.doGeneralBoardAction(BuyReinforcement(S1,"zombie"))
-      state.doGeneralBoardAction(BuyReinforcement(S1,"bat"))
-      state.doGeneralBoardAction(BuyReinforcement(S1,"bat"))
+      state.addReinforcementInitial(S1,"zombie")
+      state.addReinforcementInitial(S1,"zombie")
+      state.addReinforcementInitial(S1,"bat")
+      state.addReinforcementInitial(S1,"bat")
 
       Board.create(state)
     }
@@ -138,10 +139,6 @@ object ServerMain extends App {
         case Protocol.Heartbeat(i) =>
           out ! Protocol.OkHeartbeat(i)
 
-        case Protocol.RequestGeneralState =>
-          //TODO
-          out ! Protocol.QueryError("Not implemented yet")
-
         case Protocol.RequestBoardHistory(boardIdx) =>
           if(boardIdx < 0 || boardIdx >= numBoards)
             out ! Protocol.QueryError("Invalid boardIdx")
@@ -164,7 +161,39 @@ object ServerMain extends App {
               else if(boards(boardIdx).curState().side != side)
                 out ! Protocol.QueryError("Currently the other team's turn")
               else {
-                boards(boardIdx).doAction(boardAction) match {
+                //Some board actions are special and are meant to be server -> client only, or need extra checks
+                val specialResult: Try[Unit] = boardAction match {
+                  case (_: PlayerActions) => Success(())
+                  case (_: LocalPieceUndo) => Success(())
+                  case BuyReinforcementUndo(pieceName,_) =>
+                    //Check ahead of time if it's legal
+                    boards(boardIdx).tryLegality(boardAction).flatMap { case () =>
+                      //And if so, go ahead and recover the cost of the unit
+                      val gameAction: GameAction = UnpayForReinforcement(side,pieceName)
+                      game.doAction(gameAction).map { case () =>
+                        //If successful, report the event
+                        gameSequence += 1
+                        broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
+                      }
+                    }
+                  case DoGeneralBoardAction(generalBoardAction,_) =>
+                    generalBoardAction match {
+                      case BuyReinforcement(pieceName) =>
+                        //Pay for the cost of the unit
+                        val gameAction: GameAction = PayForReinforcement(side,pieceName)
+                        game.doAction(gameAction).map { case () =>
+                          //If successful, report the event
+                          gameSequence += 1
+                          broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
+                        }
+                      case GainSpell(_) =>
+                        Failure(new Exception("Not implemented yet"))
+                      case RevealSpell(_,_,_) =>
+                        Failure(new Exception("Only server allowed to send this action"))
+                    }
+                }
+
+                specialResult.flatMap { case () => boards(boardIdx).doAction(boardAction) } match {
                   case Failure(e) =>
                     out ! Protocol.QueryError("Illegal action: " + e.toString)
                   case Success(()) =>
@@ -175,6 +204,31 @@ object ServerMain extends App {
               }
           }
 
+        case Protocol.DoGameAction(gameAction) =>
+          log("Received game action " + gameAction)
+          side match {
+            case None =>
+              out ! Protocol.QueryError("Cannot perform actions as a spectator")
+            case Some(side) =>
+              if(game.curSide != side)
+                out ! Protocol.QueryError("Currently the other team's turn")
+              else {
+                //Some game actions are special and are meant to be server -> client only, or need extra checks
+                val specialResult: Try[Unit] = gameAction match {
+                  case (_: PerformTech) => Success(())
+                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) =>
+                    Failure(new Exception("Only server allowed to send this action"))
+                }
+                specialResult.flatMap { case () => game.doAction(gameAction) } match {
+                  case Failure(e) =>
+                    out ! Protocol.QueryError("Illegal action: " + e.toString)
+                  case Success(()) =>
+                    gameSequence += 1
+                    out ! Protocol.OkGameAction(gameSequence)
+                    broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
+                }
+              }
+          }
 
       }
     }

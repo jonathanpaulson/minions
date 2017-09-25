@@ -140,7 +140,7 @@ class Board private (
   def tryLegality(action: BoardAction): Try[Unit] = {
     action match {
       case PlayerActions(actions,_) => curState().tryLegality(actions)
-      case DoGeneralBoardAction(_,_) => Success(())
+      case DoGeneralBoardAction(action,_) => curState().tryGeneralLegality(action)
       case LocalPieceUndo(pieceSpec,_) =>
         if(!curState().pieceExists(pieceSpec))
           Failure(new Exception("Cannot undo actions for a piece that doesn't exist"))
@@ -157,7 +157,9 @@ class Board private (
         }
       case BuyReinforcementUndo(pieceName,_) =>
         val history = historiesThisTurn(curIdx)
-        if(!history.generalBoardActionsThisTurn.exists { generalAction => generalAction.involvesBuyPiece(pieceName) })
+        if(!Units.pieceMap.contains(pieceName))
+          Failure(new Exception("Trying to undo buying reinforcement piece with unknown name: " + pieceName))
+        else if(!history.generalBoardActionsThisTurn.exists { generalAction => generalAction.involvesBuyPiece(pieceName) })
           Failure(new Exception("Cannot undo buying a piece that was not bought this turn"))
         else
           Success(())

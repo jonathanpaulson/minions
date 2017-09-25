@@ -43,8 +43,10 @@ case class TechState(
 )
 
 sealed trait GameAction
-case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class PerformTech(side: Side, techLineIdx: Int) extends GameAction
+//server->client only
+case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
+case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 
 case object Game {
   def apply(
@@ -99,6 +101,7 @@ case class Game (
   def tryIsLegal(action: GameAction): Try[Unit] = {
     action match {
       case PayForReinforcement(side,pieceName) => tryCanPayForReinforcement(side,pieceName)
+      case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
     }
   }
@@ -106,6 +109,7 @@ case class Game (
   def doAction(action: GameAction): Try[Unit] = {
     action match {
       case PayForReinforcement(side,pieceName) => payForReinforcement(side,pieceName)
+      case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
     }
   }
@@ -117,15 +121,19 @@ case class Game (
   }
 
   private def tryCanPayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
-    val stats = Units.pieceMap(pieceName)
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
+    else if(!Units.pieceMap.contains(pieceName))
+      Failure(new Exception("Trying to pay for reinforcement piece with unknown name: " + pieceName))
     else if(!piecesAcquired(side).contains(pieceName))
-      Failure(new Exception("Piece tech not acquired yet"))
-    else if(mana(side) < stats.cost)
-      Failure(new Exception("Not enough souls"))
-    else
-      Success(())
+      Failure(new Exception("Piece tech not acquired yet: " + pieceName))
+    else {
+      val stats = Units.pieceMap(pieceName)
+      if(mana(side) < stats.cost)
+        Failure(new Exception("Not enough souls"))
+      else
+        Success(())
+    }
   }
 
   private def payForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
@@ -134,6 +142,25 @@ case class Game (
       case (suc : Success[Unit]) =>
         val stats = Units.pieceMap(pieceName)
         mana(side) = mana(side) - stats.cost
+        suc
+    }
+  }
+
+  private def tryCanUnpayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
+    if(side != curSide)
+      Failure(new Exception("Currently the other team's turn"))
+    else if(!Units.pieceMap.contains(pieceName))
+      Failure(new Exception("Trying to unpay for reinforcement piece with unknown name: " + pieceName))
+    else
+      Success(())
+  }
+
+  private def unpayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
+    tryCanUnpayForReinforcement(side,pieceName) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        val stats = Units.pieceMap(pieceName)
+        mana(side) = mana(side) + stats.cost
         suc
     }
   }

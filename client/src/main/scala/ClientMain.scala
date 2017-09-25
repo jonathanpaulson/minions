@@ -158,6 +158,8 @@ object ClientMain extends JSApp {
 
         case Protocol.OkBoardAction(_,_) =>
           ()
+        case Protocol.OkGameAction(_) =>
+          ()
 
         case Protocol.Initialize(game,summaries,boardSequences) =>
           println("Setting numBoards to " + summaries.length)
@@ -171,6 +173,12 @@ object ClientMain extends JSApp {
           localSequence = serverSequence.clone()
           localActionSequence = Array.fill(summaries.length)(Vector())
           numActionsLocalAhead = 0
+
+        case Protocol.ReportGameAction(gameAction,_) =>
+          serverGame.get.doAction(gameAction) match {
+            case Success(()) => ()
+            case Failure(exn) => reportFatalError("Server sent illegal action: " + gameAction + " error: " + exn)
+          }
 
         case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
           serverBoards(boardIdx).doAction(boardAction) match {

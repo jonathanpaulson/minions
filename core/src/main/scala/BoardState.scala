@@ -116,14 +116,15 @@ sealed trait GeneralBoardAction {
   //Does this action involve buying the named piece?
   def involvesBuyPiece(pieceName: PieceName): Boolean = {
     this match {
-      case BuyReinforcement(_,name) => pieceName == name
-      case GainSpell(_,_) | RevealSpell(_,_,_) => false
+      case BuyReinforcement(name) => pieceName == name
+      case GainSpell(_) | RevealSpell(_,_,_) => false
     }
   }
 }
 
-case class BuyReinforcement(side: Side, pieceName: PieceName) extends GeneralBoardAction
-case class GainSpell(side: Side, spellId: Int) extends GeneralBoardAction
+case class BuyReinforcement(pieceName: PieceName) extends GeneralBoardAction
+case class GainSpell(spellId: Int) extends GeneralBoardAction
+//server -> client only
 case class RevealSpell(side: Side, spellId: Int, spellName: SpellName) extends GeneralBoardAction
 
 /** Tile:
@@ -412,17 +413,29 @@ case class BoardState private (
     numPiecesSpawnedThisTurnAt = Map()
   }
 
-  //Perform a GeneralBoardAction. These are always legal.
+  def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
+    action match {
+      case BuyReinforcement(pieceName) =>
+        if(!Units.pieceMap.contains(pieceName))
+          Failure(new Exception("Bought reinforcement piece with unknown name: " + pieceName))
+        else
+          Success(())
+      case GainSpell(_) => Success(())
+      case RevealSpell(_,_,_) => Success(())
+    }
+  }
+
+  //Perform a GeneralBoardAction.
   def doGeneralBoardAction(action: GeneralBoardAction): Unit = {
     action match {
-      case BuyReinforcement(side,pieceName) =>
+      case BuyReinforcement(pieceName) =>
         if(!Units.pieceMap.contains(pieceName))
           throw new Exception("Bought reinforcement piece with unknown name: " + pieceName)
         addReinforcementInternal(side,pieceName)
         val pieceStats = Units.pieceMap(pieceName)
         totalCosts(side) = totalCosts(side) + pieceStats.cost
 
-      case GainSpell(side,spellId) =>
+      case GainSpell(spellId) =>
         spellsInHand(side) = spellsInHand(side) :+ spellId
 
       case RevealSpell(side,spellId,spellName) =>
@@ -439,6 +452,11 @@ case class BoardState private (
         refreshPieceForStartOfTurn(piece)
         Success(())
     }
+  }
+
+  //Directly add a piece to reinforcements. Exposed for use to set up initial boards.
+  def addReinforcementInitial(side: Side, pieceName: String): Unit = {
+    addReinforcementInternal(side,pieceName)
   }
 
   //Is there a piece on the current board matching this spec?

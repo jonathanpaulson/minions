@@ -15,14 +15,16 @@ object Protocol {
   case class UserJoined(username: String, side: Option[Side]) extends Response
   case class UserLeft(username: String, side: Option[Side]) extends Response
   case class OkBoardAction(boardIdx: Int, newBoardSequence: Int) extends Response
+  case class OkGameAction(newGameSequence: Int) extends Response
   case class ReportBoardHistory(boardIdx: Int, summary: BoardSummary, newBoardSequence: Int) extends Response
   case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction, newBoardSequence: Int) extends Response
+  case class ReportGameAction(gameAction: GameAction, newGameSequence: Int) extends Response
 
   sealed trait Query
   case class Heartbeat(i: Int) extends Query
-  case object RequestGeneralState extends Query
   case class RequestBoardHistory(boardIdx: Int) extends Query
   case class DoBoardAction(boardIdx: Int, boardAction: BoardAction) extends Query
+  case class DoGameAction(gameAction: GameAction) extends Query
 
   //Conversions----------------------------------------------------
   def readsFromString[T](typeName: String)(f: String => T): Reads[T] = {
@@ -373,15 +375,18 @@ object Protocol {
   implicit val techStateFormat = Json.format[TechState]
 
   implicit val payForReinforcementFormat = Json.format[PayForReinforcement]
+  implicit val unpayForReinforcementFormat = Json.format[UnpayForReinforcement]
   implicit val performTechFormat = Json.format[PerformTech]
   implicit val gameActionFormat = {
     val reads: Reads[GameAction] = readsFromPair[GameAction]("GameAction",Map(
       "PayForReinforcement" -> ((json:JsValue) => payForReinforcementFormat.reads(json)),
+      "UnpayForReinforcement" -> ((json:JsValue) => unpayForReinforcementFormat.reads(json)),
       "PerformTech" -> ((json:JsValue) => performTechFormat.reads(json)),
     ))
     val writes: Writes[GameAction] = new Writes[GameAction] {
       def writes(t: GameAction): JsValue = t match {
         case (t:PayForReinforcement) => jsPair("PayForReinforcement",payForReinforcementFormat.writes(t))
+        case (t:UnpayForReinforcement) => jsPair("UnpayForReinforcement",unpayForReinforcementFormat.writes(t))
         case (t:PerformTech) => jsPair("PerformTech",performTechFormat.writes(t))
       }
     }
@@ -398,8 +403,10 @@ object Protocol {
   implicit val userJoinedFormat = Json.format[UserJoined]
   implicit val userLeftFormat = Json.format[UserLeft]
   implicit val okBoardActionFormat = Json.format[OkBoardAction]
+  implicit val okGameActionFormat = Json.format[OkGameAction]
   implicit val reportBoardHistoryFormat = Json.format[ReportBoardHistory]
   implicit val reportBoardActionFormat = Json.format[ReportBoardAction]
+  implicit val reportGameActionFormat = Json.format[ReportGameAction]
   implicit val responseFormat = {
     val reads: Reads[Response] = readsFromPair[Response]("Response",Map(
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
@@ -409,8 +416,10 @@ object Protocol {
       "UserJoined" -> ((json:JsValue) => userJoinedFormat.reads(json)),
       "UserLeft" -> ((json:JsValue) => userLeftFormat.reads(json)),
       "OkBoardAction" -> ((json:JsValue) => okBoardActionFormat.reads(json)),
+      "OkGameAction" -> ((json:JsValue) => okGameActionFormat.reads(json)),
       "ReportBoardHistory" -> ((json:JsValue) => reportBoardHistoryFormat.reads(json)),
-      "ReportBoardAction" -> ((json:JsValue) => reportBoardActionFormat.reads(json))
+      "ReportBoardAction" -> ((json:JsValue) => reportBoardActionFormat.reads(json)),
+      "ReportGameAction" -> ((json:JsValue) => reportGameActionFormat.reads(json))
     ))
     val writes: Writes[Response] = new Writes[Response] {
       def writes(t: Response): JsValue = t match {
@@ -421,8 +430,10 @@ object Protocol {
         case (t:UserJoined) => jsPair("UserJoined",userJoinedFormat.writes(t))
         case (t:UserLeft) => jsPair("UserLeft",userLeftFormat.writes(t))
         case (t:OkBoardAction) => jsPair("OkBoardAction",okBoardActionFormat.writes(t))
+        case (t:OkGameAction) => jsPair("OkGameAction",okGameActionFormat.writes(t))
         case (t:ReportBoardHistory) => jsPair("ReportBoardHistory",reportBoardHistoryFormat.writes(t))
         case (t:ReportBoardAction) => jsPair("ReportBoardAction",reportBoardActionFormat.writes(t))
+        case (t:ReportGameAction) => jsPair("ReportGameAction",reportGameActionFormat.writes(t))
       }
     }
     Format(reads,writes)
@@ -431,19 +442,20 @@ object Protocol {
   implicit val heartbeatFormat = Json.format[Heartbeat]
   implicit val requestBoardHistoryFormat = Json.format[RequestBoardHistory]
   implicit val doBoardActionFormat = Json.format[DoBoardAction]
+  implicit val doGameActionFormat = Json.format[DoGameAction]
   implicit val queryFormat = {
     val reads: Reads[Query] = readsFromPair[Query]("Query",Map(
       "Heartbeat" -> ((json:JsValue) => heartbeatFormat.reads(json)),
-      "RequestGeneralState" -> ((_:JsValue) => JsSuccess(RequestGeneralState: Query)),
       "RequestBoardHistory" -> ((json:JsValue) => requestBoardHistoryFormat.reads(json)),
       "DoBoardAction" -> ((json:JsValue) => doBoardActionFormat.reads(json)),
+      "DoGameAction" -> ((json:JsValue) => doGameActionFormat.reads(json))
     ))
     val writes: Writes[Query] = new Writes[Query] {
       def writes(t: Query): JsValue = t match {
         case (t:Heartbeat) => jsPair("Heartbeat",heartbeatFormat.writes(t))
-        case (RequestGeneralState) => jsPair("RequestGeneralState",JsString(""))
         case (t:RequestBoardHistory) => jsPair("RequestBoardHistory",requestBoardHistoryFormat.writes(t))
         case (t:DoBoardAction) => jsPair("DoBoardAction",doBoardActionFormat.writes(t))
+        case (t:DoGameAction) => jsPair("DoGameAction",doGameActionFormat.writes(t))
       }
     }
     Format(reads,writes)
