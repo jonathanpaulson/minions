@@ -24,6 +24,9 @@ object Paths {
 }
 
 object ServerMain extends App {
+  //----------------------------------------------------------------------------------
+  //LOAD STUFF
+
   val config = ConfigFactory.parseFile(new java.io.File(Paths.applicationConf))
 
   implicit val actorSystem = ActorSystem("gameSystem",config)
@@ -41,7 +44,31 @@ object ServerMain extends App {
   val interface = config.getString("app.interface")
   val port = config.getInt("app.port")
 
+  //----------------------------------------------------------------------------------
+  //GAME AND BOARD SETUP
+
   val numBoards = config.getInt("app.numBoards")
+  val game = {
+    val startingMana = SideArray.create(0)
+    startingMana(S0) = config.getInt("app.s0StartingManaPerBoard") * numBoards
+    startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
+    val techsAlwaysAcquired: Array[Tech] = Array(
+      PieceTech(Units.zombie.name)
+    )
+    val lockedTechs: Array[Tech] = Array(
+      PieceTech(Units.bat.name)
+    )
+    val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
+
+    val game = Game(
+      startingSide = S0,
+      startingMana = startingMana,
+      extraTechCost = extraTechCost,
+      techsAlwaysAcquired = techsAlwaysAcquired,
+      lockedTechs = lockedTechs
+    )
+    game
+  }
 
   val boards: Array[Board] = {
     val topology = HexTopology
@@ -78,6 +105,9 @@ object ServerMain extends App {
     boards
   }
   val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
+
+  //----------------------------------------------------------------------------------
+  //GAME ACTOR - singleton actor that maintains the state of the game being played
 
   sealed trait GameActorEvent
   case class UserJoined(val sessionId: Int, val username: String, val side: Option[Side], val out: ActorRef) extends GameActorEvent
@@ -180,7 +210,7 @@ object ServerMain extends App {
         userSides = userSides + (sessionId -> side)
         userOuts = userOuts + (sessionId -> out)
         out ! Protocol.Version(CurrentVersion.version)
-        out ! Protocol.InitializeBoards(boards.map { board => board.toSummary()},boardSequences.clone())
+        out ! Protocol.Initialize(game, boards.map { board => board.toSummary()},boardSequences.clone())
         broadcastAll(Protocol.UserJoined(username,side))
         log("UserJoined: " + username + " Side: " + side)
 
@@ -214,6 +244,9 @@ object ServerMain extends App {
     }
 
   }
+
+  //----------------------------------------------------------------------------------
+  //WEBSOCKET MESSAGE HANDLING
 
   val gameActor = actorSystem.actorOf(Props(classOf[GameActor]))
   val nextSessionId = new AtomicInteger()
@@ -260,6 +293,10 @@ object ServerMain extends App {
     Flow.fromSinkAndSource(in, out)
   }
 
+  //----------------------------------------------------------------------------------
+  //DEFINE WEB SERVER ROUTES
+
+
   val route = get {
     pathEndOrSingleSlash {
       parameter("username") { username =>
@@ -291,6 +328,9 @@ object ServerMain extends App {
       }
     }
   }
+
+  //----------------------------------------------------------------------------------
+  //HERE WE GO!
 
   val binding = Http().bindAndHandle(route, interface, port)
 

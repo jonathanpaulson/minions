@@ -11,7 +11,7 @@ object Protocol {
   case class Version(version: String) extends Response
   case class QueryError(err: String) extends Response
   case class OkHeartbeat(i: Int) extends Response
-  case class InitializeBoards(summaries: Array[BoardSummary], boardSequences: Array[Int]) extends Response
+  case class Initialize(game: Game, summaries: Array[BoardSummary], boardSequences: Array[Int]) extends Response
   case class UserJoined(username: String, side: Option[Side]) extends Response
   case class UserLeft(username: String, side: Option[Side]) extends Response
   case class OkBoardAction(boardIdx: Int, newBoardSequence: Int) extends Response
@@ -350,11 +350,51 @@ object Protocol {
   }
   implicit val boardSummaryFormat = Json.format[BoardSummary]
 
+  //Game.scala--------------------------------------------------------------------------------
+  implicit val techLevelFormat = {
+    val reads: Reads[TechLevel] = readsFromString[TechLevel]("TechLevel")(TechLevel.ofString)
+    val writes: Writes[TechLevel] = writesToString[TechLevel](techLevel => techLevel.toString)
+    Format(reads,writes)
+  }
+
+  implicit val pieceTechFormat = Json.format[PieceTech]
+  implicit val techFormat = {
+    val reads: Reads[Tech] = readsFromPair[Tech]("Tech",Map(
+      "PieceTech" -> ((json:JsValue) => pieceTechFormat.reads(json)),
+    ))
+    val writes: Writes[Tech] = new Writes[Tech] {
+      def writes(t: Tech): JsValue = t match {
+        case (t:PieceTech) => jsPair("PieceTech",pieceTechFormat.writes(t))
+      }
+    }
+    Format(reads,writes)
+  }
+
+  implicit val techStateFormat = Json.format[TechState]
+
+  implicit val payForReinforcementFormat = Json.format[PayForReinforcement]
+  implicit val performTechFormat = Json.format[PerformTech]
+  implicit val gameActionFormat = {
+    val reads: Reads[GameAction] = readsFromPair[GameAction]("GameAction",Map(
+      "PayForReinforcement" -> ((json:JsValue) => payForReinforcementFormat.reads(json)),
+      "PerformTech" -> ((json:JsValue) => performTechFormat.reads(json)),
+    ))
+    val writes: Writes[GameAction] = new Writes[GameAction] {
+      def writes(t: GameAction): JsValue = t match {
+        case (t:PayForReinforcement) => jsPair("PayForReinforcement",payForReinforcementFormat.writes(t))
+        case (t:PerformTech) => jsPair("PerformTech",performTechFormat.writes(t))
+      }
+    }
+    Format(reads,writes)
+  }
+
+  implicit val gameFormat = Json.format[Game]
+
   //Protocol.scala--------------------------------------------------------------------------------
   implicit val versionFormat = Json.format[Version]
   implicit val queryErrorFormat = Json.format[QueryError]
   implicit val okHeartbeatFormat = Json.format[OkHeartbeat]
-  implicit val initializeBoardsFormat = Json.format[InitializeBoards]
+  implicit val initializeFormat = Json.format[Initialize]
   implicit val userJoinedFormat = Json.format[UserJoined]
   implicit val userLeftFormat = Json.format[UserLeft]
   implicit val okBoardActionFormat = Json.format[OkBoardAction]
@@ -365,7 +405,7 @@ object Protocol {
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
       "QueryError" -> ((json:JsValue) => queryErrorFormat.reads(json)),
       "OkHeartbeat" -> ((json:JsValue) => okHeartbeatFormat.reads(json)),
-      "InitializeBoards" -> ((json:JsValue) => initializeBoardsFormat.reads(json)),
+      "Initialize" -> ((json:JsValue) => initializeFormat.reads(json)),
       "UserJoined" -> ((json:JsValue) => userJoinedFormat.reads(json)),
       "UserLeft" -> ((json:JsValue) => userLeftFormat.reads(json)),
       "OkBoardAction" -> ((json:JsValue) => okBoardActionFormat.reads(json)),
@@ -377,7 +417,7 @@ object Protocol {
         case (t:Version) => jsPair("Version",versionFormat.writes(t))
         case (t:QueryError) => jsPair("QueryError",queryErrorFormat.writes(t))
         case (t:OkHeartbeat) => jsPair("OkHeartbeat",okHeartbeatFormat.writes(t))
-        case (t:InitializeBoards) => jsPair("InitializeBoards",initializeBoardsFormat.writes(t))
+        case (t:Initialize) => jsPair("Initialize",initializeFormat.writes(t))
         case (t:UserJoined) => jsPair("UserJoined",userJoinedFormat.writes(t))
         case (t:UserLeft) => jsPair("UserLeft",userLeftFormat.writes(t))
         case (t:OkBoardAction) => jsPair("OkBoardAction",okBoardActionFormat.writes(t))

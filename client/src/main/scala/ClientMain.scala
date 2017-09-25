@@ -61,6 +61,9 @@ object ClientMain extends JSApp {
     //How much to translate the canvas origin inward from the upper left corner.
     val translateOrigin = PixelVec(3.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
 
+    //State of game, as far as we can tell from the server
+    var serverGame: Option[Game] = None
+
     //State of boards including our own local edits ot them
     var localBoards: Array[Board] = Array()
     var localSequence: Array[Int] = Array()
@@ -156,10 +159,11 @@ object ClientMain extends JSApp {
         case Protocol.OkBoardAction(_,_) =>
           ()
 
-        case Protocol.InitializeBoards(summaries,boardSequences) =>
+        case Protocol.Initialize(game,summaries,boardSequences) =>
           println("Setting numBoards to " + summaries.length)
           numBoards = summaries.length
           curBoardIdx = 0
+          serverGame = Some(game)
           serverBoards = summaries.map { summary => Board.ofSummary(summary) }
           serverSequence = boardSequences.clone()
           serverActionSequence = Array.fill(summaries.length)(Vector())

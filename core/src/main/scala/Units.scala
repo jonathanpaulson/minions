@@ -62,6 +62,4 @@ object Units {
     pieces.head
   }
 
-
-  val techs = List(bat, bat, bat, bat, bat, bat, bat, bat, bat)
 }
