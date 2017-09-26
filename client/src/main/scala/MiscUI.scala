@@ -3,6 +3,10 @@ package minionsgame.jsclient
 import minionsgame.core._
 import RichImplicits._
 
+object EndTurnUI {
+  val loc: Loc = Loc(15, -3)
+}
+
 object TechUI {
   val xOffset = 2
   val yOffset = -3

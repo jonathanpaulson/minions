@@ -6,8 +6,7 @@ import scala.util.{Try, Success, Failure}
 import scala.scalajs.js.JSApp
 import org.scalajs.jquery.jQuery
 import org.scalajs.dom.CanvasRenderingContext2D
-import org.scalajs.dom.MouseEvent
-import org.scalajs.dom.KeyboardEvent
+import org.scalajs.dom.{MouseEvent, KeyboardEvent}
 import org.scalajs.dom.html.Canvas
 import org.scalajs.dom.window
 

@@ -91,14 +91,18 @@ object Drawing {
       text(ctx, loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
     }
 
-    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, pieceName: PieceName, side: Side) : Unit = {
+    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, pieceName: PieceName, side: Side, id: Option[Int]) : Unit = {
       val pieceColor =
         side match {
           case S0 => "blue"
           case S1 => "red"
         }
-      val _ = pieceName
       fillHex(ctx, hexLoc, pieceColor, scale)
+      id.foreach { id =>
+        text(ctx, id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize)+PixelVec(0, gridSize/3.0), "black")
+      }
+      val stats = Units.pieceMap(pieceName)
+      text(ctx, stats.displayName, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
     def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
@@ -133,13 +137,16 @@ object Drawing {
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
     ctx.translate(translateOrigin.dx,translateOrigin.dy)
 
+    fillHex(ctx, EndTurnUI.loc, "gray", tileScale)
+    text(ctx, "End Turn", PixelLoc.ofHexLoc(hexLocOfLoc(EndTurnUI.loc), gridSize), "black")
+
     //Reinforcements
     Side.foreach { side =>
       val locsAndContents = ReinforcementsUI.getLocsAndContents(side,flipDisplay,board)
       locsAndContents.foreach { case (loc,pieceName,count) =>
         val locs = locsOfReinforcement(loc,count)
         locs.foreach { hexLoc =>
-          drawPiece(ctx, hexLoc, reinforcementScale, pieceName, side)
+          drawPiece(ctx, hexLoc, reinforcementScale, pieceName, side, None)
         }
       }
     }
@@ -151,30 +158,28 @@ object Drawing {
       val loc = techLocs(i)
       val fillColor =
         (techState.level(S0), techState.level(S1)) match {
-          case (TechLocked, TechLocked) => "#777777"
-          case (TechLocked, (TechUnlocked | TechAcquired)) => "#ff7777"
-          case ((TechUnlocked | TechAcquired), TechLocked) => "#7777ff"
-          case ((TechUnlocked | TechAcquired), (TechUnlocked | TechAcquired)) => "#ff77ff"
+          case (TechLocked, TechLocked) => "#888888"
+          case (TechLocked, (TechUnlocked | TechAcquired)) => "#ffbbbb"
+          case ((TechUnlocked | TechAcquired), TechLocked) => "#bbbbff"
+          case ((TechUnlocked | TechAcquired), (TechUnlocked | TechAcquired)) => "#ff99ff"
         }
       val strokeColor =
         (techState.level(S0), techState.level(S1)) match {
           case ((TechLocked | TechUnlocked), (TechLocked | TechUnlocked)) => None
-          case ((TechLocked | TechUnlocked), TechAcquired) => Some("#ff7777")
-          case (TechAcquired, (TechLocked | TechUnlocked)) => Some("#7777ff")
-          case (TechAcquired, TechAcquired) => Some("#ff77ff")
+          case ((TechLocked | TechUnlocked), TechAcquired) => Some("#ff3333")
+          case (TechAcquired, (TechLocked | TechUnlocked)) => Some("#33333ff")
+          case (TechAcquired, TechAcquired) => Some("#ff00ff")
         }
 
       fillHex(ctx, loc, fillColor, tileScale, alpha=1.0)
       strokeColor.foreach { color =>
-        strokeHex(ctx, loc, color, tileScale)
+        strokeHex(ctx, loc, color, tileScale, lineWidth=2.0)
       }
 
-      // val hexLoc = HexLoc.ofLoc(loc)
-      // text(ctx, i.toString, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
-      // text(ctx, s0.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,3), gridSize), "blue")
-      // text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,4), gridSize), "blue")
-      // text(ctx, s1.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,1), gridSize), "red")
-      // text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,0), gridSize), "red")
+      val hexLoc = hexLocOfLoc(loc)
+      text(ctx, techState.displayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
+      text(ctx, techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techScale, gridSize), "blue")
+      text(ctx, techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techScale, gridSize), "red")
     }
 
     //Terrain
@@ -186,7 +191,7 @@ object Drawing {
     board.pieces.foreach { pieces =>
       pieces.foreach { piece =>
         val (loc,scale) = locAndScaleOfPiece(board,piece)
-        drawPiece(ctx, loc, scale, piece.baseStats.name, piece.side)
+        drawPiece(ctx, loc, scale, piece.baseStats.name, piece.side, Some(piece.id))
       }
     }
 
@@ -234,7 +239,7 @@ object Drawing {
         case MouseTile(_) => ()
         case MouseTech(techIdx) =>
           val loc = TechUI.getLoc(techIdx)
-          strokeHex(ctx,loc, "black", techScale)
+          strokeHex(ctx,loc, "black", tileScale)
         case MouseReinforcement(pieceName,side) =>
           ReinforcementsUI.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
             case None => ()
@@ -274,5 +279,4 @@ object Drawing {
       }
     }
   }
-
 }

@@ -55,9 +55,21 @@ object ServerMain extends App {
     val techsAlwaysAcquired: Array[Tech] = Array(
       PieceTech(Units.zombie.name)
     )
-    val lockedTechs: Array[Tech] = Array(
-      PieceTech(Units.bat.name)
-    )
+    val lockedTechs: Array[Tech] = {
+      List(
+        Units.initiate,
+        Units.skeleton,
+        Units.serpent,
+        Units.bat,
+        Units.ghost,
+        Units.wight,
+        Units.haunt,
+        Units.shrieker,
+        Units.warg
+      ).map { unit =>
+        PieceTech(unit.name)
+      }.toArray
+    }
     val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
 
     val game = Game(
@@ -78,18 +90,19 @@ object ServerMain extends App {
       plane(1,0) = Water
 
       val state = BoardState.create(plane)
-      state.spawnPieceInitial(S0, Units.zombie.name, Loc(2,1))
-      state.spawnPieceInitial(S0, Units.zombie.name, Loc(2,2))
-      state.spawnPieceInitial(S0, Units.zombie.name, Loc(2,2))
+      state.spawnPieceInitial(S0, Units.necromancer.name, Loc(2,1))
 
-      state.spawnPieceInitial(S0, Units.zombie.name, Loc(2,3))
-      state.spawnPieceInitial(S0, Units.zombie.name, Loc(2,3))
-      state.spawnPieceInitial(S0, Units.zombie.name, Loc(2,3))
+      state.spawnPieceInitial(S0, Units.test.name, Loc(2,2))
+      state.spawnPieceInitial(S0, Units.test.name, Loc(2,2))
 
-      state.spawnPieceInitial(S1, Units.zombie.name, Loc(3,2))
-      state.spawnPieceInitial(S1, Units.zombie.name, Loc(3,4))
-      state.spawnPieceInitial(S1, Units.zombie.name, Loc(1,4))
-      state.spawnPieceInitial(S1, Units.zombie.name, Loc(2,5))
+      state.spawnPieceInitial(S0, Units.test.name, Loc(2,3))
+      state.spawnPieceInitial(S0, Units.test.name, Loc(2,3))
+      state.spawnPieceInitial(S0, Units.test.name, Loc(2,3))
+
+      state.spawnPieceInitial(S1, Units.wight.name, Loc(3,2))
+      state.spawnPieceInitial(S1, Units.test.name, Loc(3,4))
+      state.spawnPieceInitial(S1, Units.test.name, Loc(1,4))
+      state.spawnPieceInitial(S1, Units.test.name, Loc(2,5))
 
       state.addReinforcementInitial(S0,"zombie")
       state.addReinforcementInitial(S0,"bat")

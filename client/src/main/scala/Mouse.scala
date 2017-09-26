@@ -161,7 +161,21 @@ case class MouseState() {
                   case None =>
                     TechUI.getSelectedTechIdx(game,loc) match {
                       case Some(techIdx) => Some(MouseTech(techIdx))
-                      case None => None
+                      case None =>
+                        if(loc == EndTurnUI.loc) {
+                          //TODO - add a new MouseTarget for this, add appropriate
+                          //queries and responses to protocol.
+                          //End of turn button should do nothing client side, instead
+                          //it should simply signal the server, and if all boards
+                          //have ended turn, OR the time limit has passed, the turn
+                          //ends
+                          //TODO don't forget to have the server auto-tech and
+                          //to have it auto-pick spells for everyone if those
+                          //were not done that turn.
+                          None
+                        }
+                        else
+                          None
                     }
                 }
               }

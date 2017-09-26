@@ -8,9 +8,14 @@ import RichImplicits._
   */
 sealed trait TechLevel {
   override def toString() : String = this match {
-    case TechLocked => "TechLocked"
-    case TechUnlocked => "TechUnlocked"
-    case TechAcquired => "TechAcquired"
+    case TechLocked => "Locked"
+    case TechUnlocked => "Unlocked"
+    case TechAcquired => "Acquired"
+  }
+  def toUnicodeSymbol() : String = this match {
+    case TechLocked => "\uD83D\uDD12" //Unicode lock
+    case TechUnlocked => "\uD83D\uDD13" //Unicode unlock
+    case TechAcquired => "\u2605" //Unicode star
   }
 }
 object TechLevel {
@@ -19,6 +24,9 @@ object TechLevel {
       case "TechLocked" => TechLocked
       case "TechUnlocked" => TechUnlocked
       case "TechAcquired" => TechAcquired
+      case "Locked" => TechLocked
+      case "Unlocked" => TechUnlocked
+      case "Acquired" => TechAcquired
       case _ => throw new Exception("Could not parse TechLevel: " + s)
     }
   }
@@ -31,13 +39,20 @@ case object TechAcquired extends TechLevel
 /** Tech:
   * Element in the tech sequence.
   */
-sealed trait Tech
+sealed trait Tech {
+  def displayName: String = {
+    this match {
+      case PieceTech(pieceName) => Units.pieceMap(pieceName).displayName
+    }
+  }
+}
 case class PieceTech(pieceName:PieceName) extends Tech
 
 /** TechState:
   * State of a single tech.
   */
 case class TechState(
+  val displayName: String,
   val tech: Tech,
   val level: SideArray[TechLevel]
 )
@@ -61,7 +76,10 @@ case object Game {
       turnNumber = 0,
       mana = startingMana.copy(),
       techLine = (techsAlwaysAcquired ++ lockedTechs).map { tech =>
-        TechState(tech,SideArray.ofArrayInplace(Array(TechLocked,TechLocked)))
+        TechState(
+          displayName = tech.displayName,
+          tech = tech,
+          level = SideArray.ofArrayInplace(Array(TechLocked,TechLocked)))
       },
       piecesAcquired = SideArray.create(Set()),
       hasTechedThisTurn = false,

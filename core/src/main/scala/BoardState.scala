@@ -381,6 +381,10 @@ case class BoardState private (
         newMana += piece.curStats(this).extraMana + (if(tiles(piece.loc).terrain == Graveyard) 1 else 0)
     }
 
+    // TODO jpaulson for dwu: Wailing units that attack die immediately, not at end of turn
+    // dwu: Yeah, although actually there's a nasty UI detail here, because they all have multiple attacks.
+    // How do you indicate that you're done attacking if you don't spend all your attacks?
+
     //Wailing units that attacked die
     val attackedWailings = pieceById.iterator.filter { case (_,piece) =>
       piece.curStats(this).isWailing && piece.hasAttacked
