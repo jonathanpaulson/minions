@@ -298,6 +298,7 @@ object ClientMain extends JSApp {
     def keydown(e : KeyboardEvent) : Unit = {
       //Page up
       if(e.keyCode == 33) {
+        e.preventDefault()
         if(curBoardIdx > 0) {
           mouseState.clear()
           curBoardIdx -= 1
@@ -306,6 +307,7 @@ object ClientMain extends JSApp {
       }
       //Page up
       else if(e.keyCode == 34) {
+        e.preventDefault()
         if(curBoardIdx < numBoards - 1) {
           mouseState.clear()
           curBoardIdx += 1
