@@ -11,13 +11,15 @@ sealed trait MouseTarget {
     this match {
       case MousePiece(spec) => board.findPiece(spec)
       case MouseTile(_) => None
+      case MouseTech(_) => None
       case MouseReinforcement(_,_) => None
     }
   }
 }
 case class MousePiece(pieceSpec: PieceSpec) extends MouseTarget
-case class MouseReinforcement(pieceName: PieceName, side:Side) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
+case class MouseTech(techIdx: Int) extends MouseTarget
+case class MouseReinforcement(pieceName: PieceName, side:Side) extends MouseTarget
 
 //Current state of the mouse, helper object
 object MouseState {
@@ -139,7 +141,7 @@ case class MouseState() {
     }
   }
 
-  private def getTarget(pixelLoc: PixelLoc, board: Board, flipDisplay: Boolean, side: Option[Side], requireSide: Option[Side]): Option[MouseTarget] = {
+  private def getTarget(pixelLoc: PixelLoc, game: Game, board: Board, flipDisplay: Boolean, side: Option[Side], requireSide: Option[Side]): Option[MouseTarget] = {
     val (loc,hexDelta) = getLocAndDelta(pixelLoc,board,flipDisplay)
     side match {
       case None => None
@@ -151,33 +153,52 @@ case class MouseState() {
           getPiece(loc,hexDelta,board,requireSide) match {
             case Some(piece) => Some(MousePiece(piece.spec))
             case None =>
-              Reinforcements.getSelectedPiece(side, flipDisplay, bState, loc) match {
-                case Some(pieceName) => Some(MouseReinforcement(pieceName,side))
-                case None =>
-                  if(bState.inBounds(loc))
-                    Some(MouseTile(loc))
-                  else
-                    None
+              if(bState.inBounds(loc))
+                Some(MouseTile(loc))
+              else {
+                ReinforcementsUI.getSelectedPiece(side,flipDisplay,bState,loc) match {
+                  case Some(pieceName) => Some(MouseReinforcement(pieceName,side))
+                  case None =>
+                    TechUI.getSelectedTechIdx(game,loc) match {
+                      case Some(techIdx) => Some(MouseTech(techIdx))
+                      case None => None
+                    }
+                }
               }
           }
         }
     }
   }
 
-  def handleMouseDown(pixelLoc: PixelLoc, board: Board, flipDisplay: Boolean, side: Option[Side]) : Unit = {
-    selected = getTarget(pixelLoc,board,flipDisplay,side,requireSide=side)
+  def handleMouseDown(pixelLoc: PixelLoc, game: Game, board: Board, flipDisplay: Boolean, side: Option[Side]) : Unit = {
+    selected = getTarget(pixelLoc,game,board,flipDisplay,side,requireSide=side)
     clearPath()
   }
 
 
-  def handleMouseUp(pixelLoc: PixelLoc, board: Board, flipDisplay: Boolean)(doActions:List[PlayerAction] => Unit) : Unit = {
+  def handleMouseUp(pixelLoc: PixelLoc, game: Game, board: Board, flipDisplay: Boolean)
+    (makeActionId: () => String)
+    (doGameAction:GameAction => Unit)
+    (doBoardAction:BoardAction => Unit): Unit = {
     val (loc,hexDelta) = getLocAndDelta(pixelLoc,board,flipDisplay)
 
     //Branch based on what we selected on the mouseDown
     selected match {
       case None | Some(MouseTile(_)) => ()
+      case Some(MouseTech(techIdx)) =>
+        val techState = game.techLine(techIdx)
+        techState.level(game.curSide) match {
+          case TechLocked | TechUnlocked =>
+            doGameAction(PerformTech(game.curSide,techIdx))
+          case TechAcquired =>
+            techState.tech match {
+              case PieceTech(pieceName) =>
+                doBoardAction(DoGeneralBoardAction(BuyReinforcement(pieceName),makeActionId()))
+            }
+        }
       case Some(MouseReinforcement(pieceName,_)) =>
-        doActions(List(Spawn(loc,pieceName)))
+
+        doBoardAction(PlayerActions(List(Spawn(loc,pieceName)),makeActionId()))
       case Some(MousePiece(selectedSpec)) =>
         board.curState.findPiece(selectedSpec) match {
           case None => ()
@@ -193,17 +214,19 @@ case class MouseState() {
                   else Some(Attack(piece.spec, other.spec))
               }
             }
-            doActions(List(movement,attack).flatten)
+            val actions = List(movement,attack).flatten
+            if(actions.length > 0)
+              doBoardAction(PlayerActions(actions,makeActionId()))
         }
     }
     clearSelect()
   }
 
 
-  def handleMouseMove(pixelLoc: PixelLoc, board: Board, flipDisplay: Boolean, side: Option[Side]) : Unit = {
+  def handleMouseMove(pixelLoc: PixelLoc, game: Game, board: Board, flipDisplay: Boolean, side: Option[Side]) : Unit = {
     val (loc,_) = getLocAndDelta(pixelLoc,board,flipDisplay)
     hoverLoc = Some(loc)
-    hovered = getTarget(pixelLoc,board,flipDisplay,side,requireSide=None)
+    hovered = getTarget(pixelLoc,game,board,flipDisplay,side,requireSide=None)
     updatePath(board)
   }
 

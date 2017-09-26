@@ -7,6 +7,7 @@ import scala.scalajs.js.JSApp
 import org.scalajs.jquery.jQuery
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.MouseEvent
+import org.scalajs.dom.KeyboardEvent
 import org.scalajs.dom.html.Canvas
 import org.scalajs.dom.window
 
@@ -62,7 +63,7 @@ object ClientMain extends JSApp {
     val translateOrigin = PixelVec(3.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
 
     //State of game, as far as we can tell from the server
-    var serverGame: Option[Game] = None
+    var game: Option[Game] = None
 
     //State of boards including our own local edits ot them
     var localBoards: Array[Board] = Array()
@@ -79,6 +80,12 @@ object ClientMain extends JSApp {
 
     var nextActionIdSuffix: Int = 0 //For generating unique action ids
 
+    //TODO Ctrl-click should perform BuyReinforcementUndo and LocalPieceUndo?
+    //TODO Shift-click should allow performing swaps and triangle rotations of pieces?
+    //Keyboard controls
+    var shiftPressed: Boolean = false
+    var ctrlPressed: Boolean = false
+
     val flipDisplay: Boolean = side == Some(S1) //Flip so that 0,0 is in the lower right
 
     //Mouse movement path state
@@ -90,6 +97,10 @@ object ClientMain extends JSApp {
     def sendWebsocketQuery(query: Protocol.Query): Unit = {
       connection.sendIfOpen(query)
     }
+
+    //TODO if numActionsLocalAhead remains ahead of the server for too long (say, it never
+    //decreases in a certain number of seconds), warn the user, since that may mean the server
+    //never got the actions or the connection is bad.
 
     //Upon receiving an update from the server, update local boards to be consistent
     def syncLocalAndServerBoards(boardIdx: Int): Unit = {
@@ -161,11 +172,11 @@ object ClientMain extends JSApp {
         case Protocol.OkGameAction(_) =>
           ()
 
-        case Protocol.Initialize(game,summaries,boardSequences) =>
+        case Protocol.Initialize(startGame,summaries,boardSequences) =>
           println("Setting numBoards to " + summaries.length)
           numBoards = summaries.length
           curBoardIdx = 0
-          serverGame = Some(game)
+          game = Some(startGame)
           serverBoards = summaries.map { summary => Board.ofSummary(summary) }
           serverSequence = boardSequences.clone()
           serverActionSequence = Array.fill(summaries.length)(Vector())
@@ -175,15 +186,16 @@ object ClientMain extends JSApp {
           numActionsLocalAhead = 0
 
         case Protocol.ReportGameAction(gameAction,_) =>
-          serverGame.get.doAction(gameAction) match {
-            case Success(()) => ()
+          game.get.doAction(gameAction) match {
             case Failure(exn) => reportFatalError("Server sent illegal action: " + gameAction + " error: " + exn)
+            case Success(()) =>
+              draw()
           }
 
         case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
           serverBoards(boardIdx).doAction(boardAction) match {
-            case Success(()) => ()
             case Failure(exn) => reportFatalError("Server sent illegal action: " + boardAction + " error: " + exn)
+            case Success(()) => ()
           }
           serverSequence(boardIdx) = newBoardSequence
           serverActionSequence(boardIdx) = serverActionSequence(boardIdx) :+ boardAction
@@ -209,15 +221,28 @@ object ClientMain extends JSApp {
       username + nextActionIdSuffix.toString
     }
 
-    def doActionOnCurBoard(action : BoardAction) : Unit = {
-      localBoards(curBoardIdx).doAction(action) match {
-        case Failure(error) => reportError(error.toString)
-        case Success(()) =>
-          localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
-          localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
-          numActionsLocalAhead = numActionsLocalAhead + 1
+    def doActionOnCurBoard(action: BoardAction): Unit = {
+      //For general board actions, send it directly to the server for confirmation, don't do anything locally,
+      //because the dependence on global state might make it illegal, and then when the server reports the
+      //action we will make it during syncLocalAndServerBoards.
+      action match {
+        case (_: DoGeneralBoardAction) =>
           sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+        case (_: PlayerActions) | (_: LocalPieceUndo) | (_: BuyReinforcementUndo) =>
+          localBoards(curBoardIdx).doAction(action) match {
+            case Failure(error) => reportError(error.toString)
+            case Success(()) =>
+              localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
+              localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
+              numActionsLocalAhead = numActionsLocalAhead + 1
+              sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+          }
       }
+    }
+
+    def doGameAction(action: GameAction): Unit = {
+      //Send it directly to the server
+      sendWebsocketQuery(Protocol.DoGameAction(action))
     }
 
     def curLocalBoard() : Option[Board] = {
@@ -227,7 +252,7 @@ object ClientMain extends JSApp {
 
     def draw() : Unit = {
       curLocalBoard().foreach { board =>
-        Drawing.drawEverything(canvas, ctx, board.curState, translateOrigin, mouseState, flipDisplay)
+        Drawing.drawEverything(canvas, ctx, game.get, board.curState, translateOrigin, mouseState, flipDisplay)
       }
     }
 
@@ -246,25 +271,21 @@ object ClientMain extends JSApp {
     def mousedown(e: MouseEvent) : Unit = {
       withBoardForMouse { board =>
         val pixelLoc = mousePixel(e)
-        mouseState.handleMouseDown(pixelLoc,board,flipDisplay,side)
+        mouseState.handleMouseDown(pixelLoc,game.get,board,flipDisplay,side)
       }
       draw()
     }
     def mouseup(e : MouseEvent) : Unit = {
-      def doActions(actions: List[PlayerAction]): Unit = {
-        if(actions.length > 0)
-          doActionOnCurBoard(PlayerActions(actions,makeActionId()))
-      }
       withBoardForMouse { board =>
         val pixelLoc = mousePixel(e)
-        mouseState.handleMouseUp(pixelLoc,board,flipDisplay)(doActions)
+        mouseState.handleMouseUp(pixelLoc,game.get,board,flipDisplay)(makeActionId _)(doGameAction _)(doActionOnCurBoard _)
       }
       draw()
     }
     def mousemove(e : MouseEvent) : Unit = {
       withBoardForMouse { board =>
         val pixelLoc = mousePixel(e)
-        mouseState.handleMouseMove(pixelLoc,board,flipDisplay,side)
+        mouseState.handleMouseMove(pixelLoc,game.get,board,flipDisplay,side)
       }
       draw()
     }
@@ -274,6 +295,41 @@ object ClientMain extends JSApp {
       draw()
     }
 
+    def keydown(e : KeyboardEvent) : Unit = {
+      //Page up
+      if(e.keyCode == 33) {
+        if(curBoardIdx > 0) {
+          mouseState.clear()
+          curBoardIdx -= 1
+          draw()
+        }
+      }
+      //Page up
+      else if(e.keyCode == 34) {
+        if(curBoardIdx < numBoards - 1) {
+          mouseState.clear()
+          curBoardIdx += 1
+          draw()
+        }
+      }
+      else if(e.keyCode == 16) {
+        shiftPressed = true
+      }
+      else if(e.keyCode == 17) {
+        ctrlPressed = true
+      }
+    }
+    def keyup(e : KeyboardEvent) : Unit = {
+      if(e.keyCode == 16) {
+        shiftPressed = false
+      }
+      else if(e.keyCode == 17) {
+        ctrlPressed = false
+      }
+    }
+
+    window.addEventListener("keydown", keydown)
+    window.addEventListener("keyup", keyup)
     canvas.onmousedown = mousedown _
     canvas.onmousemove = mousemove _
     canvas.onmouseup = mouseup _

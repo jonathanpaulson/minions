@@ -12,14 +12,15 @@ object Drawing {
   val tileScale = 29.0 / gridSize
   val pieceScale = 25.0 / gridSize
   val reinforcementScale = 23.0 / gridSize
-  val techScale = 20.0 / gridSize
+  val techScale = 23.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
 
   def drawEverything(
     canvas: Canvas,
     ctx: CanvasRenderingContext2D,
-    board : BoardState,
+    game: Game,
+    board: BoardState,
     translateOrigin: PixelVec,
     mouseState: MouseState,
     flipDisplay: Boolean
@@ -134,7 +135,7 @@ object Drawing {
 
     //Reinforcements
     Side.foreach { side =>
-      val locsAndContents = Reinforcements.getLocsAndContents(side,flipDisplay,board)
+      val locsAndContents = ReinforcementsUI.getLocsAndContents(side,flipDisplay,board)
       locsAndContents.foreach { case (loc,pieceName,count) =>
         val locs = locsOfReinforcement(loc,count)
         locs.foreach { hexLoc =>
@@ -143,31 +144,38 @@ object Drawing {
       }
     }
 
-    // //Techs / Reinforcements
-    // for((pieceStats, i) <- Units.techs.view.zipWithIndex) {
-    //   val s0 = board.reinforcements(S0).filter(x => x == pieceStats).length
-    //   val s1 = board.reinforcements(S1).filter(x => x == pieceStats).length
-    //   val loc = Loc((i/2)+2, if(i%2==0) -3 else -2)
-    //   val color =
-    //     (game.tech(S0)(i), game.tech(S1)(i)) match {
-    //       case (T0, T0) => "#000000"
-    //       case (T0, T1) => "#770000"
-    //       case (T0, T2) => "#ff0000"
-    //       case (T1, T0) => "#000077"
-    //       case (T1, T1) => "#770077"
-    //       case (T1, T2) => "#ff0077"
-    //       case (T2, T0) => "#0000ff"
-    //       case (T2, T1) => "#7700ff"
-    //       case (T2, T2) => "#ff00ff"
-    //     }
-    //   fillHex(ctx, loc, color, tileScale)
-    //   val hexLoc = HexLoc.ofLoc(loc)
-    //   text(ctx, i.toString, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
-    //   text(ctx, s0.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,3), gridSize), "blue")
-    //   text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,4), gridSize), "blue")
-    //   text(ctx, s1.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,1), gridSize), "red")
-    //   text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,0), gridSize), "red")
-    // }
+    //Techs
+    val techLocs = TechUI.getLocs(game)
+    for(i <- 0 until game.techLine.length) {
+      val techState = game.techLine(i)
+      val loc = techLocs(i)
+      val fillColor =
+        (techState.level(S0), techState.level(S1)) match {
+          case (TechLocked, TechLocked) => "#777777"
+          case (TechLocked, (TechUnlocked | TechAcquired)) => "#ff7777"
+          case ((TechUnlocked | TechAcquired), TechLocked) => "#7777ff"
+          case ((TechUnlocked | TechAcquired), (TechUnlocked | TechAcquired)) => "#ff77ff"
+        }
+      val strokeColor =
+        (techState.level(S0), techState.level(S1)) match {
+          case ((TechLocked | TechUnlocked), (TechLocked | TechUnlocked)) => None
+          case ((TechLocked | TechUnlocked), TechAcquired) => Some("#ff7777")
+          case (TechAcquired, (TechLocked | TechUnlocked)) => Some("#7777ff")
+          case (TechAcquired, TechAcquired) => Some("#ff77ff")
+        }
+
+      fillHex(ctx, loc, fillColor, tileScale, alpha=1.0)
+      strokeColor.foreach { color =>
+        strokeHex(ctx, loc, color, tileScale)
+      }
+
+      // val hexLoc = HexLoc.ofLoc(loc)
+      // text(ctx, i.toString, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
+      // text(ctx, s0.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,3), gridSize), "blue")
+      // text(ctx, game.tech(S0)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,4), gridSize), "blue")
+      // text(ctx, s1.toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,pieceScale,1), gridSize), "red")
+      // text(ctx, game.tech(S1)(i).toString, PixelLoc.ofHexLoc(hexCorner(hexLoc,techScale,0), gridSize), "red")
+    }
 
     //Terrain
     board.tiles.foreachi {case (loc, tile) =>
@@ -224,8 +232,11 @@ object Drawing {
       //Highlight mouse's target on mouse hover
       mouseTarget match {
         case MouseTile(_) => ()
+        case MouseTech(techIdx) =>
+          val loc = TechUI.getLoc(techIdx)
+          strokeHex(ctx,loc, "black", techScale)
         case MouseReinforcement(pieceName,side) =>
-          Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
+          ReinforcementsUI.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
             case None => ()
             case Some((loc,count)) =>
               val locs = locsOfReinforcement(loc,count)
@@ -245,8 +256,9 @@ object Drawing {
     mouseState.selected.foreach { mouseTarget =>
       mouseTarget match {
         case MouseTile(_) => ()
+        case MouseTech(_) => ()
         case MouseReinforcement(pieceName,side) =>
-          Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
+          ReinforcementsUI.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
             case None => ()
             case Some((loc,count)) =>
               val locs = locsOfReinforcement(loc,count)

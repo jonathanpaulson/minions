@@ -3,9 +3,34 @@ package minionsgame.jsclient
 import minionsgame.core._
 import RichImplicits._
 
-object Reinforcements {
-  def getLocs(side: Side, flipDisplay: Boolean, board: BoardState): Array[Loc] = {
-    val locs = Array(
+object TechUI {
+  val xOffset = 2
+  val yOffset = -3
+
+  def getLoc(techIdx: Int): Loc = {
+    Loc((techIdx/2)+xOffset, yOffset + (if(techIdx%2==0) 0 else 1))
+  }
+
+  def getLocs(game: Game): Array[Loc] = {
+    (0 until game.techLine.length).map { i => getLoc(i) }.toArray
+  }
+
+  def getSelectedTechIdx(game: Game, loc: Loc): Option[Int] = {
+    val idx = {
+      if(loc.y == yOffset) (loc.x-xOffset)*2
+      else if(loc.y == yOffset+1) (loc.x-xOffset)*2 + 1
+      else -1
+    }
+    if(idx >= 0 && idx < game.techLine.length)
+      Some(idx)
+    else
+      None
+  }
+
+}
+
+object ReinforcementsUI {
+  val unflippedLocs = Array(
       Loc(-4,7),Loc(-3,7),Loc(-2,7),
       Loc(-4,8),Loc(-3,8),Loc(-2,8),
       Loc(-5,9),Loc(-4,9),Loc(-3,9),Loc(-2,9),
@@ -14,11 +39,13 @@ object Reinforcements {
       Loc(-6,12),Loc(-5,12),Loc(-4,12),Loc(-3,12),Loc(-2,12)
     )
 
+  def getLocs(side: Side, flipDisplay: Boolean, board: BoardState): Array[Loc] = {
+
     (side,flipDisplay) match {
       case (S0,false) | (S1,true) =>
-        locs
+        unflippedLocs
       case (S1,false) | (S0,true) =>
-        locs.map { loc => Loc(board.tiles.xSize - loc.x - 1, board.tiles.ySize - loc.y - 1) }
+        unflippedLocs.map { loc => Loc(board.tiles.xSize - loc.x - 1, board.tiles.ySize - loc.y - 1) }
     }
   }
 
