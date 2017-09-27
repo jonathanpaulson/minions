@@ -149,18 +149,49 @@ object ServerMain extends App {
       }
     }
 
+    private def performAndBroadcastGameActionIfLegal(gameAction: GameAction): Try[Unit] = {
+      game.doAction(gameAction).map { case () =>
+        //If successful, report the event
+        gameSequence += 1
+        broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
+      }
+    }
+
     //Called upon performing a sucessful board action - unsets any user flag that the
     //board is done.
     private def maybeUnsetBoardDone(boardIdx: Int): Unit = {
       if(game.isBoardDone(boardIdx)) {
         val gameAction: GameAction = SetBoardDone(boardIdx,false)
-        game.doAction(gameAction) match {
-          case Failure(_) => assertUnreachable()
-          case Success(()) =>
-            gameSequence += 1
-            broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
+        val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
+      }
+    }
+
+    private def maybeDoEndOfTurn(): Unit = {
+      if(game.isBoardDone.forall { isDone => isDone })
+        doEndOfTurn()
+    }
+
+    private def doEndOfTurn(): Unit = {
+      val oldSide = game.curSide
+      val newSide = game.curSide.opp
+
+      //Accumulate mana on all the boards for the side about to move
+      val mana = boards.foldLeft(0) { case (sum,board) =>
+        sum + board.curState.manaThisRound(newSide)
+      }
+      performAndBroadcastGameActionIfLegal(AddMana(newSide,mana))
+
+      //Automatically tech if it hasn't happened yet, as a convenience
+      if(!game.hasTechedThisTurn) {
+        val idx = game.techLine.indexWhere { techState => techState.level(oldSide) == TechLocked}
+        if(idx >= 0) { //-1 if not found
+          val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(PerformTech(oldSide,idx))
         }
       }
+
+      game.endTurn()
+      boards.foreach { board => board.endTurn() }
+      broadcastAll(Protocol.ReportNewTurn(newSide))
     }
 
     private def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side]): Unit = {
@@ -199,22 +230,14 @@ object ServerMain extends App {
                     boards(boardIdx).tryLegality(boardAction).flatMap { case () =>
                       //And if so, go ahead and recover the cost of the unit
                       val gameAction: GameAction = UnpayForReinforcement(side,pieceName)
-                      game.doAction(gameAction).map { case () =>
-                        //If successful, report the event
-                        gameSequence += 1
-                        broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
-                      }
+                      performAndBroadcastGameActionIfLegal(gameAction)
                     }
                   case DoGeneralBoardAction(generalBoardAction,_) =>
                     generalBoardAction match {
                       case BuyReinforcement(pieceName) =>
                         //Pay for the cost of the unit
                         val gameAction: GameAction = PayForReinforcement(side,pieceName)
-                        game.doAction(gameAction).map { case () =>
-                          //If successful, report the event
-                          gameSequence += 1
-                          broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
-                        }
+                        performAndBroadcastGameActionIfLegal(gameAction)
                       case GainSpell(_) =>
                         Failure(new Exception("Not implemented yet"))
                       case RevealSpell(_,_,_) =>
@@ -248,7 +271,7 @@ object ServerMain extends App {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks
                 val specialResult: Try[Unit] = gameAction match {
                   case (_: PerformTech) | (_: SetBoardDone) => Success(())
-                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) =>
+                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddMana) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }
                 specialResult.flatMap { case () => game.doAction(gameAction) } match {
@@ -258,6 +281,7 @@ object ServerMain extends App {
                     gameSequence += 1
                     out ! Protocol.OkGameAction(gameSequence)
                     broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
+                    maybeDoEndOfTurn()
                 }
               }
           }

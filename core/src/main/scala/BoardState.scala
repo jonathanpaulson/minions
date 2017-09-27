@@ -227,7 +227,7 @@ object BoardState {
       spellsRevealed = SideArray.create(Map()),
       spellsInHand = SideArray.create(List()),
       side = S0,
-      mana = SideArray.create(0),
+      manaThisRound = SideArray.create(0),
       totalMana = SideArray.create(0),
       totalCosts = SideArray.create(0)
     )
@@ -282,7 +282,7 @@ case class BoardState private (
 
   //Accumulated mana from spires and rebate for costs for units that died, this turn.
   //(Only clears at the beginning of a side's turn)
-  val mana: SideArray[Int],
+  val manaThisRound: SideArray[Int],
   //Same, but never clears - summed over the whole board's lifetime.
   val totalMana: SideArray[Int],
   //Total cost of units added to reinforcements of this board over the board's lifetime
@@ -305,7 +305,7 @@ case class BoardState private (
       spellsRevealed = spellsRevealed.copy(),
       spellsInHand = spellsInHand.copy(),
       side = side,
-      mana = mana,
+      manaThisRound = manaThisRound,
       totalMana = totalMana,
       totalCosts = totalCosts
     )
@@ -404,7 +404,7 @@ case class BoardState private (
         tile.copy(modsWithDuration = tile.modsWithDuration.flatMap(_.decay))
     }
 
-    mana(side) += newMana
+    manaThisRound(side) += newMana
     totalMana(side) += newMana
 
     //Flip turn
@@ -412,7 +412,7 @@ case class BoardState private (
     turnNumber += 1
 
     //Clear mana for the side to move, and other board state
-    mana(side) = 0
+    manaThisRound(side) = 0
     piecesSpawnedThisTurn = Map()
     numPiecesSpawnedThisTurnAt = Map()
   }
@@ -985,7 +985,7 @@ case class BoardState private (
   //Perform the rebase and death spawn updates happening after a piece kill
   private def updateAfterPieceKill(pieceSide: Side, pieceStats: PieceStats, loc: Loc): Unit = {
     //Rebate mana
-    mana(pieceSide) += pieceStats.rebate
+    manaThisRound(pieceSide) += pieceStats.rebate
     totalMana(pieceSide) += pieceStats.rebate
 
     //Death spawn

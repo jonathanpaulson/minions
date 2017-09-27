@@ -205,6 +205,19 @@ object ClientMain extends JSApp {
           serverSequence(boardIdx) = newBoardSequence
           serverActionSequence(boardIdx) = Vector()
           resetLocalBoards(boardIdx)
+
+        case Protocol.ReportNewTurn(newSide) =>
+          game.get.endTurn()
+          serverBoards.foreach { board => board.endTurn() }
+          for(i <- 0 until numBoards)
+            resetLocalBoards(i)
+
+          if(game.get.curSide != newSide)
+            throw new Exception("Server reported side is not the same as game side")
+          serverBoards.foreach { board =>
+            if(board.curState.side != newSide)
+              throw new Exception("Server reported side is not the same as game side")
+          }
       }
     }
 
