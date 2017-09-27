@@ -212,6 +212,8 @@ object ClientMain extends JSApp {
           for(i <- 0 until numBoards)
             resetLocalBoards(i)
 
+          mouseState.clear()
+
           if(game.get.curSide != newSide)
             throw new Exception("Server reported side is not the same as game side")
           serverBoards.foreach { board =>
