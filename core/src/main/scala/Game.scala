@@ -59,12 +59,14 @@ case class TechState(
 
 sealed trait GameAction
 case class PerformTech(side: Side, techLineIdx: Int) extends GameAction
+case class SetBoardDone(boardIdx: Int, done: Boolean) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 
 case object Game {
   def apply(
+    numBoards: Int,
     startingSide: Side,
     startingMana: SideArray[Int],
     extraTechCost: Int,
@@ -83,7 +85,8 @@ case object Game {
       },
       piecesAcquired = SideArray.create(Set()),
       hasTechedThisTurn = false,
-      extraTechCost = extraTechCost
+      extraTechCost = extraTechCost,
+      isBoardDone = Array.fill(numBoards)(false)
     )
     for(techLineIdx <- 0 until techsAlwaysAcquired.length) {
       game.performTechWithoutCost(S0,techLineIdx)
@@ -107,7 +110,10 @@ case class Game (
   val techLine: Array[TechState],
   val piecesAcquired: SideArray[Set[PieceName]],
   var hasTechedThisTurn: Boolean,
-  val extraTechCost: Int
+  val extraTechCost: Int,
+
+  //Flags set when user indicates that the board is done. Server ends the turn when all boards have this set.
+  val isBoardDone: Array[Boolean]
 
   // TODO(jpaulson): Spells for the moving side
 ) {
@@ -121,6 +127,7 @@ case class Game (
       case PayForReinforcement(side,pieceName) => tryCanPayForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
+      case SetBoardDone(boardIdx,done) => tryCanSetBoardDone(boardIdx,done)
     }
   }
 
@@ -129,6 +136,7 @@ case class Game (
       case PayForReinforcement(side,pieceName) => payForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
+      case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
     }
   }
 
@@ -136,6 +144,7 @@ case class Game (
     curSide = curSide.opp
     turnNumber += 1
     hasTechedThisTurn = false
+    for(i <- 0 until isBoardDone.length) isBoardDone(i) = false
   }
 
   private def tryCanPayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
@@ -235,5 +244,20 @@ case class Game (
     }
   }
 
+  private def tryCanSetBoardDone(boardIdx: Int, done: Boolean): Try[Unit] = {
+    val _ = done
+    if(boardIdx < 0 || boardIdx >= isBoardDone.length)
+      Failure(new Exception("Invalid board idx"))
+    else
+      Success(())
+  }
 
+  private def setBoardDone(boardIdx: Int, done: Boolean): Try[Unit] = {
+    tryCanSetBoardDone(boardIdx,done) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        isBoardDone(boardIdx) = done
+        suc
+    }
+  }
 }

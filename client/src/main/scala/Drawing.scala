@@ -20,6 +20,7 @@ object Drawing {
     canvas: Canvas,
     ctx: CanvasRenderingContext2D,
     game: Game,
+    boardIdx: Int,
     board: BoardState,
     translateOrigin: PixelVec,
     mouseState: MouseState,
@@ -137,7 +138,13 @@ object Drawing {
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
     ctx.translate(translateOrigin.dx,translateOrigin.dy)
 
-    fillHex(ctx, EndTurnUI.loc, "gray", tileScale)
+    if(game.isBoardDone(boardIdx)) {
+      fillHex(ctx, EndTurnUI.loc, "#ff99ff", tileScale, alpha=1.0)
+      strokeHex(ctx, EndTurnUI.loc, "#ff00ff", tileScale, lineWidth=2.0)
+    }
+    else {
+      fillHex(ctx, EndTurnUI.loc, "gray", tileScale)
+    }
     text(ctx, "End Turn", PixelLoc.ofHexLoc(hexLocOfLoc(EndTurnUI.loc), gridSize), "black")
 
     //Reinforcements

@@ -251,7 +251,7 @@ object ClientMain extends JSApp {
 
     def draw() : Unit = {
       curLocalBoard().foreach { board =>
-        Drawing.drawEverything(canvas, ctx, game.get, board.curState, translateOrigin, mouseState, flipDisplay)
+        Drawing.drawEverything(canvas, ctx, game.get, curBoardIdx, board.curState, translateOrigin, mouseState, flipDisplay)
       }
     }
 

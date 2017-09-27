@@ -16,6 +16,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.event.Logging
 
 import minionsgame.core._
+import RichImplicits._
 
 object Paths {
   val applicationConf = "./application.conf"
@@ -73,6 +74,7 @@ object ServerMain extends App {
     val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
 
     val game = Game(
+      numBoards = numBoards,
       startingSide = S0,
       startingMana = startingMana,
       extraTechCost = extraTechCost,
@@ -147,6 +149,20 @@ object ServerMain extends App {
       }
     }
 
+    //Called upon performing a sucessful board action - unsets any user flag that the
+    //board is done.
+    private def maybeUnsetBoardDone(boardIdx: Int): Unit = {
+      if(game.isBoardDone(boardIdx)) {
+        val gameAction: GameAction = SetBoardDone(boardIdx,false)
+        game.doAction(gameAction) match {
+          case Failure(_) => assertUnreachable()
+          case Success(()) =>
+            gameSequence += 1
+            broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
+        }
+      }
+    }
+
     private def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side]): Unit = {
       query match {
         case Protocol.Heartbeat(i) =>
@@ -210,6 +226,9 @@ object ServerMain extends App {
                   case Failure(e) =>
                     out ! Protocol.QueryError("Illegal action: " + e.toString)
                   case Success(()) =>
+                    //If this board was set as done, then since we did an action on it, unset it.
+                    maybeUnsetBoardDone(boardIdx)
+
                     boardSequences(boardIdx) += 1
                     out ! Protocol.OkBoardAction(boardIdx,boardSequences(boardIdx))
                     broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
@@ -228,7 +247,7 @@ object ServerMain extends App {
               else {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks
                 val specialResult: Try[Unit] = gameAction match {
-                  case (_: PerformTech) => Success(())
+                  case (_: PerformTech) | (_: SetBoardDone) => Success(())
                   case (_: PayForReinforcement) | (_: UnpayForReinforcement) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }

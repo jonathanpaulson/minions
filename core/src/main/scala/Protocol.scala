@@ -377,17 +377,20 @@ object Protocol {
   implicit val payForReinforcementFormat = Json.format[PayForReinforcement]
   implicit val unpayForReinforcementFormat = Json.format[UnpayForReinforcement]
   implicit val performTechFormat = Json.format[PerformTech]
+  implicit val setBoardDoneFormat = Json.format[SetBoardDone]
   implicit val gameActionFormat = {
     val reads: Reads[GameAction] = readsFromPair[GameAction]("GameAction",Map(
       "PayForReinforcement" -> ((json:JsValue) => payForReinforcementFormat.reads(json)),
       "UnpayForReinforcement" -> ((json:JsValue) => unpayForReinforcementFormat.reads(json)),
       "PerformTech" -> ((json:JsValue) => performTechFormat.reads(json)),
+      "SetBoardDone" -> ((json:JsValue) => setBoardDoneFormat.reads(json)),
     ))
     val writes: Writes[GameAction] = new Writes[GameAction] {
       def writes(t: GameAction): JsValue = t match {
         case (t:PayForReinforcement) => jsPair("PayForReinforcement",payForReinforcementFormat.writes(t))
         case (t:UnpayForReinforcement) => jsPair("UnpayForReinforcement",unpayForReinforcementFormat.writes(t))
         case (t:PerformTech) => jsPair("PerformTech",performTechFormat.writes(t))
+        case (t:SetBoardDone) => jsPair("SetBoardDone",setBoardDoneFormat.writes(t))
       }
     }
     Format(reads,writes)
