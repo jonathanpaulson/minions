@@ -156,13 +156,13 @@ case class MouseState() {
               if(bState.inBounds(loc))
                 Some(MouseTile(loc))
               else {
-                ReinforcementsUI.getSelectedPiece(side,flipDisplay,bState,loc) match {
+                UI.Reinforcements.getSelectedPiece(side,flipDisplay,bState,loc) match {
                   case Some(pieceName) => Some(MouseReinforcement(pieceName,side))
                   case None =>
-                    TechUI.getSelectedTechIdx(game,loc) match {
+                    UI.Tech.getSelectedTechIdx(game,loc) match {
                       case Some(techIdx) => Some(MouseTech(techIdx))
                       case None =>
-                        if(loc == EndTurnUI.loc) {
+                        if(loc == UI.EndTurn.loc) {
                           //TODO - add a new MouseTarget for this, add appropriate
                           //queries and responses to protocol.
                           //End of turn button should do nothing client side, instead

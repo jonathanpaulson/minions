@@ -58,9 +58,6 @@ object ClientMain extends JSApp {
     val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
     val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
 
-    //How much to translate the canvas origin inward from the upper left corner.
-    val translateOrigin = PixelVec(3.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
-
     //State of game, as far as we can tell from the server
     var game: Option[Game] = None
 
@@ -207,7 +204,12 @@ object ClientMain extends JSApp {
           resetLocalBoards(boardIdx)
 
         case Protocol.ReportNewTurn(newSide) =>
+          val mana = serverBoards.foldLeft(0) { case (sum,board) =>
+            sum + board.curState.manaThisRound(newSide)
+          }
+          game.get.addMana(newSide,mana)
           game.get.endTurn()
+
           serverBoards.foreach { board => board.endTurn() }
           for(i <- 0 until numBoards)
             resetLocalBoards(i)
@@ -265,14 +267,15 @@ object ClientMain extends JSApp {
     }
 
     def draw() : Unit = {
-      curLocalBoard().foreach { board =>
-        Drawing.drawEverything(canvas, ctx, game.get, curBoardIdx, board.curState, translateOrigin, mouseState, flipDisplay)
+      curLocalBoard().foreach { _ =>
+        val boards = localBoards.map { board => board.curState }
+        Drawing.drawEverything(canvas, ctx, game.get, boards, curBoardIdx, mouseState, flipDisplay)
       }
     }
 
     def mousePixel(e : MouseEvent) : PixelLoc = {
       val rect = canvas.getBoundingClientRect()
-      PixelLoc(e.clientX - rect.left, e.clientY - rect.top) - translateOrigin
+      PixelLoc(e.clientX - rect.left, e.clientY - rect.top) - UI.translateOrigin
     }
 
     def withBoardForMouse(f: Board => Unit): Unit = {

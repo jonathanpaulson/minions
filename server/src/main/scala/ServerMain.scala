@@ -179,7 +179,7 @@ object ServerMain extends App {
       val mana = boards.foldLeft(0) { case (sum,board) =>
         sum + board.curState.manaThisRound(newSide)
       }
-      performAndBroadcastGameActionIfLegal(AddMana(newSide,mana))
+      game.addMana(newSide,mana)
 
       //Automatically tech if it hasn't happened yet, as a convenience
       if(!game.hasTechedThisTurn) {
@@ -271,7 +271,7 @@ object ServerMain extends App {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks
                 val specialResult: Try[Unit] = gameAction match {
                   case (_: PerformTech) | (_: SetBoardDone) => Success(())
-                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddMana) =>
+                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }
                 specialResult.flatMap { case () => game.doAction(gameAction) } match {

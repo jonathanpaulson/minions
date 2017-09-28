@@ -18,6 +18,7 @@ sealed trait Side {
   def opp: Side = this match { case S0 => S1  case S1 => S0 }
 
   override def toString: String = this match { case S0 => "S0"  case S1 => "S1" }
+  def toColorName: String = this match { case S0 => "Blue"  case S1 => "Red" }
 }
 case object S0 extends Side { val int = 0 }
 case object S1 extends Side { val int = 1 }

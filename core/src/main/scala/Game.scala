@@ -63,7 +63,6 @@ case class SetBoardDone(boardIdx: Int, done: Boolean) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
-case class AddMana(side: Side, mana: Int) extends GameAction
 
 case object Game {
   def apply(
@@ -119,11 +118,14 @@ case class Game (
   // TODO(jpaulson): Spells for the moving side
 ) {
 
+  def addMana(side: Side, amount: Int): Unit = {
+    mana(side) = mana(side) + amount
+  }
+
   def tryIsLegal(action: GameAction): Try[Unit] = {
     action match {
       case PayForReinforcement(side,pieceName) => tryCanPayForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
-      case AddMana(_,_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => tryCanSetBoardDone(boardIdx,done)
     }
@@ -133,7 +135,6 @@ case class Game (
     action match {
       case PayForReinforcement(side,pieceName) => payForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
-      case AddMana(side,amount) => addMana(side,amount)
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
     }
@@ -258,11 +259,6 @@ case class Game (
         isBoardDone(boardIdx) = done
         suc
     }
-  }
-
-  private def addMana(side: Side, amount: Int): Try[Unit] = {
-    mana(side) = mana(side) + amount
-    Success(())
   }
 
 }

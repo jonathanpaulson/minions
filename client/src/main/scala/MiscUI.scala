@@ -3,38 +3,57 @@ package minionsgame.jsclient
 import minionsgame.core._
 import RichImplicits._
 
-object EndTurnUI {
-  val loc: Loc = Loc(15, -3)
-}
+object UI {
+  //How much to translate the canvas origin inward from the upper left corner.
+  val translateOrigin = PixelVec(3.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
 
-object TechUI {
-  val xOffset = 2
-  val yOffset = -3
-
-  def getLoc(techIdx: Int): Loc = {
-    Loc((techIdx/2)+xOffset, yOffset + (if(techIdx%2==0) 0 else 1))
-  }
-
-  def getLocs(game: Game): Array[Loc] = {
-    (0 until game.techLine.length).map { i => getLoc(i) }.toArray
-  }
-
-  def getSelectedTechIdx(game: Game, loc: Loc): Option[Int] = {
-    val idx = {
-      if(loc.y == yOffset) (loc.x-xOffset)*2
-      else if(loc.y == yOffset+1) (loc.x-xOffset)*2 + 1
-      else -1
+  //Positioning for text about game stats and mana
+  object Info {
+    def getLoc(side: Side, flipDisplay: Boolean, board: BoardState): Loc = {
+      (side,flipDisplay) match {
+        case (S0,false) | (S1,true) =>
+          Loc(1,-5)
+        case (S1,false) | (S0,true) =>
+          Loc(board.tiles.xSize/2 + 1, -5)
+      }
     }
-    if(idx >= 0 && idx < game.techLine.length)
-      Some(idx)
-    else
-      None
   }
 
-}
+  //Positioning for end turn hex button
+  object EndTurn {
+    val loc: Loc = Loc(15, -3)
+  }
 
-object ReinforcementsUI {
-  val unflippedLocs = Array(
+  //Positioning for tech line
+  object Tech {
+    val xOffset = 2
+    val yOffset = -3
+
+    def getLoc(techIdx: Int): Loc = {
+      Loc((techIdx/2)+xOffset, yOffset + (if(techIdx%2==0) 0 else 1))
+    }
+
+    def getLocs(game: Game): Array[Loc] = {
+      (0 until game.techLine.length).map { i => getLoc(i) }.toArray
+    }
+
+    def getSelectedTechIdx(game: Game, loc: Loc): Option[Int] = {
+      val idx = {
+        if(loc.y == yOffset) (loc.x-xOffset)*2
+        else if(loc.y == yOffset+1) (loc.x-xOffset)*2 + 1
+        else -1
+      }
+      if(idx >= 0 && idx < game.techLine.length)
+        Some(idx)
+      else
+        None
+    }
+
+  }
+
+  //Positioning for reinforcements
+  object Reinforcements {
+    val unflippedLocs = Array(
       Loc(-4,7),Loc(-3,7),Loc(-2,7),
       Loc(-4,8),Loc(-3,8),Loc(-2,8),
       Loc(-5,9),Loc(-4,9),Loc(-3,9),Loc(-2,9),
@@ -43,59 +62,39 @@ object ReinforcementsUI {
       Loc(-6,12),Loc(-5,12),Loc(-4,12),Loc(-3,12),Loc(-2,12)
     )
 
-  def getLocs(side: Side, flipDisplay: Boolean, board: BoardState): Array[Loc] = {
-
-    (side,flipDisplay) match {
-      case (S0,false) | (S1,true) =>
-        unflippedLocs
-      case (S1,false) | (S0,true) =>
-        unflippedLocs.map { loc => Loc(board.tiles.xSize - loc.x - 1, board.tiles.ySize - loc.y - 1) }
-    }
-  }
-
-  def getLocsAndContents(side: Side, flipDisplay: Boolean, board: BoardState): Array[(Loc,PieceName,Int)] = {
-    val locs = getLocs(side,flipDisplay,board)
-    var i = 0
-    Units.pieces.flatMap { stats =>
-      board.reinforcements(side).get(stats.name) match {
-        case None => None
-        case Some(count) =>
-          val loc = locs(i)
-          i += 1
-          Some((loc,stats.name,count))
+    def getLocs(side: Side, flipDisplay: Boolean, board: BoardState): Array[Loc] = {
+      (side,flipDisplay) match {
+        case (S0,false) | (S1,true) =>
+          unflippedLocs
+        case (S1,false) | (S0,true) =>
+          unflippedLocs.map { loc => Loc(board.tiles.xSize - loc.x - 1, board.tiles.ySize - loc.y - 1) }
       }
     }
-  }
 
-  def getSelectedLocAndCount(side: Side, flipDisplay: Boolean, board: BoardState, pieceName: PieceName): Option[(Loc,Int)] = {
-    val locs = getLocs(side,flipDisplay,board)
-    var i = 0
-    Units.pieces.findMap { stats =>
-      board.reinforcements(side).get(stats.name) match {
-        case None => None
-        case Some(count) =>
-          val loc = locs(i)
-          if(stats.name == pieceName)
-            Some((loc,count))
-          else {
+    def getLocsAndContents(side: Side, flipDisplay: Boolean, board: BoardState): Array[(Loc,PieceName,Int)] = {
+      val locs = getLocs(side,flipDisplay,board)
+      var i = 0
+      Units.pieces.flatMap { stats =>
+        board.reinforcements(side).get(stats.name) match {
+          case None => None
+          case Some(count) =>
+            val loc = locs(i)
             i += 1
-            None
-          }
+            Some((loc,stats.name,count))
+        }
       }
     }
-  }
 
-  def getSelectedPiece(side: Side, flipDisplay: Boolean, board: BoardState, loc: Loc): Option[PieceName] = {
-    val locs = getLocs(side,flipDisplay,board)
-    val selectedIdx = locs.indexOf(loc)
-    if(selectedIdx == -1) None
-    else {
+    def getSelectedLocAndCount(side: Side, flipDisplay: Boolean, board: BoardState, pieceName: PieceName): Option[(Loc,Int)] = {
+      val locs = getLocs(side,flipDisplay,board)
       var i = 0
       Units.pieces.findMap { stats =>
         board.reinforcements(side).get(stats.name) match {
           case None => None
-          case Some(_) =>
-            if(i == selectedIdx) Some(stats.name)
+          case Some(count) =>
+            val loc = locs(i)
+            if(stats.name == pieceName)
+              Some((loc,count))
             else {
               i += 1
               None
@@ -103,6 +102,27 @@ object ReinforcementsUI {
         }
       }
     }
+
+    def getSelectedPiece(side: Side, flipDisplay: Boolean, board: BoardState, loc: Loc): Option[PieceName] = {
+      val locs = getLocs(side,flipDisplay,board)
+      val selectedIdx = locs.indexOf(loc)
+      if(selectedIdx == -1) None
+      else {
+        var i = 0
+        Units.pieces.findMap { stats =>
+          board.reinforcements(side).get(stats.name) match {
+            case None => None
+            case Some(_) =>
+              if(i == selectedIdx) Some(stats.name)
+              else {
+                i += 1
+                None
+              }
+          }
+        }
+      }
+    }
+
   }
 
 }

@@ -20,12 +20,13 @@ object Drawing {
     canvas: Canvas,
     ctx: CanvasRenderingContext2D,
     game: Game,
+    boards: Array[BoardState],
     boardIdx: Int,
-    board: BoardState,
-    translateOrigin: PixelVec,
     mouseState: MouseState,
     flipDisplay: Boolean
   ) : Unit = {
+
+    val board = boards(boardIdx)
 
     import scala.language.implicitConversions
     implicit def hexLocOfLoc(loc: Loc): HexLoc = {
@@ -136,20 +137,35 @@ object Drawing {
 
     ctx.setTransform(1,0,0,1,0,0)
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
-    ctx.translate(translateOrigin.dx,translateOrigin.dy)
+    ctx.translate(UI.translateOrigin.dx,UI.translateOrigin.dy)
 
+    //Game info text
+    Side.foreach { side =>
+      val infoLoc = UI.Info.getLoc(side,flipDisplay,board)
+      val color = side match {
+        case S0 => "#000099"
+        case S1 => "#000077"
+      }
+      val mana = game.mana(side) + boards.foldLeft(0) { case (sum,board) => sum + board.manaThisRound(side) }
+
+      def infoText(s: String) =
+        text(ctx, s, PixelLoc.ofHexLoc(hexLocOfLoc(infoLoc), gridSize), color)
+      infoText(side.toColorName + " Team Mana: " + mana)
+    }
+
+    //End turn hex
     if(game.isBoardDone(boardIdx)) {
-      fillHex(ctx, EndTurnUI.loc, "#ff99ff", tileScale, alpha=1.0)
-      strokeHex(ctx, EndTurnUI.loc, "#ff00ff", tileScale, lineWidth=2.0)
+      fillHex(ctx, UI.EndTurn.loc, "#ff99ff", tileScale, alpha=1.0)
+      strokeHex(ctx, UI.EndTurn.loc, "#ff00ff", tileScale, lineWidth=2.0)
     }
     else {
-      fillHex(ctx, EndTurnUI.loc, "gray", tileScale)
+      fillHex(ctx, UI.EndTurn.loc, "gray", tileScale)
     }
-    text(ctx, "End Turn", PixelLoc.ofHexLoc(hexLocOfLoc(EndTurnUI.loc), gridSize), "black")
+    text(ctx, "End Turn", PixelLoc.ofHexLoc(hexLocOfLoc(UI.EndTurn.loc), gridSize), "black")
 
     //Reinforcements
     Side.foreach { side =>
-      val locsAndContents = ReinforcementsUI.getLocsAndContents(side,flipDisplay,board)
+      val locsAndContents = UI.Reinforcements.getLocsAndContents(side,flipDisplay,board)
       locsAndContents.foreach { case (loc,pieceName,count) =>
         val locs = locsOfReinforcement(loc,count)
         locs.foreach { hexLoc =>
@@ -159,7 +175,7 @@ object Drawing {
     }
 
     //Techs
-    val techLocs = TechUI.getLocs(game)
+    val techLocs = UI.Tech.getLocs(game)
     for(i <- 0 until game.techLine.length) {
       val techState = game.techLine(i)
       val loc = techLocs(i)
@@ -245,10 +261,10 @@ object Drawing {
       mouseTarget match {
         case MouseTile(_) => ()
         case MouseTech(techIdx) =>
-          val loc = TechUI.getLoc(techIdx)
+          val loc = UI.Tech.getLoc(techIdx)
           strokeHex(ctx,loc, "black", tileScale)
         case MouseReinforcement(pieceName,side) =>
-          ReinforcementsUI.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
+          UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
             case None => ()
             case Some((loc,count)) =>
               val locs = locsOfReinforcement(loc,count)
@@ -270,7 +286,7 @@ object Drawing {
         case MouseTile(_) => ()
         case MouseTech(_) => ()
         case MouseReinforcement(pieceName,side) =>
-          ReinforcementsUI.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
+          UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
             case None => ()
             case Some((loc,count)) =>
               val locs = locsOfReinforcement(loc,count)
