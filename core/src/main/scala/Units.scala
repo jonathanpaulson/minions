@@ -62,7 +62,7 @@ object Units {
     moveRange = 5,
     attackRange = 2,
     cost = 2,
-    rebate = 0,
+    rebate = 1,
     isFlying = true,
     swarmMax = 3
   )

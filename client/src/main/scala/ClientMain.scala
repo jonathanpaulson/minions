@@ -295,7 +295,7 @@ object ClientMain extends JSApp {
     def mouseup(e : MouseEvent) : Unit = {
       withBoardForMouse { board =>
         val pixelLoc = mousePixel(e)
-        mouseState.handleMouseUp(pixelLoc,game.get,board,flipDisplay)(makeActionId _)(doGameAction _)(doActionOnCurBoard _)
+        mouseState.handleMouseUp(pixelLoc,game.get,board,curBoardIdx,flipDisplay,side)(makeActionId _)(doGameAction _)(doActionOnCurBoard _)
       }
       draw()
     }

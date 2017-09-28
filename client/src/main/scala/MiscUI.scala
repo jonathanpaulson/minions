@@ -5,16 +5,16 @@ import RichImplicits._
 
 object UI {
   //How much to translate the canvas origin inward from the upper left corner.
-  val translateOrigin = PixelVec(3.0 * Drawing.gridSize, 6.0 * Drawing.gridSize)
+  val translateOrigin = PixelVec(3.0 * Drawing.gridSize, 7.0 * Drawing.gridSize)
 
   //Positioning for text about game stats and mana
   object Info {
     def getLoc(side: Side, flipDisplay: Boolean, board: BoardState): Loc = {
       (side,flipDisplay) match {
         case (S0,false) | (S1,true) =>
-          Loc(1,-5)
+          Loc(2,-4)
         case (S1,false) | (S0,true) =>
-          Loc(board.tiles.xSize/2 + 1, -5)
+          Loc(board.tiles.xSize/2 + 3, -4)
       }
     }
   }

@@ -13,6 +13,7 @@ sealed trait MouseTarget {
       case MouseTile(_) => None
       case MouseTech(_) => None
       case MouseReinforcement(_,_) => None
+      case MouseEndTurn => None
     }
   }
 }
@@ -20,6 +21,7 @@ case class MousePiece(pieceSpec: PieceSpec) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int) extends MouseTarget
 case class MouseReinforcement(pieceName: PieceName, side:Side) extends MouseTarget
+case object MouseEndTurn extends MouseTarget
 
 //Current state of the mouse, helper object
 object MouseState {
@@ -162,18 +164,8 @@ case class MouseState() {
                     UI.Tech.getSelectedTechIdx(game,loc) match {
                       case Some(techIdx) => Some(MouseTech(techIdx))
                       case None =>
-                        if(loc == UI.EndTurn.loc) {
-                          //TODO - add a new MouseTarget for this, add appropriate
-                          //queries and responses to protocol.
-                          //End of turn button should do nothing client side, instead
-                          //it should simply signal the server, and if all boards
-                          //have ended turn, OR the time limit has passed, the turn
-                          //ends
-                          //TODO don't forget to have the server auto-tech and
-                          //to have it auto-pick spells for everyone if those
-                          //were not done that turn.
-                          None
-                        }
+                        if(loc == UI.EndTurn.loc)
+                          Some(MouseEndTurn)
                         else
                           None
                     }
@@ -190,44 +182,67 @@ case class MouseState() {
   }
 
 
-  def handleMouseUp(pixelLoc: PixelLoc, game: Game, board: Board, flipDisplay: Boolean)
+  def handleMouseUp(pixelLoc: PixelLoc, game: Game, board: Board, boardIdx: Int, flipDisplay: Boolean, side: Option[Side])
     (makeActionId: () => String)
     (doGameAction:GameAction => Unit)
     (doBoardAction:BoardAction => Unit): Unit = {
-    val (loc,hexDelta) = getLocAndDelta(pixelLoc,board,flipDisplay)
+
+    val (targetLoc,hexDelta) = getLocAndDelta(pixelLoc,board,flipDisplay)
+    val target = getTarget(pixelLoc,game,board,flipDisplay,side,requireSide=None)
 
     //Branch based on what we selected on the mouseDown
     selected match {
       case None | Some(MouseTile(_)) => ()
-      case Some(MouseTech(techIdx)) =>
-        val techState = game.techLine(techIdx)
-        techState.level(game.curSide) match {
-          case TechLocked | TechUnlocked =>
-            doGameAction(PerformTech(game.curSide,techIdx))
-          case TechAcquired =>
-            techState.tech match {
-              case PieceTech(pieceName) =>
-                doBoardAction(DoGeneralBoardAction(BuyReinforcement(pieceName),makeActionId()))
-            }
-        }
-      case Some(MouseReinforcement(pieceName,_)) =>
 
-        doBoardAction(PlayerActions(List(Spawn(loc,pieceName)),makeActionId()))
+      case Some(MouseEndTurn) =>
+        //Require mouse down and up on the same target
+        if(target == Some(MouseEndTurn))
+          doGameAction(SetBoardDone(boardIdx,!game.isBoardDone(boardIdx)))
+
+      case Some(MouseTech(techIdx)) =>
+        //Require mouse down and up on the same target
+        if(target == Some(MouseTech(techIdx))) {
+          val techState = game.techLine(techIdx)
+          techState.level(game.curSide) match {
+            case TechLocked | TechUnlocked =>
+              doGameAction(PerformTech(game.curSide,techIdx))
+            case TechAcquired =>
+              techState.tech match {
+                case PieceTech(pieceName) =>
+                  doBoardAction(DoGeneralBoardAction(BuyReinforcement(pieceName),makeActionId()))
+              }
+          }
+        }
+
+      case Some(MouseReinforcement(pieceName,_)) =>
+        doBoardAction(PlayerActions(List(Spawn(targetLoc,pieceName)),makeActionId()))
+
       case Some(MousePiece(selectedSpec)) =>
         board.curState.findPiece(selectedSpec) match {
           case None => ()
           case Some(piece) =>
-            //Move based on the path, if we have a nontrivial path
-            val movement: Option[PlayerAction] = movementsOfPath(piece)
             //Attack if enemy piece under the mouseUp
             val attack: Option[PlayerAction] = {
-              getPiece(loc,hexDelta,board,requireSide=None) match {
+              getPiece(targetLoc,hexDelta,board,requireSide=None) match {
                 case None => None
                 case Some(other) =>
                   if(other.side == piece.side) None
                   else Some(Attack(piece.spec, other.spec))
               }
             }
+            //Move based on the path, if we have a nontrivial path
+            val movementFromPath: Option[PlayerAction] = movementsOfPath(piece)
+            //If the path is empty and the target is a tile one hex away from the piece's current location
+            //then attempt a move so that we can report an illegal move error as help
+            val movement = {
+              if(attack.isEmpty && movementFromPath.isEmpty) {
+                if(board.curState.tiles.topology.distance(piece.loc,targetLoc) == 1)
+                  Some(Movements(List(Movement(piece.spec, Vector(piece.loc,targetLoc)))))
+                else movementFromPath
+              }
+              else movementFromPath
+            }
+
             val actions = List(movement,attack).flatten
             if(actions.length > 0)
               doBoardAction(PlayerActions(actions,makeActionId()))
