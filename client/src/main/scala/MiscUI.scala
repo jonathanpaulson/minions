@@ -12,9 +12,9 @@ object UI {
     def getLoc(side: Side, flipDisplay: Boolean, board: BoardState): Loc = {
       (side,flipDisplay) match {
         case (S0,false) | (S1,true) =>
-          Loc(2,-4)
+          Loc(1,-4)
         case (S1,false) | (S0,true) =>
-          Loc(board.tiles.xSize/2 + 3, -4)
+          Loc(board.tiles.xSize/2 + 2, -4)
       }
     }
   }

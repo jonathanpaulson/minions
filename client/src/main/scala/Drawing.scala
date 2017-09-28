@@ -41,10 +41,17 @@ object Drawing {
       val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
       ctx.lineTo(Math.floor(pixel.x), Math.floor(pixel.y));
     }
-    def text(ctx : CanvasRenderingContext2D, text : String, pixel : PixelLoc, color : String) : Unit = {
+    def text(
+      ctx : CanvasRenderingContext2D,
+      text : String,
+      pixel : PixelLoc,
+      color : String,
+      textAlign : String = "center"
+    ) : Unit
+    = {
       ctx.globalAlpha = 1.0
       ctx.fillStyle = color
-      ctx.textAlign = "center"
+      ctx.textAlign = textAlign
       ctx.fillText(text, Math.floor(pixel.x), Math.floor(pixel.y))
     }
 
@@ -53,6 +60,7 @@ object Drawing {
     }
 
     def drawHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, doStroke: Boolean, doFill:Boolean, alpha: Double, lineWidth: Double) : Unit = {
+      val oldAlpha = ctx.globalAlpha
       ctx.globalAlpha = alpha
       ctx.lineWidth = lineWidth
       ctx.strokeStyle = color
@@ -68,6 +76,7 @@ object Drawing {
       if(doStroke) ctx.stroke()
       if(doFill)  ctx.fill()
       ctx.closePath()
+      ctx.globalAlpha = oldAlpha
     }
     def strokeHex(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0) : Unit = {
       drawHex(ctx,hexLoc,color,scale,true,false,alpha,lineWidth);
@@ -137,20 +146,36 @@ object Drawing {
 
     ctx.setTransform(1,0,0,1,0,0)
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
+
+    //Background fill based on whose turn it is
+    val backgroundColor = board.side match {
+      case S0 => "#f3f3ff"
+      case S1 => "#fff3f3"
+    }
+    ctx.fillStyle = backgroundColor
+    ctx.globalAlpha = 1.0
+    ctx.fillRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
+
     ctx.translate(UI.translateOrigin.dx,UI.translateOrigin.dy)
 
     //Game info text
     Side.foreach { side =>
       val infoLoc = UI.Info.getLoc(side,flipDisplay,board)
+      val pixelLoc = PixelLoc.ofHexLoc(hexLocOfLoc(infoLoc), gridSize)
       val color = side match {
         case S0 => "#000099"
         case S1 => "#770000"
       }
-      val mana = game.mana(side) + boards.foldLeft(0) { case (sum,board) => sum + board.manaThisRound(side) }
+      val mana = game.mana(side) + boards.foldLeft(0) { case (sum,board) =>
+        sum + board.manaThisRound(side)
+      }
 
-      def infoText(s: String) =
-        text(ctx, s, PixelLoc.ofHexLoc(hexLocOfLoc(infoLoc), gridSize), color)
-      infoText(side.toColorName + " Team Mana: " + mana)
+      def textAtLoc(s: String, dpx: Double, dpy: Double) =
+        text(ctx, s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left")
+
+      if(side == board.side)
+        textAtLoc(side.toColorName + " Team's Turn!", 0.0, -9.0)
+      textAtLoc(side.toColorName + " Team Mana: " + mana, 0.0, 3.0)
     }
 
     //End turn hex
