@@ -305,9 +305,9 @@ case class BoardState private (
       spellsRevealed = spellsRevealed.copy(),
       spellsInHand = spellsInHand.copy(),
       side = side,
-      manaThisRound = manaThisRound,
-      totalMana = totalMana,
-      totalCosts = totalCosts
+      manaThisRound = manaThisRound.copy(),
+      totalMana = totalMana.copy(),
+      totalCosts = totalCosts.copy()
     )
     val newPieceById = pieceById.transform({ (_k, piece) => piece.copy() })
     val newPiecesSpawnedThisTurn = piecesSpawnedThisTurn.transform { (_k, piece) => newPieceById(piece.id) }
