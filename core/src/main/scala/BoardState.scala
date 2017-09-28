@@ -630,7 +630,7 @@ case class BoardState private (
     val ok = {
       pieces(loc).forall { other =>
         if(other.spec == pieceSpec) true
-        else if(simultaneousMovements.exists { case Movement(spec,_) => pieceSpec == spec }) true
+        else if(simultaneousMovements.exists { case Movement(spec,_) => other.spec == spec }) true
         else okSwarmer(other.curStats(this))
       } && simultaneousMovements.forall { case Movement(otherSpec,otherPath) =>
           if(pieceSpec == otherSpec) true
