@@ -584,14 +584,14 @@ case class BoardState private (
   private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {
     tile.terrain match {
       case Wall => false
-      case Ground | Graveyard | Spawner(_,_) => true
+      case Ground | Graveyard | StartHex(_) | Spawner(_,_) => true
       case Water => pieceStats.isFlying
     }
   }
   private def tryCanWalkOnTile(pieceStats: PieceStats, tile: Tile): Try[Unit] = {
     tile.terrain match {
       case Wall => failed("Cannot move or spawn through borders")
-      case Ground | Graveyard | Spawner(_,_) => Success(())
+      case Ground | Graveyard | StartHex(_) | Spawner(_,_) => Success(())
       case Water => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
     }
   }

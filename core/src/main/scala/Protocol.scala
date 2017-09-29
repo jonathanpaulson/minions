@@ -77,6 +77,7 @@ object Protocol {
     Format(reads,writes)
   }
 
+  implicit val startHexFormat = Json.format[StartHex]
   implicit val spawnerFormat = Json.format[Spawner]
   implicit val terrainFormat = {
     val reads: Reads[Terrain] = readsFromPair[Terrain]("Terrain",Map(
@@ -84,6 +85,7 @@ object Protocol {
       "Ground" -> ((_:JsValue) => JsSuccess(Ground: Terrain)),
       "Water" -> ((_:JsValue) => JsSuccess(Water: Terrain)),
       "Graveyard" -> ((_:JsValue) => JsSuccess(Graveyard: Terrain)),
+      "StartHex" -> ((json:JsValue) => startHexFormat.reads(json)),
       "Spawner" -> ((json:JsValue) => spawnerFormat.reads(json))
     ))
     val writes: Writes[Terrain] = new Writes[Terrain] {
@@ -92,6 +94,7 @@ object Protocol {
         case (Ground) => jsPair("Ground",JsString(""))
         case (Water) => jsPair("Water",JsString(""))
         case (Graveyard) => jsPair("Graveyard",JsString(""))
+        case (t:StartHex) => jsPair("StartHex",startHexFormat.writes(t))
         case (t:Spawner) => jsPair("Spawner",spawnerFormat.writes(t))
       }
     }

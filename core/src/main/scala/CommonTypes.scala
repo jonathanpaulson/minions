@@ -273,6 +273,7 @@ case object Wall extends Terrain
 case object Ground extends Terrain
 case object Water extends Terrain
 case object Graveyard extends Terrain
+case class StartHex(side:Side) extends Terrain
 //TODO implement this
 case class Spawner(side:Side, pieceName:PieceName) extends Terrain
 //TODO implement this

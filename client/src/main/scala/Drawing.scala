@@ -88,7 +88,7 @@ object Drawing {
     def drawTile(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, tile: Tile) : Unit = {
       tile.terrain match {
         case Wall => fillHex(ctx, hexLoc, "white", tileScale)
-        case Ground => fillHex(ctx, hexLoc, "green", tileScale)
+        case Ground | StartHex(_) => fillHex(ctx, hexLoc, "green", tileScale)
         case Water => fillHex(ctx, hexLoc, "blue", tileScale)
         case Graveyard => fillHex(ctx, hexLoc, "orange", tileScale)
         case Spawner(S0, _) =>
