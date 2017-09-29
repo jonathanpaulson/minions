@@ -90,28 +90,31 @@ object ServerMain extends App {
   val boards: Array[Board] = {
     val boards = (0 until numBoards).toArray.map { _ =>
       val state = BoardState.create(BoardMaps.basic)
-      state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
-      state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
-      state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
-
-      state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
-      state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
-      state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
-
-      state.spawnPieceInitial(S1, Units.wight.name, Loc(8,8))
-
-      state.addReinforcementInitial(S0,"zombie")
-      state.addReinforcementInitial(S0,"bat")
-      state.addReinforcementInitial(S0,"bat")
-      state.addReinforcementInitial(S0,"bat")
-
-      state.addReinforcementInitial(S1,"zombie")
-      state.addReinforcementInitial(S1,"zombie")
-      state.addReinforcementInitial(S1,"bat")
-      state.addReinforcementInitial(S1,"bat")
-
       val necroNames = SideArray.create(Units.necromancer.name)
       state.resetBoard(necroNames)
+
+      //Testing
+      {
+        state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
+        state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
+        state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
+
+        state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
+        state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
+        state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
+
+        state.spawnPieceInitial(S1, Units.wight.name, Loc(8,8))
+
+        state.addReinforcementInitial(S0,"zombie")
+        state.addReinforcementInitial(S0,"bat")
+        state.addReinforcementInitial(S0,"bat")
+        state.addReinforcementInitial(S0,"bat")
+
+        state.addReinforcementInitial(S1,"zombie")
+        state.addReinforcementInitial(S1,"zombie")
+        state.addReinforcementInitial(S1,"bat")
+        state.addReinforcementInitial(S1,"bat")
+      }
 
       Board.create(state)
     }
