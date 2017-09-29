@@ -76,6 +76,7 @@ object Units {
     cost = 0,
     rebate = 0,
     isNecromancer = true,
+    extraMana = 3,
     spawnRange = 1
   )
 
@@ -98,6 +99,17 @@ object Units {
     cost = 5,
     rebate = 3,
     spawnRange = 1
+  )
+
+  val spire = createPieceStats(
+    name = "spire",
+    attackEffect = Some(Damage(4)),
+    defense = 4,
+    moveRange = 0,
+    attackRange = 1,
+    cost = 7,
+    rebate = 4,
+    spawnRange = 0
   )
 
   val initiate = createPieceStats(
@@ -201,7 +213,12 @@ object Units {
   )
 
   //All pieces
-  val pieces = Array(test, necromancer, zombie, initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker, warg)
+  val pieces = Array(
+    test,
+    necromancer,
+    zombie, acolyte, spire,
+    initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker, warg
+  )
 
   //Generally, we store and send the PieceName everywhere in the protocol, since unlike a PieceStats it's easily serialized.
   //This is the global map that everything uses to look up the stats again from the name.

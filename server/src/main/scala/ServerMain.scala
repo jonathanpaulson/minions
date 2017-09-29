@@ -55,7 +55,8 @@ object ServerMain extends App {
     startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
     val techsAlwaysAcquired: Array[Tech] = Array(
       PieceTech(Units.zombie.name),
-      PieceTech(Units.acolyte.name)
+      PieceTech(Units.acolyte.name),
+      PieceTech(Units.spire.name)
     )
     val lockedTechs: Array[Tech] = {
       List(
@@ -108,6 +109,9 @@ object ServerMain extends App {
       state.addReinforcementInitial(S1,"zombie")
       state.addReinforcementInitial(S1,"bat")
       state.addReinforcementInitial(S1,"bat")
+
+      val necroNames = SideArray.create(Units.necromancer.name)
+      state.resetBoard(necroNames)
 
       Board.create(state)
     }
@@ -181,8 +185,8 @@ object ServerMain extends App {
         if(board.curState.hasWon) {
           val gameAction: GameAction = AddWin(oldSide)
           val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
+          doResetBoard(boardIdx)
         }
-        doResetBoard(boardIdx)
       }
 
       //Accumulate mana on all the boards for the side about to move

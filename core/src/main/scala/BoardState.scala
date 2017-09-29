@@ -378,11 +378,15 @@ case class BoardState private (
 
   //End the current turn and begin the next turn
   def endTurn(): Unit = {
-    //Count and accumulate mana. Wailing units do generate mana
+    //Count and accumulate mana.
     var newMana = 0
     tiles.foreachi { case (loc,tile) =>
       if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
         newMana += 1
+    }
+    pieceById.values.foreach { piece =>
+      if(piece.side == side)
+        newMana += piece.curStats(this).extraMana
     }
 
     // TODO jpaulson for dwu: Wailing units that attack die immediately, not at end of turn
@@ -457,7 +461,7 @@ case class BoardState private (
       }
       val (_: Try[Unit]) = spawnPieceInitial(side,necroNames(side),startLoc)
       tiles.topology.forEachAdj(startLoc) { loc =>
-        val (_: Try[Unit]) = spawnPieceInitial(side,Units.zombie.name,startLoc)
+        val (_: Try[Unit]) = spawnPieceInitial(side,Units.zombie.name,loc)
       }
     }
   }
