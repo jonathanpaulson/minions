@@ -54,7 +54,8 @@ object ServerMain extends App {
     startingMana(S0) = config.getInt("app.s0StartingManaPerBoard") * numBoards
     startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
     val techsAlwaysAcquired: Array[Tech] = Array(
-      PieceTech(Units.zombie.name)
+      PieceTech(Units.zombie.name),
+      PieceTech(Units.acolyte.name)
     )
     val lockedTechs: Array[Tech] = {
       List(
@@ -86,25 +87,17 @@ object ServerMain extends App {
   var gameSequence = 0
 
   val boards: Array[Board] = {
-    val topology = HexTopology
     val boards = (0 until numBoards).toArray.map { _ =>
-      val plane: Plane[Terrain] = Plane.create(12, 12, topology, Ground)
-      plane(1,0) = Water
+      val state = BoardState.create(BoardMaps.basic)
+      state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
+      state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
+      state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
 
-      val state = BoardState.create(plane)
-      state.spawnPieceInitial(S0, Units.necromancer.name, Loc(2,1))
+      state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
+      state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
+      state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
 
-      state.spawnPieceInitial(S0, Units.test.name, Loc(2,2))
-      state.spawnPieceInitial(S0, Units.test.name, Loc(2,2))
-
-      state.spawnPieceInitial(S0, Units.test.name, Loc(2,3))
-      state.spawnPieceInitial(S0, Units.test.name, Loc(2,3))
-      state.spawnPieceInitial(S0, Units.test.name, Loc(2,3))
-
-      state.spawnPieceInitial(S1, Units.wight.name, Loc(3,2))
-      state.spawnPieceInitial(S1, Units.test.name, Loc(3,4))
-      state.spawnPieceInitial(S1, Units.test.name, Loc(1,4))
-      state.spawnPieceInitial(S1, Units.test.name, Loc(2,5))
+      state.spawnPieceInitial(S1, Units.wight.name, Loc(8,8))
 
       state.addReinforcementInitial(S0,"zombie")
       state.addReinforcementInitial(S0,"bat")
@@ -166,6 +159,13 @@ object ServerMain extends App {
       }
     }
 
+    private def doResetBoard(boardIdx: Int): Unit = {
+      //TODO necromancer randomization
+      val necroNames = SideArray.create(Units.necromancer.name)
+      boards(boardIdx).resetBoard(necroNames)
+      broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames))
+    }
+
     private def maybeDoEndOfTurn(): Unit = {
       if(game.isBoardDone.forall { isDone => isDone })
         doEndOfTurn()
@@ -174,6 +174,16 @@ object ServerMain extends App {
     private def doEndOfTurn(): Unit = {
       val oldSide = game.curSide
       val newSide = game.curSide.opp
+
+      //Check win condition and reset boards as needed
+      for(boardIdx <- 0 until boards.length) {
+        val board = boards(boardIdx)
+        if(board.curState.hasWon) {
+          val gameAction: GameAction = AddWin(oldSide)
+          val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
+        }
+        doResetBoard(boardIdx)
+      }
 
       //Accumulate mana on all the boards for the side about to move
       val mana = boards.foldLeft(0) { case (sum,board) =>
@@ -271,7 +281,7 @@ object ServerMain extends App {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks
                 val specialResult: Try[Unit] = gameAction match {
                   case (_: PerformTech) | (_: SetBoardDone) => Success(())
-                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) =>
+                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }
                 specialResult.flatMap { case () => game.doAction(gameAction) } match {

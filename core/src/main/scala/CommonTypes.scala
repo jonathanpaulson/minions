@@ -385,6 +385,12 @@ class Plane[T:ClassTag] (
   def findMap[U](f: T => Option[U]): Option[U] = arr.findMap(f)
   def transform(f: T => T): Unit = { arr.transform(f); () }
 
+  def findLoc(f: T => Boolean): Option[Loc] = {
+    val idx = arr.indexWhere(f)
+    if(idx == -1) None
+    else Some(Loc(idx % xSize, idx/xSize))
+  }
+
   def foreachi(f: (Loc, T) => Unit): Unit = {
     for(y <- 0 to ySize-1) {
       for (x <- 0 to xSize-1) {

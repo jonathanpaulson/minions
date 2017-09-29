@@ -144,7 +144,10 @@ object ClientMain extends JSApp {
       localSequence(boardIdx) = serverSequence(boardIdx)
       localActionSequence(boardIdx) = serverActionSequence(boardIdx)
       numActionsLocalAhead = 0
-      draw()
+      if(curBoardIdx == boardIdx) {
+        mouseState.clear()
+        draw()
+      }
     }
 
     def handleResponse(response: Protocol.Response): Unit = {
@@ -201,6 +204,10 @@ object ClientMain extends JSApp {
           serverBoards(boardIdx) = Board.ofSummary(boardSummary)
           serverSequence(boardIdx) = newBoardSequence
           serverActionSequence(boardIdx) = Vector()
+          resetLocalBoards(boardIdx)
+
+        case Protocol.ReportResetBoard(boardIdx,necroNames) =>
+          serverBoards(boardIdx).resetBoard(necroNames)
           resetLocalBoards(boardIdx)
 
         case Protocol.ReportNewTurn(newSide) =>

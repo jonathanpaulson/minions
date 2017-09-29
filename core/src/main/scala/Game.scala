@@ -63,6 +63,7 @@ case class SetBoardDone(boardIdx: Int, done: Boolean) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
+case class AddWin(side: Side) extends GameAction
 
 case object Game {
   def apply(
@@ -77,6 +78,7 @@ case object Game {
       curSide = startingSide,
       turnNumber = 0,
       mana = startingMana.copy(),
+      wins = SideArray.create(0),
       techLine = (techsAlwaysAcquired ++ lockedTechs).map { tech =>
         TechState(
           displayName = tech.displayName,
@@ -106,6 +108,7 @@ case class Game (
   var turnNumber: Int,
 
   val mana: SideArray[Int],
+  val wins: SideArray[Int],
 
   val techLine: Array[TechState],
   val piecesAcquired: SideArray[Set[PieceName]],
@@ -126,6 +129,7 @@ case class Game (
     action match {
       case PayForReinforcement(side,pieceName) => tryCanPayForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
+      case AddWin(_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => tryCanSetBoardDone(boardIdx,done)
     }
@@ -135,6 +139,7 @@ case class Game (
     action match {
       case PayForReinforcement(side,pieceName) => payForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
+      case AddWin(side) => { wins(side) = wins(side) + 1; Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
     }

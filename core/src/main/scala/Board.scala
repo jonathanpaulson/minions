@@ -83,8 +83,7 @@ object Board {
       initialState = initialState.copy(),
       initialStateThisTurn = initialState.copy(),
       actionsThisTurn = Vector(),
-      historiesThisTurn = Vector(BoardHistory.initial(initialState)),
-      curIdx = 0,
+      history = BoardHistory.initial(initialState),
       actionsPrevTurns = Vector(),
       playerGeneralBoardActionsPrevTurns = Vector()
     )
@@ -106,13 +105,10 @@ class Board private (
   private var initialStateThisTurn: BoardState,
 
   //actionsThisTurn is defined in a potentially larger range if undos have happened, as it stores the redo history.
-  //historiesThisTurn is defined in the range [0,curIdx].
   private var actionsThisTurn: Vector[BoardAction],
-  private var historiesThisTurn: Vector[BoardHistory],
+  private var history: BoardHistory,
 
-  //Current index of action (decrements on undo, increments on redo)
-  private var curIdx: Int,
-
+  //TODO these don't take into account board resets properly for being able to reconstruct the game history
   //Accumulates actionsThisTurn at the end of each turn
   private var actionsPrevTurns: Vector[Vector[BoardAction]],
   //Actions over the history of the board over prior turns, at the internal rearranging level, rather than the UI level.
@@ -124,8 +120,7 @@ class Board private (
       initialState = initialState,
       initialStateThisTurn = initialStateThisTurn,
       actionsThisTurn = actionsThisTurn,
-      historiesThisTurn = historiesThisTurn,
-      curIdx = curIdx,
+      history = history,
       actionsPrevTurns = actionsPrevTurns,
       playerGeneralBoardActionsPrevTurns = playerGeneralBoardActionsPrevTurns
     )
@@ -134,7 +129,7 @@ class Board private (
 
   //Users should NOT modify the BoardState returned by this function!
   def curState(): BoardState = {
-    historiesThisTurn(curIdx).spawnState
+    history.spawnState
   }
 
   def tryLegality(action: BoardAction): Try[Unit] = {
@@ -145,7 +140,6 @@ class Board private (
         if(!curState().pieceExists(pieceSpec))
           Failure(new Exception("Cannot undo actions for a piece that doesn't exist"))
         else {
-          val history = historiesThisTurn(curIdx)
           val anyActionInvolvesPiece = {
             history.moveAttackActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } } ||
             history.spawnActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
@@ -156,7 +150,6 @@ class Board private (
             Success(())
         }
       case BuyReinforcementUndo(pieceName,_) =>
-        val history = historiesThisTurn(curIdx)
         if(!Units.pieceMap.contains(pieceName))
           Failure(new Exception("Trying to undo buying reinforcement piece with unknown name: " + pieceName))
         else if(!history.generalBoardActionsThisTurn.exists { generalAction => generalAction.involvesBuyPiece(pieceName) })
@@ -188,7 +181,6 @@ class Board private (
     tryLegality(action) match {
       case Failure(err) => Failure(err)
       case Success(()) => Try {
-        val history = historiesThisTurn(curIdx)
         val newHistory = action match {
           case PlayerActions(playerActions,_) =>
             val newMoveAttackState = history.moveAttackState.copy()
@@ -304,8 +296,7 @@ class Board private (
         }
 
         actionsThisTurn = actionsThisTurn :+ action
-        historiesThisTurn = historiesThisTurn :+ newHistory
-        curIdx = curIdx + 1
+        history = newHistory
         ()
       }
     }
@@ -313,26 +304,32 @@ class Board private (
 
   //End the current turn and begin the next turn.
   def endTurn(): Unit = {
-    val history = historiesThisTurn(curIdx)
-
     initialStateThisTurn = history.spawnState.copy()
     initialStateThisTurn.endTurn()
     actionsPrevTurns = actionsPrevTurns :+ actionsThisTurn
     actionsThisTurn = Vector()
-    historiesThisTurn = Vector(BoardHistory.initial(initialStateThisTurn))
+    history = BoardHistory.initial(initialStateThisTurn)
 
     val playerGeneralBoardActions = (
       history.moveAttackActionsThisTurn ++ history.spawnActionsThisTurn,
       history.generalBoardActionsThisTurn
     )
     playerGeneralBoardActionsPrevTurns = playerGeneralBoardActionsPrevTurns :+ playerGeneralBoardActions
-    curIdx = 0
+  }
+
+  //Reset the board to the starting position
+  def resetBoard(necroNames: SideArray[PieceName]): Unit = {
+    initialStateThisTurn = history.spawnState.copy()
+    initialStateThisTurn.resetBoard(necroNames)
+    //TODO loses history information for recording purposes into playerGeneralBoardActionsPrevTurns
+    //on endTurn()
+    history = BoardHistory.initial(initialStateThisTurn)
   }
 
   def toSummary(): BoardSummary = {
     BoardSummary(
       initialStateThisTurn.copy(),
-      actionsThisTurn.slice(0,curIdx)
+      actionsThisTurn
     )
   }
 }

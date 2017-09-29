@@ -227,6 +227,7 @@ object BoardState {
       spellsRevealed = SideArray.create(Map()),
       spellsInHand = SideArray.create(List()),
       side = S0,
+      hasWon = false,
       manaThisRound = SideArray.create(0),
       totalMana = SideArray.create(0),
       totalCosts = SideArray.create(0)
@@ -279,6 +280,8 @@ case class BoardState private (
 
   //Current side to move
   var side: Side,
+  //Has the current side won the board?
+  var hasWon: Boolean,
 
   //Accumulated mana from spires and rebate for costs for units that died, this turn.
   //(Only clears at the beginning of a side's turn)
@@ -305,6 +308,7 @@ case class BoardState private (
       spellsRevealed = spellsRevealed.copy(),
       spellsInHand = spellsInHand.copy(),
       side = side,
+      hasWon = false,
       manaThisRound = manaThisRound.copy(),
       totalMana = totalMana.copy(),
       totalCosts = totalCosts.copy()
@@ -376,9 +380,9 @@ case class BoardState private (
   def endTurn(): Unit = {
     //Count and accumulate mana. Wailing units do generate mana
     var newMana = 0
-    pieceById.values.foreach { piece =>
-      if(piece.side == side)
-        newMana += piece.curStats(this).extraMana + (if(tiles(piece.loc).terrain == Graveyard) 1 else 0)
+    tiles.foreachi { case (loc,tile) =>
+      if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
+        newMana += 1
     }
 
     // TODO jpaulson for dwu: Wailing units that attack die immediately, not at end of turn
@@ -415,6 +419,47 @@ case class BoardState private (
     manaThisRound(side) = 0
     piecesSpawnedThisTurn = Map()
     numPiecesSpawnedThisTurnAt = Map()
+
+    //Check for win conditions - start of turn at least 8 graveyards
+    var startNumGraveyards = 0
+    tiles.foreachi { case (loc,tile) =>
+      if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
+        startNumGraveyards += 1
+    }
+    if(startNumGraveyards >= 8)
+      hasWon = true
+  }
+
+  //Reset the board to the starting position
+  def resetBoard(necroNames: SideArray[PieceName]): Unit = {
+    //Remove tile modifiers
+    tiles.transform { tile =>
+      if(tile.modsWithDuration.isEmpty)tile
+      else tile.copy(modsWithDuration = Nil)
+    }
+    //Remove all pieces and reinforcements
+    pieces.transform { _ => Nil }
+    pieceById = Map()
+    piecesSpawnedThisTurn = Map()
+    numPiecesSpawnedThisTurnAt = Map()
+    Side.foreach { side =>
+      reinforcements(side) = Map()
+    }
+
+    //Unset win flag
+    hasWon = false
+
+    //Set up initial pieces
+    Side.foreach { side =>
+      val startLoc = tiles.findLoc { tile => tile.terrain == StartHex(side) } match {
+        case None => throw new Exception("Could not find StartHex")
+        case Some(loc) => loc
+      }
+      val (_: Try[Unit]) = spawnPieceInitial(side,necroNames(side),startLoc)
+      tiles.topology.forEachAdj(startLoc) { loc =>
+        val (_: Try[Unit]) = spawnPieceInitial(side,Units.zombie.name,startLoc)
+      }
+    }
   }
 
   def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
@@ -708,6 +753,7 @@ case class BoardState private (
   //Check if a single action is legal
   private def tryLegalitySingle(action: PlayerAction): Try[Unit] = Try {
     failIf(turnNumber < 0, "Game is not started yet")
+    failIf(hasWon, "Already won this board, wait for reset next turn")
     action match {
       case Movements(movements) =>
         //Check basic properties of the set of movements
@@ -997,6 +1043,11 @@ case class BoardState private (
           updateAfterPieceKill(pieceSide,Units.pieceMap(deathSpawn),loc)
       }
     }
+
+    //Check for necromancers win condition
+    val opp = side.opp
+    if(!pieceById.values.exists { piece => piece.side == opp && piece.baseStats.isNecromancer })
+      hasWon = true
   }
 
   //Kill a piece, for any reason
