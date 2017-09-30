@@ -224,21 +224,27 @@ object Protocol {
   implicit val movementsFormat = Json.format[Movements]
   implicit val attackFormat = Json.format[Attack]
   implicit val spawnFormat = Json.format[Spawn]
-  implicit val playedSpellOrAbilityFormat = Json.format[PlayedSpellOrAbility]
-  implicit val spellsAndAbilitiesFormat = Json.format[SpellsAndAbilities]
+  implicit val spellOrAbilityTargetsFormat = Json.format[SpellOrAbilityTargets]
+  implicit val activateAbilityFormat = Json.format[ActivateAbility]
+  implicit val playSpellFormat = Json.format[PlaySpell]
+  implicit val discardSpellFormat = Json.format[DiscardSpell]
   implicit val playerActionFormat = {
     val reads: Reads[PlayerAction] = readsFromPair[PlayerAction]("PlayerAction",Map(
       "Movements" -> ((json:JsValue) => movementsFormat.reads(json)),
       "Attack" -> ((json:JsValue) => attackFormat.reads(json)),
       "Spawn" -> ((json:JsValue) => spawnFormat.reads(json)),
-      "SpellsAndAbilities" -> ((json:JsValue) => spellsAndAbilitiesFormat.reads(json))
+      "ActivateAbility" -> ((json:JsValue) => activateAbilityFormat.reads(json)),
+      "PlaySpell" -> ((json:JsValue) => playSpellFormat.reads(json)),
+      "DiscardSpell" -> ((json:JsValue) => discardSpellFormat.reads(json))
     ))
     val writes: Writes[PlayerAction] = new Writes[PlayerAction] {
       def writes(t: PlayerAction): JsValue = t match {
         case (t:Movements) => jsPair("Movements",movementsFormat.writes(t))
         case (t:Attack) => jsPair("Attack",attackFormat.writes(t))
         case (t:Spawn) => jsPair("Spawn",spawnFormat.writes(t))
-        case (t:SpellsAndAbilities) => jsPair("SpellsAndAbilities",spellsAndAbilitiesFormat.writes(t))
+        case (t:ActivateAbility) => jsPair("ActivateAbility",activateAbilityFormat.writes(t))
+        case (t:PlaySpell) => jsPair("PlaySpell",playSpellFormat.writes(t))
+        case (t:DiscardSpell) => jsPair("DiscardSpell",discardSpellFormat.writes(t))
       }
     }
     Format(reads,writes)
@@ -337,12 +343,14 @@ object Protocol {
   implicit val playerActionsFormat = Json.format[PlayerActions]
   implicit val doGeneralBoardActionFormat = Json.format[DoGeneralBoardAction]
   implicit val localPieceUndoFormat = Json.format[LocalPieceUndo]
+  implicit val spellUndoFormat = Json.format[SpellUndo]
   implicit val buyReinforcementUndoFormat = Json.format[BuyReinforcementUndo]
   implicit val boardActionFormat = {
     val reads: Reads[BoardAction] = readsFromPair[BoardAction]("BoardAction",Map(
       "PlayerActions" -> ((json:JsValue) => playerActionsFormat.reads(json)),
       "DoGeneralBoardAction" -> ((json:JsValue) => doGeneralBoardActionFormat.reads(json)),
       "LocalPieceUndo" -> ((json:JsValue) => localPieceUndoFormat.reads(json)),
+      "SpellUndo" -> ((json:JsValue) => spellUndoFormat.reads(json)),
       "BuyReinforcementUndo" -> ((json:JsValue) => buyReinforcementUndoFormat.reads(json))
     ))
     val writes: Writes[BoardAction] = new Writes[BoardAction] {
@@ -350,6 +358,7 @@ object Protocol {
         case (t:PlayerActions) => jsPair("PlayerActions",playerActionsFormat.writes(t))
         case (t:DoGeneralBoardAction) => jsPair("DoGeneralBoardAction",doGeneralBoardActionFormat.writes(t))
         case (t:LocalPieceUndo) => jsPair("LocalPieceUndo",localPieceUndoFormat.writes(t))
+        case (t:SpellUndo) => jsPair("SpellUndo",spellUndoFormat.writes(t))
         case (t:BuyReinforcementUndo) => jsPair("BuyReinforcementUndo",buyReinforcementUndoFormat.writes(t))
       }
     }

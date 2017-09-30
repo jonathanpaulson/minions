@@ -242,6 +242,7 @@ object ServerMain extends App {
                 val specialResult: Try[Unit] = boardAction match {
                   case (_: PlayerActions) => Success(())
                   case (_: LocalPieceUndo) => Success(())
+                  case (_: SpellUndo) => Success(())
                   case BuyReinforcementUndo(pieceName,_) =>
                     //Check ahead of time if it's legal
                     boards(boardIdx).tryLegality(boardAction).flatMap { case () =>

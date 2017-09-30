@@ -1,5 +1,6 @@
 package minionsgame.core
 import scala.reflect.ClassTag
+import scala.util.{Try,Success,Failure}
 
 import RichImplicits._
 
@@ -102,7 +103,6 @@ case class PieceStats(
   val isPersistent: Boolean, //Cannot be unsummoned (sent back to reinforcements/hand)
   val isEldritch: Boolean,   //Can spawn next to any unit
   val isWailing: Boolean,    //At the end of turn if it attacked, piece dies
-  val hasBlink: Boolean,     //Piece unsummons immediately after attacking
   val canHurtNecromancer: Boolean, //Piece not allowed to attack necromancer
 
   val swarmMax: Int,   //Number of copies of piece with same name that can occupy a space
@@ -112,7 +112,7 @@ case class PieceStats(
   val deathSpawn: Option[PieceName], //Automatic spawn upon death
 
   //Abilities that a piece can use by discarding a spell
-  val abilities: Map[String,PieceAbility]
+  val abilities: Map[AbilityName,PieceAbility]
 )
 
 /**
@@ -136,33 +136,48 @@ case class PieceModWithDuration(
 
 /**
  * PieceAbility:
- * Ability that pieces can use if.
- * Comparison is done using the key field only, which we rely on as a key to distinguish abilities
+ * Ability that pieces can use.
+ * Comparison is done using the name field only, which we rely on as a key to distinguish abilities
  * since functions are not comparable in Scala.
  */
 sealed trait PieceAbility {
-  val key: String  //MUST be a UNIQUE key for different modifiers!
-  val name: String //For display purposes
+  val name: AbilityName  //MUST be a UNIQUE key for different modifiers!
+  val displayName: String //For display purposes
   val desc: String
   val isSorcery: Boolean //Requires a discarded spell
-  val isUsableNow: Piece => Boolean
-  val unusableError: String //Error message when not usable now
+  val tryIsUsableNow: Piece => Try[Unit]
 
   override def equals(o: Any): Boolean = o match {
-    case that: PieceAbility => this.key == that.key
+    case that: PieceAbility => this.name == that.name
     case _ => false
   }
-  override def hashCode: Int = key.hashCode
+  override def hashCode: Int = name.hashCode
+}
+
+//For wailing units
+case object SuicideAbility extends PieceAbility {
+  val name = "suicide"
+  val displayName = "Suicide"
+  val desc = "Kills this piece (without having spent all attacks)."
+  val isSorcery = false
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
+}
+
+case object BlinkAbility extends PieceAbility {
+  val name = "blink"
+  val displayName = "Blink"
+  val desc = "Unsummons this piece."
+  val isSorcery = false
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 
 //Discard abilities that target the piece itself
 case class SelfEnchantAbility(
-  val key: String,  //MUST be a UNIQUE key for different modifiers!
-  val name: String,
+  val name: AbilityName,
+  val displayName: String,
   val desc: String,
   val isSorcery: Boolean,
-  val isUsableNow: Piece => Boolean,
-  val unusableError: String, //Error message when not usable now
+  val tryIsUsableNow: Piece => Try[Unit],
   val mod: PieceModWithDuration
 ) extends PieceAbility {
   override def equals(o: Any): Boolean = super.equals(o)
@@ -170,14 +185,12 @@ case class SelfEnchantAbility(
 }
 //Discard abilities that target another piece
 case class TargetedAbility(
-  val key: String,  //MUST be a UNIQUE key for different modifiers!
-  val name: String,
+  val name: AbilityName,
+  val displayName: String,
   val desc: String,
   val isSorcery: Boolean,
-  val isUsableNow: Piece => Boolean,
-  val unusableError: String, //Error message when not usable now
-  val canTarget: (Piece, Piece) => Boolean, //(piece, target)
-  val targetError: String, //Error message when target not legal
+  val tryIsUsableNow: Piece => Try[Unit],
+  val tryCanTarget: (Piece, Piece) => Try[Unit], //(piece, target)
   val effect: TargetEffect
 ) extends PieceAbility {
   override def equals(o: Any): Boolean = super.equals(o)

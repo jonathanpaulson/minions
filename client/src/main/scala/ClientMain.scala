@@ -251,7 +251,7 @@ object ClientMain extends JSApp {
       action match {
         case (_: DoGeneralBoardAction) =>
           sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
-        case (_: PlayerActions) | (_: LocalPieceUndo) | (_: BuyReinforcementUndo) =>
+        case (_: PlayerActions) | (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) =>
           localBoards(curBoardIdx).doAction(action) match {
             case Failure(error) => reportError(error.toString)
             case Success(()) =>

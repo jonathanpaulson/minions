@@ -1,5 +1,6 @@
 package minionsgame.core
 import scala.collection.immutable.Map
+import scala.util.{Try,Success,Failure}
 
 // TODO(jpaulson): Add atual unit data
 
@@ -20,7 +21,6 @@ object Units {
     isPersistent : Boolean = false,
     isEldritch : Boolean = false,
     isWailing : Boolean = false,
-    hasBlink : Boolean = false,
     canHurtNecromancer : Boolean = true,
     swarmMax : Int = 1,
     spawnRange : Int = 0,
@@ -45,7 +45,6 @@ object Units {
       isPersistent = isPersistent,
       isEldritch = isEldritch,
       isWailing = isWailing,
-      hasBlink = hasBlink,
       canHurtNecromancer = canHurtNecromancer,
       swarmMax = swarmMax,
       spawnRange = spawnRange,
@@ -175,7 +174,14 @@ object Units {
     cost = 5,
     rebate = 0,
     deathSpawn = Some(zombie.name),
-    abilities = Map.empty // TODO(jpaulson): Attack twice as a sorcery
+    abilities = Map("doubleattack" -> SelfEnchantAbility(
+      name = "doubleattack",
+      displayName = "Double Strike (sorcery)",
+      desc = "Pay 1 sorcery power: Attacks twice",
+      isSorcery = true,
+      tryIsUsableNow = { (_: Piece) => Success(()) },
+      mod = PieceModWithDuration(PieceMods.DoubleAttack,turnsLeft = Some(1))
+    ))
   )
 
   val haunt = createPieceStats(
@@ -186,7 +192,7 @@ object Units {
     attackRange = 3,
     cost = 5,
     rebate = 1,
-    hasBlink = true
+    abilities = Map(BlinkAbility.name -> BlinkAbility)
   )
 
   val shrieker = createPieceStats(
@@ -199,7 +205,8 @@ object Units {
     cost = 2,
     rebate = 0,
     isWailing = true,
-    canHurtNecromancer = false
+    canHurtNecromancer = false,
+    abilities = Map(SuicideAbility.name -> SuicideAbility)
   )
 
   val warg = createPieceStats(

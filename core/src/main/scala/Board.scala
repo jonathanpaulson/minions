@@ -42,6 +42,8 @@ case class DoGeneralBoardAction(action: GeneralBoardAction, actionId: String) ex
 
 //Undo the most recent List[PlayerAction] involving this piece.
 case class LocalPieceUndo(pieceSpec: PieceSpec, actionId: String) extends BoardAction
+//Undo the most recent List[PlayerAction] involving this spell.
+case class SpellUndo(spellId: Int, actionId: String) extends BoardAction
 //Undo the most recent GeneralBoardAction buying this reinforcement.
 case class BuyReinforcementUndo(pieceName: PieceName, actionId: String) extends BoardAction
 
@@ -137,18 +139,25 @@ class Board private (
       case PlayerActions(actions,_) => curState().tryLegality(actions)
       case DoGeneralBoardAction(action,_) => curState().tryGeneralLegality(action)
       case LocalPieceUndo(pieceSpec,_) =>
-        if(!curState().pieceExists(pieceSpec))
-          Failure(new Exception("Cannot undo actions for a piece that doesn't exist"))
-        else {
-          val anyActionInvolvesPiece = {
-            history.moveAttackActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } } ||
-            history.spawnActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
-          }
-          if(!anyActionInvolvesPiece)
-            Failure(new Exception("Cannot undo actions for a piece that hasn't acted"))
-          else
-            Success(())
+        val anyActionInvolvesPiece = {
+          history.moveAttackActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } } ||
+          history.spawnActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
         }
+        if(!anyActionInvolvesPiece)
+          Failure(new Exception("Cannot undo actions for a piece that hasn't acted"))
+        else
+          Success(())
+
+      case SpellUndo(spellId,_) =>
+        val anyActionInvolvesSpell = {
+          history.moveAttackActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesSpell(spellId) } } ||
+          history.spawnActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesSpell(spellId) } }
+        }
+        if(!anyActionInvolvesSpell)
+          Failure(new Exception("Cannot undo actions for a spell that wasn't played"))
+        else
+          Success(())
+
       case BuyReinforcementUndo(pieceName,_) =>
         if(!Units.pieceMap.contains(pieceName))
           Failure(new Exception("Trying to undo buying reinforcement piece with unknown name: " + pieceName))
@@ -196,8 +205,8 @@ class Board private (
                   moveAttackActionsRev = playerAction :: moveAttackActionsRev
                 case Spawn(_,_) =>
                   delayedToSpawnRev = playerAction :: delayedToSpawnRev
-                case SpellsAndAbilities(_) =>
-                  //When spells fail, it may be because they are targeting units only placed during spawn
+                case ActivateAbility(_,_,_) | PlaySpell(_,_) | DiscardSpell(_) =>
+                  //When spells or abilities fail, it may be because they are targeting units only placed during spawn
                   newMoveAttackState.doAction(playerAction) match {
                     case Success(()) => moveAttackActionsRev = playerAction :: moveAttackActionsRev
                     case Failure(_) => delayedToSpawnRev = playerAction :: delayedToSpawnRev
@@ -251,6 +260,39 @@ class Board private (
                 history.moveAttackActionsThisTurn
               else
                 dropLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
+            }
+
+            //And then reapply the actions, dropping any illegal ones.
+            val newMoveAttackActionsThisTurn =
+              reapplyLegal(keptMoveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions) }
+            val newSpawnState = newMoveAttackState.copy()
+            val newSpawnActionsThisTurn =
+              reapplyLegal(keptSpawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions) }
+            BoardHistory(
+              moveAttackState = newMoveAttackState,
+              spawnState = newSpawnState,
+              moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
+              spawnActionsThisTurn = newSpawnActionsThisTurn,
+              generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
+            )
+
+          case SpellUndo(spellId,_) =>
+            val newMoveAttackState = initialStateThisTurn.copy()
+            //Reapply all generalBoard actions
+            //Note that this relies on the invariant mentioned at the top of BoardState.scala - that reordering generalBoard actions
+            //to come before player actions never changes the legality of the total move sequence or the final result of that sequence.
+            history.generalBoardActionsThisTurn.foreach { generalBoardAction =>
+              newMoveAttackState.doGeneralBoardAction(generalBoardAction)
+            }
+
+            //Drop the most recent action involving the spell
+            val keptSpawnActionsThisTurn =
+              dropLastMatch(history.spawnActionsThisTurn) { playerActions => playerActions.exists { _.involvesSpell(spellId) } }
+            val keptMoveAttackActionsThisTurn = {
+              if(keptSpawnActionsThisTurn.length == history.spawnActionsThisTurn.length)
+                history.moveAttackActionsThisTurn
+              else
+                dropLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesSpell(spellId) } }
             }
 
             //And then reapply the actions, dropping any illegal ones.

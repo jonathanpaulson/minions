@@ -54,9 +54,6 @@ with Ordered[SpawnedThisTurn] {
   *
   * Notes:
   * Movements: movements is a list because we need to support piece swaps, triangular rotations, etc.
-  * Attack: self-explanatory
-  * Spawn: self-explanatory
-  * SpellsAndAbilities: spellsAndAbilities is a list because we need to support playing sorceries and cantrips together.
   */
 sealed trait PlayerAction {
   //Does this action directly involve pieceSpec?
@@ -71,40 +68,51 @@ sealed trait PlayerAction {
           //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex with that name.
           case SpawnedThisTurn(pieceName,sLoc,_) => pieceName == spawnName && sLoc == spawnLoc
         }
-      case SpellsAndAbilities(spellsAndAbilities) =>
-        spellsAndAbilities.exists { played =>
-          played.pieceSpecAndKey.exists { case (pSpec,_) => pieceSpec == pSpec } ||
-          pieceSpec == played.target0 ||
-          pieceSpec == played.target1
-        }
+      case ActivateAbility(spec,_,targets) =>
+        pieceSpec == spec ||
+        pieceSpec == targets.target0 ||
+        pieceSpec == targets.target1
+      case PlaySpell(_,targets) =>
+        pieceSpec == targets.target0 ||
+        pieceSpec == targets.target1
+      case DiscardSpell(_) =>
+        false
     }
   }
+
+  //Does this action directly involve spellId?
+  def involvesSpell(spellId: Int): Boolean = {
+    this match {
+      case Movements(_) => false
+      case Attack(_,_) => false
+      case Spawn(_,_) => false
+      case ActivateAbility(_,_,_) => false
+      case PlaySpell(id,_) => spellId == id
+      case DiscardSpell(id) => spellId == id
+    }
+  }
+
 }
 
 case class Movements(movements: List[Movement]) extends PlayerAction
 case class Attack(attackerSpec: PieceSpec, targetSpec: PieceSpec) extends PlayerAction
 case class Spawn(spawnLoc: Loc, pieceName: PieceName) extends PlayerAction
-case class SpellsAndAbilities(spellsAndAbilities: List[PlayedSpellOrAbility]) extends PlayerAction
+case class ActivateAbility(spec: PieceSpec, abilityName: AbilityName, targets: SpellOrAbilityTargets) extends PlayerAction
+case class PlaySpell(spellId: Int, targets: SpellOrAbilityTargets) extends PlayerAction
+case class DiscardSpell(spellId: Int) extends PlayerAction
 
 //Note: path should contain both the start and ending location
 case class Movement(pieceSpec: PieceSpec, path: Vector[Loc])
 
-//Data for a played spell or piece ability.
+//Data for the targets of a played spell or piece ability.
 //Since different spells and abilities affect different things and have different numbers
 //of targets, not all fields may be applicable.
-case class PlayedSpellOrAbility(
-  val pieceSpecAndKey: Option[(PieceSpec,String)], //Some if it was a piece, (pieceId, key of ability)
-  val side: Side,
-  val spellId: Option[Int], //Some if it was a spell
+case class SpellOrAbilityTargets(
   val target0: PieceSpec,
   val target1: PieceSpec,
   val loc0: Loc,
-  //Spell ids that were discarded to power this spell or ability, if it was a sorcery
-  val discardingId: Option[Int]
+  val loc1: Loc
 )
-
-
-//TODO think about how to manage the opposing side not being able to see what spells you own...
 
 /** GeneralBoardAction:
   * Actions relating to this board that involve interaction with the broader game (a shared spell pool, a shared mana pool).
@@ -226,6 +234,7 @@ object BoardState {
       reinforcements = SideArray.create(Map()),
       spellsRevealed = SideArray.create(Map()),
       spellsInHand = SideArray.create(List()),
+      sorceryPower = 0,
       side = S0,
       hasWon = false,
       manaThisRound = SideArray.create(0),
@@ -237,6 +246,8 @@ object BoardState {
 
   //Some local functions that it's nice to have in scope
   object Imports {
+    def requireSuccess(b: Try[Unit]) =
+      b match { case Failure(exn) => throw exn case Success(()) => () }
     def failUnless(b: Boolean, message: String) =
       if(!b) throw new Exception(message)
     def failIf(b: Boolean, message: String) =
@@ -278,6 +289,9 @@ case class BoardState private (
   //List of all spells in hand, indexed by spellID
   val spellsInHand: SideArray[List[Int]],
 
+  //How many units of sorcery power the side to move has (from cantrips and spell discards)
+  var sorceryPower: Int,
+
   //Current side to move
   var side: Side,
   //Has the current side won the board?
@@ -307,6 +321,7 @@ case class BoardState private (
       reinforcements = reinforcements.copy(),
       spellsRevealed = spellsRevealed.copy(),
       spellsInHand = spellsInHand.copy(),
+      sorceryPower = sorceryPower,
       side = side,
       hasWon = false,
       manaThisRound = manaThisRound.copy(),
@@ -378,6 +393,9 @@ case class BoardState private (
 
   //End the current turn and begin the next turn
   def endTurn(): Unit = {
+    //Wailing units that attacked and have not been finished yet die
+    killAttackingWailingUnits()
+
     //Count and accumulate mana.
     var newMana = 0
     tiles.foreachi { case (loc,tile) =>
@@ -388,17 +406,8 @@ case class BoardState private (
       if(piece.side == side)
         newMana += piece.curStats(this).extraMana
     }
-
-    // TODO jpaulson for dwu: Wailing units that attack die immediately, not at end of turn
-    // dwu: Yeah, although actually there's a nasty UI detail here, because they all have multiple attacks.
-    // How do you indicate that you're done attacking if you don't spend all your attacks?
-
-    //Wailing units that attacked die
-    val attackedWailings = pieceById.iterator.filter { case (_,piece) =>
-      piece.curStats(this).isWailing && piece.hasAttacked
-    }
-    attackedWailings.toList.foreach { case (_,piece) => killPiece(piece) }
-
+    //Reset sorcery power
+    sorceryPower = 0
     //Heal damage, reset piece state, decay modifiers
     pieceById.values.foreach { piece =>
       refreshPieceForStartOfTurn(piece)
@@ -599,7 +608,7 @@ case class BoardState private (
           else if(numAttacks >= attackerStats.numAttacks) failed("Piece already assigned all of its attacks")
           else Success(())
         case Spawning | DoneActing =>
-          failed("Piece has already acted or cannot attack any more this turn")
+          failed("Piece has already acted or cannot attack this turn")
       }
       result.flatMap { case () =>
         val result2 = attackerStats.attackEffect match {
@@ -617,8 +626,7 @@ case class BoardState private (
             else Success(())
         }
         result2.flatMap { case () =>
-          if(attackerStats.isWailing && targetStats.isNecromancer) failed("Wailing pieces cannot hurt necromancers")
-          else if(!attackerStats.canHurtNecromancer && targetStats.isNecromancer) failed("Piece not allowed to hurt necromancer")
+          if(!attackerStats.canHurtNecromancer && targetStats.isNecromancer) failed("Piece cannot hurt necromancer")
           else Success(())
         }
       }
@@ -711,25 +719,28 @@ case class BoardState private (
     }
   }
 
-  private def trySpellTargetLegality(spellName: SpellName, played: PlayedSpellOrAbility): Try[Unit] = {
-    Spells.spellMap.get(spellName) match {
-      case None => failed("Unknown spell name")
-      case Some(spell) =>
-        spell match {
-          case (spell: TargetedSpell) =>
-            findPiece(played.target0) match {
-              case None => failed("No target specified for spell")
-              case Some(target) =>
-                if(!spell.canTarget(side,target)) failed(spell.targetError)
-                else Success(())
-            }
-          case (spell: TileSpell) =>
-            if(!tiles.inBounds(played.loc0)) failed("Target location not in bounds")
-            else if(!spell.canTarget(side,tiles(played.loc0),pieces(played.loc0))) failed(spell.targetError)
+  private def killAttackingWailingUnits(otherThan: Option[PieceSpec] = None): Unit = {
+    val attackedWailings = pieceById.iterator.filter { case (_,piece) =>
+      piece.curStats(this).isWailing && piece.hasAttacked && otherThan.forall { spec => piece.spec != spec }
+    }
+    attackedWailings.toList.foreach { case (_,piece) => killPiece(piece) }
+  }
+
+  private def trySpellTargetLegality(spell: Spell, targets: SpellOrAbilityTargets): Try[Unit] = {
+    spell match {
+      case (spell: TargetedSpell) =>
+        findPiece(targets.target0) match {
+          case None => failed("No target specified for spell")
+          case Some(target) =>
+            if(!spell.canTarget(side,target)) failed(spell.targetError)
             else Success(())
-          case (_: NoEffectSpell) =>
-            Success(())
         }
+      case (spell: TileSpell) =>
+        if(!tiles.inBounds(targets.loc0)) failed("Target location not in bounds")
+        else if(!spell.canTarget(side,tiles(targets.loc0),pieces(targets.loc0))) failed(spell.targetError)
+        else Success(())
+      case (_: NoEffectSpell) =>
+        Success(())
     }
   }
 
@@ -790,7 +801,7 @@ case class BoardState private (
                 case Moving(stepsUsed) =>
                   failUnless(path.length - 1 <= pieceStats.moveRange - stepsUsed, "Movement range of piece is not large enough")
                 case Attacking(_) | Spawning | DoneActing =>
-                  fail("Piece has already acted or cannot move any more this turn")
+                  fail("Piece has already acted or cannot move this turn")
               }
 
               //Check spaces along the path
@@ -819,98 +830,60 @@ case class BoardState private (
         trySpawnIsLegal(side, spawnName, spawnLoc).get
         val spawnStats = Units.pieceMap(spawnName)
 
-        def trySpawnUsing(piece: Piece): Try[Unit] = {
+        def spawnOkayUsing(piece: Piece): Boolean = {
           val distance = topology.distance(spawnLoc,piece.loc)
-          if(piece.side != side)  Failure(new Exception("Spawner controlled by other side"))
-          else if((!spawnStats.isEldritch || distance > 1) && (piece.curStats(this).spawnRange < distance))  Failure(new Exception("Location not within range of spawner"))
-          else if(piece.actState > Spawning)  Failure(new Exception("Spawner cannot act any more this turn"))
-          else Success(())
+          if(piece.side != side)  false
+          else if((!spawnStats.isEldritch || distance > 1) && (piece.curStats(this).spawnRange < distance)) false
+          else if(piece.actState > Spawning) false
+          else true
         }
 
-        failUnless(pieceById.values.exists { piece => trySpawnUsing(piece).isSuccess }, "No non-newly-spawned piece with spawn in range")
+        failUnless(pieceById.values.exists(spawnOkayUsing), "No non-newly-spawned piece with spawn in range")
         failUnless(reinforcements(side).contains(spawnName), "No such piece in reinforcements")
 
-      case SpellsAndAbilities(spellsAndAbilities) =>
-        //Ensure no spells played more than once
-        val spellIdsPlayed = spellsAndAbilities.flatMap { played => played.spellId }
-        failIf(spellIdsPlayed.distinct.length != spellIdsPlayed.length, "Spell played more than once")
-
-        //Check that all spells and abilities are targeted legally
-        spellsAndAbilities.foreach { played =>
-          failUnless(played.side == side, "Playing spell or ability for the wrong side")
-          (played.pieceSpecAndKey, played.spellId) match {
-            case (None, None) => fail("Spell or ability did not specify piece ability or spell id")
-            case (Some(_), Some(_)) => fail("Spell or ability specifies both piece ability and spell id")
-            case (Some((pieceSpec,key)),None) =>
-              findPiece(pieceSpec) match {
-                case None => fail("Using ability of a nonexistent or dead piece")
-                case Some(piece) =>
-                  failUnless(piece.side == side, "Piece controlled by other side")
-                  failIf(piece.actState >= DoneActing, "Piece has already acted or cannot act any more this turn")
-                  val pieceStats = piece.curStats(this)
-                  pieceStats.abilities.get(key) match {
-                    case None => fail("Piece does not have this ability")
-                    case Some(ability:SelfEnchantAbility) =>
-                      failUnless(ability.isUsableNow(piece), ability.unusableError)
-                    case Some(ability:TargetedAbility) =>
-                      failUnless(ability.isUsableNow(piece), ability.unusableError)
-                      findPiece(played.target0) match {
-                        case None => fail("No target specified for ability")
-                        case Some(target) => failUnless(ability.canTarget(piece,target), ability.targetError)
-                      }
-                  }
-              }
-            case (None, Some(spellId)) =>
-              spellsInHand(side).contains(spellId) match {
-                case false => fail("Spell not in hand or already played or discarded")
-                case true =>
-                  spellsRevealed(side).get(spellId) match {
-                    case None => fail("Spell was not revealed")
-                    case Some(spellName) => trySpellTargetLegality(spellName,played).get
-                  }
-              }
-          }
+      case ActivateAbility(pieceSpec,abilityName,targets) =>
+        findPiece(pieceSpec) match {
+          case None => fail("Using ability of a nonexistent or dead piece")
+          case Some(piece) =>
+            failUnless(piece.side == side, "Piece controlled by other side")
+            failIf(piece.actState >= DoneActing, "Piece has already acted or cannot act this turn")
+            val pieceStats = piece.curStats(this)
+            pieceStats.abilities.get(abilityName) match {
+              case None => fail("Piece does not have this ability")
+              case Some(ability) =>
+                requireSuccess(ability.tryIsUsableNow(piece))
+                failIf(ability.isSorcery && sorceryPower <= 0, "No sorcery power (must first play cantrip or discard spell)")
+                ability match {
+                  case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) => ()
+                  case (ability:TargetedAbility) =>
+                    findPiece(targets.target0) match {
+                      case None => fail("No target specified for ability")
+                      case Some(target) => requireSuccess(ability.tryCanTarget(piece,target))
+                    }
+                }
+            }
         }
 
-        //Check discard/sorcery constraints
-        var discardIds: Map[Int,Int] = Map()
-        spellsAndAbilities.foreach { played =>
-          val isSorcery: Boolean = (played.pieceSpecAndKey, played.spellId) match {
-            case (Some((pieceSpec,key)),None) =>
-              findPiece(pieceSpec).get.curStats(this).abilities(key).isSorcery
-            case (None, Some(spellId)) =>
-              val spell = Spells.spellMap(spellsRevealed(side)(spellId))
-              spell.spellType match {
-                case Sorcery => true
-                case NormalSpell | Cantrip | DoubleCantrip => false
-              }
-            //Already checked that exactly one is Some
-            case _ => assertUnreachable()
-          }
-          played.discardingId match {
-            case None =>
-              failIf(isSorcery, "Must discard a spell to play a sorcery")
-            case Some(discardId) =>
-              failIf(!isSorcery, "Discarding a spell to play a spell or ability that is not a sorcery")
-              discardIds = discardIds.update(discardId) { count => count.getOrElse(0) + 1 }
-          }
+      case PlaySpell(spellId,targets) =>
+        spellsInHand(side).contains(spellId) match {
+          case false => fail("Spell not in hand or already played or discarded")
+          case true =>
+            spellsRevealed(side).get(spellId) match {
+              case None => fail("Spell was not revealed")
+              case Some(spellName) =>
+                Spells.spellMap.get(spellName) match {
+                  case None => fail("Unknown spell name")
+                  case Some(spell) =>
+                    failIf(spell.spellType == Sorcery && sorceryPower <= 0, "No sorcery power (must first play cantrip or discard spell)")
+                    trySpellTargetLegality(spell,targets).get
+                }
+            }
         }
-        //Make sure all discards are legal
-        discardIds.foreach { case (discardId, count) =>
-          spellsInHand(side).contains(discardId) match {
-            case false => fail("Discarded spell is not in hand or is already played or discarded")
-            case true =>
-              val spell = Spells.spellMap(spellsRevealed(side)(discardId))
-              spell.spellType match {
-                case (Sorcery | NormalSpell) =>
-                  failIf(spellIdsPlayed.contains(discardId), "Cannot both play a normal spell or sorcery and discard it")
-                  failIf(count > 1, "Attempting to power more than one sorcery per discarded spell")
-                case Cantrip =>
-                  failIf(count > 1, "Attempting to power more than one sorcery per discarded cantrip")
-                case DoubleCantrip =>
-                  failIf(count > 2, "Attempting to power more than two sorceries with special cantrip")
-              }
-          }
+
+      case DiscardSpell(spellId) =>
+        spellsInHand(side).contains(spellId) match {
+          case false => fail("Spell not in hand or already played or discarded")
+          case true => ()
         }
     }
   }
@@ -948,8 +921,15 @@ case class BoardState private (
           case Attacking(n) => Attacking(n+1)
           case Spawning | DoneActing => assertUnreachable()
         }
-        if(attackerStats.hasBlink)
-          unsummonPiece(attacker)
+
+        if(attackerStats.isWailing) {
+          attacker.actState match {
+            case Moving(_) | Spawning | DoneActing => assertUnreachable()
+            case Attacking(numAttacks) =>
+              if(numAttacks >= attackerStats.numAttacks)
+                killPiece(attacker)
+          }
+        }
 
       case Spawn(spawnLoc, spawnName) =>
         spawnPieceInternal(side,spawnName,spawnLoc) match {
@@ -965,40 +945,55 @@ case class BoardState private (
           }
         }
 
-      case SpellsAndAbilities(spellsAndAbilities) =>
-        //Apply spell effects
-        spellsAndAbilities.foreach { played => (played.pieceSpecAndKey, played.spellId) match {
-          case (None, None) => assertUnreachable()
-          case (Some(_), Some(_)) => assertUnreachable()
-          case (Some((pieceSpec,key)),None) =>
-            val piece = findPiece(pieceSpec).get
-            val pieceStats = piece.curStats(this)
-            pieceStats.abilities(key) match {
-              case (ability:SelfEnchantAbility) =>
-                piece.modsWithDuration = piece.modsWithDuration :+ ability.mod
-              case (ability:TargetedAbility) =>
-                val target = findPiece(played.target0).get
-                applyEffect(ability.effect,target)
-            }
-          case (None, Some(spellId)) =>
-            val spell = Spells.spellMap(spellsRevealed(side)(spellId))
-            spell match {
-              case (_: NoEffectSpell) => ()
-              case (spell: TargetedSpell) =>
-                val target = findPiece(played.target0).get
-                applyEffect(spell.effect,target)
-              case (spell: TileSpell) =>
-                tiles(played.loc0) = spell.effect(tiles(played.loc0))
-                val piecesOnTile = pieces(played.loc0)
-                piecesOnTile.foreach { piece => killIfEnoughDamage(piece) }
-            }
-        }}
+      case ActivateAbility(pieceSpec,abilityName,targets) =>
+        val piece = findPiece(pieceSpec).get
+        val pieceStats = piece.curStats(this)
+        val ability = pieceStats.abilities(abilityName)
+        if(ability.isSorcery)
+          sorceryPower -= 1
 
-        //Remove spells from hand
-        spellsAndAbilities.foreach { played =>
-          played.discardingId.foreach { id => spellsInHand(side) = spellsInHand(side).filterNot { i => i == id } }
-          played.spellId.foreach { id => spellsInHand(side) = spellsInHand(side).filterNot { i => i == id } }
+        ability match {
+          case SuicideAbility =>
+            killPiece(piece)
+          case BlinkAbility =>
+            unsummonPiece(piece)
+          case (ability:SelfEnchantAbility) =>
+            piece.modsWithDuration = piece.modsWithDuration :+ ability.mod
+          case (ability:TargetedAbility) =>
+            val target = findPiece(targets.target0).get
+            applyEffect(ability.effect,target)
         }
+
+      case PlaySpell(spellId,targets) =>
+        val spell = Spells.spellMap(spellsRevealed(side)(spellId))
+        spell.spellType match {
+          case NormalSpell => ()
+          case Sorcery => sorceryPower -= 1
+          case Cantrip => sorceryPower += 1
+          case DoubleCantrip => sorceryPower += 2
+        }
+
+        spell match {
+          case (_: NoEffectSpell) => ()
+          case (spell: TargetedSpell) =>
+            val target = findPiece(targets.target0).get
+            applyEffect(spell.effect,target)
+          case (spell: TileSpell) =>
+            tiles(targets.loc0) = spell.effect(tiles(targets.loc0))
+            val piecesOnTile = pieces(targets.loc0)
+            piecesOnTile.foreach { piece => killIfEnoughDamage(piece) }
+        }
+        spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
+
+      case DiscardSpell(spellId) =>
+        val spell = Spells.spellMap(spellsRevealed(side)(spellId))
+        spell.spellType match {
+          case NormalSpell => sorceryPower += 1
+          case Sorcery => sorceryPower += 1
+          case Cantrip => sorceryPower += 1
+          case DoubleCantrip => sorceryPower += 2
+        }
+        spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
     }
   }
 
