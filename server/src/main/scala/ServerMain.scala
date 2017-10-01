@@ -50,6 +50,7 @@ object ServerMain extends App {
 
   val numBoards = config.getInt("app.numBoards")
   val game = {
+    val targetNumWins = config.getInt("app.targetNumWins")
     val startingMana = SideArray.create(0)
     startingMana(S0) = config.getInt("app.s0StartingManaPerBoard") * numBoards
     startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
@@ -74,18 +75,21 @@ object ServerMain extends App {
       }.toArray
     }
     val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
+    val extraManaPerTurn = config.getInt("app.extraManaPerTurn")
 
     val game = Game(
       numBoards = numBoards,
+      targetNumWins = targetNumWins,
       startingSide = S0,
       startingMana = startingMana,
       extraTechCost = extraTechCost,
+      extraManaPerTurn = extraManaPerTurn,
       techsAlwaysAcquired = techsAlwaysAcquired,
       lockedTechs = lockedTechs
     )
     game
   }
-  var gameSequence = 0
+  var gameSequence: Int = 0
 
   val boards: Array[Board] = {
     val boards = (0 until numBoards).toArray.map { _ =>
@@ -180,6 +184,11 @@ object ServerMain extends App {
         doEndOfTurn()
     }
 
+    private def doAddWin(side: Side): Unit = {
+      val gameAction: GameAction = AddWin(side)
+      val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
+    }
+
     private def doEndOfTurn(): Unit = {
       val oldSide = game.curSide
       val newSide = game.curSide.opp
@@ -188,9 +197,9 @@ object ServerMain extends App {
       for(boardIdx <- 0 until boards.length) {
         val board = boards(boardIdx)
         if(board.curState.hasWon) {
-          val gameAction: GameAction = AddWin(oldSide)
-          val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
-          doResetBoard(boardIdx)
+          doAddWin(oldSide)
+          if(game.winner.isEmpty)
+            doResetBoard(boardIdx)
         }
       }
 
@@ -237,6 +246,8 @@ object ServerMain extends App {
             case Some(side) =>
               if(boardIdx < 0 || boardIdx >= numBoards)
                 out ! Protocol.QueryError("Invalid boardIdx")
+              else if(game.winner.nonEmpty)
+                out ! Protocol.QueryError("Game is over")
               else if(boards(boardIdx).curState().side != side)
                 out ! Protocol.QueryError("Currently the other team's turn")
               else {
@@ -285,7 +296,9 @@ object ServerMain extends App {
             case None =>
               out ! Protocol.QueryError("Cannot perform actions as a spectator")
             case Some(side) =>
-              if(game.curSide != side)
+              if(game.winner.nonEmpty)
+                out ! Protocol.QueryError("Game is over")
+              else if(game.curSide != side)
                 out ! Protocol.QueryError("Currently the other team's turn")
               else {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks

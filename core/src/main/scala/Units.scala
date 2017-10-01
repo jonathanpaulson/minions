@@ -25,6 +25,7 @@ object Units {
     swarmMax : Int = 1,
     spawnRange : Int = 0,
     extraMana : Int = 0,
+    extraSorceryPower : Int = 0,
     deathSpawn : Option[PieceName] = None,
     abilities : Map[String,PieceAbility] = Map.empty
   ) : PieceStats = {
@@ -49,6 +50,7 @@ object Units {
       swarmMax = swarmMax,
       spawnRange = spawnRange,
       extraMana = extraMana,
+      extraSorceryPower = extraSorceryPower,
       deathSpawn = deathSpawn,
       abilities = abilities
     )
@@ -75,8 +77,10 @@ object Units {
     cost = 0,
     rebate = 0,
     isNecromancer = true,
+    spawnRange = 1,
     extraMana = 3,
-    spawnRange = 1
+    //TODO while there are no spells, we'll just have necromancers power unit ability sorceries
+    extraSorceryPower = 2
   )
 
   val zombie = createPieceStats(

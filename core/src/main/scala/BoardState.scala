@@ -411,18 +411,22 @@ case class BoardState private (
     //Wailing units that attacked and have not been finished yet die
     killAttackingWailingUnits()
 
-    //Count and accumulate mana.
+    //Count and accumulate mana and sorcery power.
     var newMana = 0
+    var newSorceryPower = 0
     tiles.foreachi { case (loc,tile) =>
       if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
         newMana += 1
     }
     pieceById.values.foreach { piece =>
-      if(piece.side == side)
-        newMana += piece.curStats(this).extraMana
+      if(piece.side == side) {
+        val stats = piece.curStats(this)
+        newMana += stats.extraMana
+        newSorceryPower += stats.extraSorceryPower
+      }
     }
     //Reset sorcery power
-    sorceryPower = 0
+    sorceryPower = newSorceryPower
     //Heal damage, reset piece state, decay modifiers
     pieceById.values.foreach { piece =>
       refreshPieceForStartOfTurn(piece)

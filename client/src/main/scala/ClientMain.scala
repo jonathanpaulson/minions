@@ -260,6 +260,8 @@ class Client() {
       case (_: DoGeneralBoardAction) =>
         sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
       case (_: PlayerActions) | (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) =>
+        if(game.exists { game => game.winner.nonEmpty })
+          reportError("Game is over")
         localBoards(curBoardIdx).doAction(action) match {
           case Failure(error) => reportError(error.toString)
           case Success(()) =>

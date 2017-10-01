@@ -70,9 +70,11 @@ case class AddWin(side: Side) extends GameAction
 case object Game {
   def apply(
     numBoards: Int,
+    targetNumWins: Int,
     startingSide: Side,
     startingMana: SideArray[Int],
     extraTechCost: Int,
+    extraManaPerTurn: Int,
     techsAlwaysAcquired: Array[Tech],
     lockedTechs: Array[Tech]
   ) = {
@@ -100,12 +102,15 @@ case object Game {
     val game = new Game(
       curSide = startingSide,
       turnNumber = 0,
+      winner = None,
       mana = startingMana.copy(),
       wins = SideArray.create(0),
       techLine = techStatesAlwaysAcquired ++ techStatesLocked,
       piecesAcquired = SideArray.create(piecesAlwaysAcquired),
       numTechsThisTurn = 0,
+      targetNumWins = targetNumWins,
       extraTechCost = extraTechCost,
+      extraManaPerTurn = extraManaPerTurn,
       isBoardDone = Array.fill(numBoards)(false)
     )
     game
@@ -118,6 +123,7 @@ case object Game {
 case class Game (
   var curSide: Side,
   var turnNumber: Int,
+  var winner: Option[Side],
 
   val mana: SideArray[Int],
   val wins: SideArray[Int],
@@ -125,7 +131,10 @@ case class Game (
   val techLine: Array[TechState],
   val piecesAcquired: SideArray[Map[PieceName,TechState]],
   var numTechsThisTurn: Int,
+
+  val targetNumWins: Int,
   val extraTechCost: Int,
+  val extraManaPerTurn: Int,
 
   //Flags set when user indicates that the board is done. Server ends the turn when all boards have this set.
   val isBoardDone: Array[Boolean]
@@ -152,7 +161,7 @@ case class Game (
     action match {
       case PayForReinforcement(side,pieceName) => payForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
-      case AddWin(side) => { wins(side) = wins(side) + 1; Success(()) }
+      case AddWin(side) => { doAddWin(side); Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => undoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
@@ -163,6 +172,8 @@ case class Game (
     curSide = curSide.opp
     turnNumber += 1
     numTechsThisTurn = 0
+
+    mana(curSide) += extraManaPerTurn
 
     techLine.foreach { techState =>
       techState.startingLevelThisTurn(S0) = techState.level(S0)
@@ -221,6 +232,13 @@ case class Game (
         val stats = Units.pieceMap(pieceName)
         mana(side) = mana(side) + stats.cost
         suc
+    }
+  }
+
+  private def doAddWin(side: Side): Unit = {
+    wins(side) = wins(side) + 1
+    if(wins(side) >= targetNumWins) {
+      winner = Some(side)
     }
   }
 

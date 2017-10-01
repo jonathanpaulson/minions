@@ -183,9 +183,21 @@ object Drawing {
       def textAtLoc(s: String, dpx: Double, dpy: Double) =
         text(ctx, s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left")
 
-      if(side == board.side)
-        textAtLoc(side.toColorName + " Team's Turn!", 0.0, -9.0)
+      if(game.winner.nonEmpty) {
+        if(game.winner == Some(side))
+          textAtLoc(side.toColorName + " Team wins the game!", 0.0, -9.0)
+      }
+      else {
+        if(side == board.side)
+          textAtLoc(side.toColorName + " Team's Turn!", 0.0, -9.0)
+      }
+
       textAtLoc(side.toColorName + " Team Mana: " + mana, 0.0, 3.0)
+
+      textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 120.0, 3.0)
+
+      if(side == board.side)
+        textAtLoc("SorceryPower: " + board.sorceryPower, 240.0, 3.0)
     }
 
     //End turn hex
