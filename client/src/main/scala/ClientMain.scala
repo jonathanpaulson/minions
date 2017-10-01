@@ -87,6 +87,7 @@ class Client() {
   //Keyboard controls
   var shiftPressed: Boolean = false
   var ctrlPressed: Boolean = false
+  var showCoords: Boolean = false
 
   val flipDisplay: Boolean = ourSide == Some(S1) //Flip so that 0,0 is in the lower right
 
@@ -288,7 +289,7 @@ class Client() {
       mouseState.refresh(game.get,board.curState)
     }
     curLocalBoard().foreach { _ =>
-      Drawing.drawEverything(canvas, ctx, game.get, localBoards, curBoardIdx, mouseState, flipDisplay, ctrlPressed)
+      Drawing.drawEverything(canvas, ctx, game.get, localBoards, curBoardIdx, mouseState, flipDisplay, ctrlPressed, showCoords)
     }
   }
 
@@ -357,6 +358,11 @@ class Client() {
       ctrlPressed = true
       draw()
     }
+    //'c'
+    else if(e.keyCode == 67) {
+      showCoords = !showCoords
+      draw()
+    }
   }
   def keyup(e : KeyboardEvent) : Unit = {
     if(e.keyCode == 16) {
@@ -366,6 +372,12 @@ class Client() {
       ctrlPressed = false
       draw()
     }
+  }
+
+  def onBlur(e : Any) : Unit = {
+    val _ = e
+    shiftPressed = false
+    ctrlPressed = false
   }
 
   def showResignConfirm(): Unit = {
@@ -389,6 +401,7 @@ class Client() {
     doGameAction(ResignBoard(curBoardIdx))
   }
 
+  window.addEventListener("blur", onBlur)
   window.addEventListener("keydown", keydown)
   window.addEventListener("keyup", keyup)
   canvas.onmousedown = mousedown _

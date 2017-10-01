@@ -299,14 +299,12 @@ object Protocol {
     val reads: Reads[ActState] = readsFromPair[ActState]("ActState",Map(
       "Moving" -> ((json:JsValue) => movingFormat.reads(json)),
       "Attacking" -> ((json:JsValue) => attackingFormat.reads(json)),
-      "Spawning" -> ((_:JsValue) => JsSuccess(Spawning: ActState)),
       "DoneActing" -> ((_:JsValue) => JsSuccess(DoneActing: ActState))
     ))
     val writes: Writes[ActState] = new Writes[ActState] {
       def writes(t: ActState): JsValue = t match {
         case (t:Moving) => jsPair("Moving",movingFormat.writes(t))
         case (t:Attacking) => jsPair("Attacking",attackingFormat.writes(t))
-        case (Spawning) => jsPair("Spawning",JsString(""))
         case (DoneActing) => jsPair("DoneActing",JsString(""))
       }
     }

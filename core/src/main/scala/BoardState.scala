@@ -568,7 +568,7 @@ case class BoardState private (
 
     val range = piece.actState match {
       case Moving(stepsUsed) => pieceStats.moveRange - stepsUsed
-      case Attacking(_) | Spawning | DoneActing => 0
+      case Attacking(_) | DoneActing => 0
     }
 
     //Breadth first floodfill
@@ -643,7 +643,7 @@ case class BoardState private (
           //Fuller check
           else if(numAttacks >= attackerStats.numAttacks) failed("Piece already assigned all of its attacks")
           else Success(())
-        case Spawning | DoneActing =>
+        case DoneActing =>
           failed("Piece has already acted or cannot attack this turn")
       }
       result.flatMap { case () =>
@@ -760,7 +760,7 @@ case class BoardState private (
       val distance = topology.distance(spawnLoc,piece.loc)
       if(piece.side != side)  false
       else if((!spawnStats.isEldritch || distance > 1) && (piece.curStats(this).spawnRange < distance)) false
-      else if(piece.actState > Spawning) false
+      else if(piece.actState >= DoneActing) false
       else true
     }
   }
@@ -846,7 +846,7 @@ case class BoardState private (
               piece.actState match {
                 case Moving(stepsUsed) =>
                   failUnless(path.length - 1 <= pieceStats.moveRange - stepsUsed, "Movement range of piece is not large enough")
-                case Attacking(_) | Spawning | DoneActing =>
+                case Attacking(_) | DoneActing =>
                   fail("Piece has already acted or cannot move this turn")
               }
 
@@ -943,7 +943,7 @@ case class BoardState private (
           piece.hasMoved = true
           piece.actState = piece.actState match {
             case Moving(n) => Moving(n + movement.path.length - 1)
-            case Attacking(_) | Spawning | DoneActing => assertUnreachable()
+            case Attacking(_) | DoneActing => assertUnreachable()
           }
         }
       case Attack(attackerSpec, targetSpec) =>
@@ -956,12 +956,12 @@ case class BoardState private (
         attacker.actState = attacker.actState match {
           case Moving(_) => Attacking(1)
           case Attacking(n) => Attacking(n+1)
-          case Spawning | DoneActing => assertUnreachable()
+          case DoneActing => assertUnreachable()
         }
 
         if(attackerStats.isWailing) {
           attacker.actState match {
-            case Moving(_) | Spawning | DoneActing => assertUnreachable()
+            case Moving(_) | DoneActing => assertUnreachable()
             case Attacking(numAttacks) =>
               if(numAttacks >= attackerStats.numAttacks)
                 killPiece(attacker)
