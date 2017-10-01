@@ -306,7 +306,7 @@ object ServerMain extends App {
                   case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) => Success(())
                   case ResignBoard(boardIdx) =>
                     //Check ahead of time if it's legal
-                    game.tryLegality(gameAction).flatMap { case () =>
+                    game.tryIsLegal(gameAction).map { case () =>
                       //And if so, reset the board
                       doResetBoard(boardIdx)
                     }

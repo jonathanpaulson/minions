@@ -210,6 +210,10 @@ object Drawing {
     }
     text(ctx, "End Turn", PixelLoc.ofHexLoc(hexLocOfLoc(UI.EndTurn.loc), gridSize), "black")
 
+    //Resign board hex
+    fillHex(ctx, UI.ResignBoard.loc, "gray", tileScale)
+    text(ctx, "Resign Board", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize), "black")
+
     //Reinforcements
     Side.foreach { side =>
       val locsAndContents = UI.Reinforcements.getLocsAndContents(side,flipDisplay,board)
@@ -374,6 +378,9 @@ object Drawing {
       case MouseEndTurn =>
         val loc = UI.EndTurn.loc
         strokeHex(ctx,loc, "black", tileScale)
+      case MouseResignBoard =>
+        val loc = UI.ResignBoard.loc
+        strokeHex(ctx,loc, "black", tileScale)
       case MouseTech(techIdx) =>
         val loc = UI.Tech.getLoc(techIdx)
         strokeHex(ctx,loc, "black", tileScale)
@@ -416,6 +423,10 @@ object Drawing {
       case MouseTile(_) => ()
       case MouseEndTurn =>
         val loc = UI.EndTurn.loc
+        fillHex(ctx, loc, "yellow", tileScale, alpha=0.1)
+        strokeHex(ctx,loc, "black", tileScale)
+      case MouseResignBoard =>
+        val loc = UI.ResignBoard.loc
         fillHex(ctx, loc, "yellow", tileScale, alpha=0.1)
         strokeHex(ctx,loc, "black", tileScale)
       case MouseTech(techIdx) =>

@@ -16,6 +16,7 @@ sealed trait MouseTarget {
       case MouseReinforcement(_,_) => None
       case MouseDeadPiece(_) => None
       case MouseEndTurn => None
+      case MouseResignBoard => None
     }
   }
 }
@@ -26,6 +27,7 @@ case class MouseTech(techIdx: Int) extends MouseTarget
 case class MouseReinforcement(pieceName: PieceName, side:Side) extends MouseTarget
 case class MouseDeadPiece(pieceSpec: PieceSpec) extends MouseTarget
 case object MouseEndTurn extends MouseTarget
+case object MouseResignBoard extends MouseTarget
 
 //Different modes the mouse can be in for selecting different things
 sealed trait MouseMode {
@@ -38,11 +40,7 @@ sealed trait MouseMode {
 //---------------------------------------------------------------------------------------
 //Current state of the mouse.
 
-case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean)
-  (val makeActionId: () => String)
-  (val doGameAction:GameAction => Unit)
-  (val doBoardAction:BoardAction => Unit)
-  (val reportError: String => Unit)
+case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val client: Client)
 {
   //The current target moused-over
   var hovered : MouseTarget = MouseNone
@@ -124,6 +122,8 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean)
                     case None =>
                       if(loc == UI.EndTurn.loc)
                         MouseEndTurn
+                      else if(loc == UI.ResignBoard.loc)
+                        MouseResignBoard
                       else
                         MouseNone
                   }
@@ -217,6 +217,10 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     prevTime + doubleClickTolerance >= getNow()
   }
 
+  def makeActionId(): String = {
+    mouseState.client.makeActionId()
+  }
+
   def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit = {
     val _ = (curLoc,game,board)
     doubleClickState = doubleClickState match {
@@ -297,7 +301,13 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
       case MouseEndTurn =>
         //Require mouse down and up on the same target
         if(curTarget == dragTarget)
-          mouseState.doGameAction(SetBoardDone(boardIdx,!game.isBoardDone(boardIdx)))
+          mouseState.client.doGameAction(SetBoardDone(boardIdx,!game.isBoardDone(boardIdx)))
+
+      case MouseResignBoard =>
+        //Require mouse down and up on the same target
+        if(curTarget == dragTarget) {
+          mouseState.client.showResignConfirm()
+        }
 
       case MouseTech(techIdx) =>
         //Require mouse down and up on the same target
@@ -308,20 +318,20 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
               case (TechAcquired,TechAcquired) =>
                 techState.tech match {
                   case PieceTech(pieceName) =>
-                    mouseState.doBoardAction(BuyReinforcementUndo(pieceName,mouseState.makeActionId()))
+                    mouseState.client.doActionOnCurBoard(BuyReinforcementUndo(pieceName,makeActionId()))
                 }
               case _ =>
-                mouseState.doGameAction(UndoTech(game.curSide,techIdx))
+                mouseState.client.doGameAction(UndoTech(game.curSide,techIdx))
             }
           }
           else {
             techState.level(game.curSide) match {
               case TechLocked | TechUnlocked =>
-                mouseState.doGameAction(PerformTech(game.curSide,techIdx))
+                mouseState.client.doGameAction(PerformTech(game.curSide,techIdx))
               case TechAcquired =>
                 techState.tech match {
                   case PieceTech(pieceName) =>
-                    mouseState.doBoardAction(DoGeneralBoardAction(BuyReinforcement(pieceName),mouseState.makeActionId()))
+                    mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(BuyReinforcement(pieceName),makeActionId()))
                 }
             }
           }
@@ -331,7 +341,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
         if(ctrlPressed) {
           //Require mouse down and up on the same target
           if(curTarget == dragTarget) {
-            mouseState.doBoardAction(LocalPieceUndo(pieceSpec,mouseState.makeActionId()))
+            mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
           }
         }
 
@@ -343,19 +353,19 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
               if(pieceName == name) Some(pieceSpec) else None
             }
             pieceSpec.foreach { pieceSpec =>
-              mouseState.doBoardAction(LocalPieceUndo(pieceSpec,mouseState.makeActionId()))
+              mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
             }
           }
         }
         else {
-          mouseState.doBoardAction(PlayerActions(List(Spawn(curLoc,pieceName)),mouseState.makeActionId()))
+          mouseState.client.doActionOnCurBoard(PlayerActions(List(Spawn(curLoc,pieceName)),makeActionId()))
         }
 
       case MousePiece(dragSpec) =>
         if(ctrlPressed) {
           //Require mouse down and up on the same target
           if(curTarget == dragTarget) {
-            mouseState.doBoardAction(LocalPieceUndo(dragSpec,mouseState.makeActionId()))
+            mouseState.client.doActionOnCurBoard(LocalPieceUndo(dragSpec,makeActionId()))
           }
         }
         else {
@@ -375,14 +385,14 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                     ability match {
                       case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) =>
                         val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.none))
-                        mouseState.doBoardAction(PlayerActions(abilityActions,mouseState.makeActionId()))
+                        mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions,makeActionId()))
                       case (_:TargetedAbility) =>
                         mouseState.mode = SelectTargetMouseMode(mouseState) { (target:MouseTarget) =>
                           target.findPiece(board) match {
                             case None => ()
                             case Some(targetPiece) =>
                               val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.singlePiece(targetPiece.spec)))
-                              mouseState.doBoardAction(PlayerActions(abilityActions,mouseState.makeActionId()))
+                              mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions,makeActionId()))
                           }
                         }
                     }
@@ -414,7 +424,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
 
                   val actions = List(movement,attack).flatten
                   if(actions.length > 0)
-                    mouseState.doBoardAction(PlayerActions(actions,mouseState.makeActionId()))
+                    mouseState.client.doActionOnCurBoard(PlayerActions(actions,makeActionId()))
                 }
               }
           }

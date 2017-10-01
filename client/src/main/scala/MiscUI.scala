@@ -23,6 +23,9 @@ object UI {
   object EndTurn {
     val loc: Loc = Loc(15, -3)
   }
+  object ResignBoard {
+    val loc: Loc = Loc(17, -3)
+  }
 
   //Positioning for tech line
   object Tech {

@@ -4,7 +4,7 @@ import scala.concurrent.Future
 import scala.util.{Try, Success, Failure}
 
 import scala.scalajs.js.JSApp
-import org.scalajs.jquery.jQuery
+import org.scalajs.jquery.{JQuery,jQuery,JQueryEventObject}
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.{MouseEvent, KeyboardEvent}
 import org.scalajs.dom.html.Canvas
@@ -91,7 +91,7 @@ class Client() {
   val flipDisplay: Boolean = ourSide == Some(S1) //Flip so that 0,0 is in the lower right
 
   //Mouse movement path state
-  val mouseState = MouseState(ourSide,flipDisplay)(makeActionId _)(doGameAction _)(doActionOnCurBoard _)(reportError _)
+  val mouseState = MouseState(ourSide,flipDisplay,this)
 
   //Websocket connection!
   val connection = Connection(username,ourSide)
@@ -366,6 +366,27 @@ class Client() {
       ctrlPressed = false
       draw()
     }
+  }
+
+  def showResignConfirm(): Unit = {
+    if(game.exists { game => game.winner.isEmpty }) {
+      if(game.get.wins(game.get.curSide.opp) >= game.get.targetNumWins - 1)
+        jQuery("#resign-message").text("Really resign this board? (Last point, will cause the other team to win)")
+      else
+        jQuery("#resign-message").text("Really resign this board?")
+
+      val (_: JQuery) = jQuery("#resign-confirm").removeClass("invisible")
+    }
+  }
+  def hideResignConfirm(): Unit = {
+    val (_: JQuery) = jQuery("#resign-confirm" ).addClass("invisible")
+  }
+  jQuery("#resign-cancel").click { (_: JQueryEventObject) =>
+    hideResignConfirm()
+  }
+  jQuery("#resign-ok").click { (_: JQueryEventObject) =>
+    hideResignConfirm()
+    doGameAction(ResignBoard(curBoardIdx))
   }
 
   window.addEventListener("keydown", keydown)
