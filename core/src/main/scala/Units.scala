@@ -294,7 +294,7 @@ object Units {
       desc = "Pay 1 sorcery power: Attack unsummons",
       isSorcery = true,
       tryIsUsableNow = { (_: Piece) => Success(()) },
-      mod = PieceModWithDuration(PieceMods.DoubleAttack,turnsLeft = Some(1))
+      mod = PieceModWithDuration(PieceMods.UnsummonAttack,turnsLeft = Some(1))
     ))
   )
 
