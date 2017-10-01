@@ -139,7 +139,6 @@ object ServerMain extends App {
   private class GameActor extends Actor {
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
     //to the players logged into the server
-    var sessionOfUsername: Map[String,Int] = Map()
     var usernameOfSession: Map[Int,String] = Map()
     var userSides: Map[Int,Option[Side]] = Map()
     var userOuts: Map[Int,ActorRef] = Map()
@@ -349,12 +348,6 @@ object ServerMain extends App {
 
     override def receive: Receive = {
       case UserJoined(sessionId, username, side, out) =>
-        if(sessionOfUsername.contains(username)) {
-          val oldSessionId = sessionOfUsername(username)
-          handleUserLeft(oldSessionId)
-        }
-
-        sessionOfUsername = sessionOfUsername + (username -> sessionId)
         usernameOfSession = usernameOfSession + (sessionId -> username)
         userSides = userSides + (sessionId -> side)
         userOuts = userOuts + (sessionId -> out)
