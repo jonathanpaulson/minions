@@ -60,7 +60,7 @@ object UI {
     }
 
     def getLocsAndContents(board: BoardState): Array[(Loc,PieceSpec,PieceName,Side)] = {
-      board.killedThisTurn.zipWithIndex.map { case ((spec,pieceName,side),i) =>
+      board.killedThisTurn.reverse.zipWithIndex.map { case ((spec,pieceName,side),i) =>
         val loc = Loc(-board.tiles.ySize / 2 + i, board.tiles.ySize + 1)
         (loc,spec,pieceName,side)
       }.toArray
