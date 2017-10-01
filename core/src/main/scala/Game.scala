@@ -62,6 +62,7 @@ sealed trait GameAction
 case class PerformTech(side: Side, techLineIdx: Int) extends GameAction
 case class UndoTech(side: Side, techLineIdx: Int) extends GameAction
 case class SetBoardDone(boardIdx: Int, done: Boolean) extends GameAction
+case class ResignBoard(boardIdx: Int) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
@@ -154,6 +155,7 @@ case class Game (
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => tryCanUndoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => tryCanSetBoardDone(boardIdx,done)
+      case ResignBoard(boardIdx) => tryCanResignBoard(boardIdx)
     }
   }
 
@@ -165,6 +167,7 @@ case class Game (
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => undoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
+      case ResignBoard(boardIdx) => resignBoard(boardIdx)
     }
   }
 
@@ -347,6 +350,22 @@ case class Game (
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
         isBoardDone(boardIdx) = done
+        suc
+    }
+  }
+
+  private def tryCanResignBoard(boardIdx: Int): Try[Unit] = {
+    if(boardIdx < 0 || boardIdx >= isBoardDone.length)
+      Failure(new Exception("Invalid board idx"))
+    else
+      Success(())
+  }
+
+  private def resignBoard(boardIdx: Int): Try[Unit] = {
+    tryCanResignBoard(boardIdx) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        doAddWin(curSide.opp)
         suc
     }
   }

@@ -304,6 +304,12 @@ object ServerMain extends App {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks
                 val specialResult: Try[Unit] = gameAction match {
                   case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) => Success(())
+                  case ResignBoard(boardIdx) =>
+                    //Check ahead of time if it's legal
+                    game.tryLegality(gameAction).flatMap { case () =>
+                      //And if so, reset the board
+                      doResetBoard(boardIdx)
+                    }
                   case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }

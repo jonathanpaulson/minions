@@ -100,6 +100,7 @@ copyStuffTask := {
   createDirectory("web")
   createDirectory("web/js")
   copyFile("client/minionsclient_dev.html","web/index.html")
+  copyFile("client/jquery-2.1.1.min.js","web/js/jquery-2.1.1.min.js")
   copyFile("client/target/scala-2.12/minionsclient-fastopt.js","web/js/minionsclient-fastopt.js")
   copyFile("client/target/scala-2.12/minionsclient-fastopt.js.map","web/js/minionsclient-fastopt.js.map")
   copyFile("client/target/scala-2.12/minionsclient-jsdeps.js","web/js/minionsclient-jsdeps.js")
