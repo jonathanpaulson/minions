@@ -232,7 +232,7 @@ class Board private (
 
             //Reapply all the spawn actions so far
             val newSpawnState = newMoveAttackState.copy()
-            reapplyLegal(history.spawnActionsThisTurn) { playerActions =>
+            val reappliedSpawnActionsThisTurn = reapplyLegal(history.spawnActionsThisTurn) { playerActions =>
               newSpawnState.doActions(playerActions)
             }
 
@@ -244,7 +244,7 @@ class Board private (
               moveAttackState = newMoveAttackState,
               spawnState = newSpawnState,
               moveAttackActionsThisTurn = history.moveAttackActionsThisTurn :+ moveAttackActionsRev.reverse,
-              spawnActionsThisTurn = history.spawnActionsThisTurn :+ spawnActions,
+              spawnActionsThisTurn = reappliedSpawnActionsThisTurn :+ spawnActions,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
             )
           case DoGeneralBoardAction(generalBoardAction,_) =>
