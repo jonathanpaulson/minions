@@ -223,7 +223,7 @@ object Drawing {
         drawPiece(hexLoc, pieceScale, side, "")
         val label = displayNameOfPieceName(pieceName)
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
-        text("x " + count, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,4.0), "black")
+        text("x " + count, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,6.0), "black")
       }
     }
 
