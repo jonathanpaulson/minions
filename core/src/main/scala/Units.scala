@@ -2,8 +2,6 @@ package minionsgame.core
 import scala.collection.immutable.Map
 import scala.util.{Try,Success,Failure}
 
-// TODO(jpaulson): Add atual unit data
-
 object Units {
   private def createPieceStats(
     name : String,
