@@ -55,6 +55,10 @@ object UI {
   }
 
   object DeadPieces {
+    def getDescLoc(board: BoardState): Loc = {
+      Loc(-board.tiles.ySize / 2 - 1, board.tiles.ySize + 1)
+    }
+
     def getLocsAndContents(board: BoardState): Array[(Loc,PieceSpec,PieceName,Side)] = {
       board.killedThisTurn.zipWithIndex.map { case ((spec,pieceName,side),i) =>
         val loc = Loc(-board.tiles.ySize / 2 + i, board.tiles.ySize + 1)

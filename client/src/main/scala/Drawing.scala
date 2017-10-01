@@ -11,7 +11,6 @@ object Drawing {
   val gridSize = 30.0
   val tileScale = 29.0 / gridSize
   val pieceScale = 25.0 / gridSize
-  val reinforcementScale = 23.0 / gridSize
   val techScale = 23.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
@@ -103,27 +102,18 @@ object Drawing {
       text(ctx, loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
     }
 
-    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double,
-      pieceName: PieceName, side: Side, id: Option[Int], count: Option[Int], dead: Boolean = false) : Unit = {
+    def displayNameOfPieceName(pieceName: PieceName): String = {
+      Units.pieceMap(pieceName).displayName
+    }
+
+    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, side: Side, label: String) : Unit = {
       val pieceColor =
         side match {
           case S0 => "blue"
           case S1 => "red"
         }
       fillHex(ctx, hexLoc, pieceColor, scale)
-      id.foreach { id =>
-        text(ctx, id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize)+PixelVec(0, gridSize/3.0), "black")
-      }
-      val stats = Units.pieceMap(pieceName)
-      val displayName = stats.displayName + {
-        count match {
-          case None => ""
-          case Some(count) => " x " + count
-        }
-      } + {
-        if(dead) " (dead)" else ""
-      }
-      text(ctx, displayName, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
+      text(ctx, label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
     def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
@@ -218,15 +208,20 @@ object Drawing {
     Side.foreach { side =>
       val locsAndContents = UI.Reinforcements.getLocsAndContents(side,flipDisplay,board)
       locsAndContents.foreach { case (loc,pieceName,count) =>
-        drawPiece(ctx, hexLocOfLoc(loc), reinforcementScale, pieceName, side, None, Some(count))
+        val label = displayNameOfPieceName(pieceName) + " x " + count
+        drawPiece(ctx, hexLocOfLoc(loc), pieceScale, side, label)
       }
     }
 
     //Dead pieces
     {
       val locsAndContents = UI.DeadPieces.getLocsAndContents(board)
+      if(locsAndContents.length > 0) {
+        text(ctx, "Dead pieces", PixelLoc.ofHexLoc(hexLocOfLoc(UI.DeadPieces.getDescLoc(board)), gridSize), "black")
+      }
       locsAndContents.foreach { case (loc,_,pieceName,side) =>
-        drawPiece(ctx, hexLocOfLoc(loc), reinforcementScale, pieceName, side, None, None, dead = true)
+        val label = displayNameOfPieceName(pieceName)
+        drawPiece(ctx, hexLocOfLoc(loc), pieceScale, side, label)
       }
     }
 
@@ -270,7 +265,8 @@ object Drawing {
     board.pieces.foreach { pieces =>
       pieces.foreach { piece =>
         val (loc,scale) = locAndScaleOfPiece(board,piece)
-        drawPiece(ctx, loc, scale, piece.baseStats.name, piece.side, Some(piece.id), None)
+        val label = piece.baseStats.displayName
+        drawPiece(ctx, loc, scale, piece.side, label)
       }
     }
 
@@ -388,7 +384,7 @@ object Drawing {
         UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
           case None => ()
           case Some((loc,_)) =>
-            strokeHex(ctx,hexLocOfLoc(loc), "black", reinforcementScale)
+            strokeHex(ctx,hexLocOfLoc(loc), "black", pieceScale)
         }
         if(ctrlPressed) {
           val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
@@ -401,7 +397,7 @@ object Drawing {
         UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
           case None => ()
           case Some(loc) =>
-            strokeHex(ctx, hexLocOfLoc(loc), "black", reinforcementScale)
+            strokeHex(ctx, hexLocOfLoc(loc), "black", pieceScale)
         }
         if(ctrlPressed)
           highlightUndoneActionsForPieceSpec(pieceSpec)
@@ -437,8 +433,8 @@ object Drawing {
         UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
           case None => ()
           case Some((loc,_)) =>
-            fillHex(ctx, hexLocOfLoc(loc), "yellow", reinforcementScale, alpha=0.1)
-            strokeHex(ctx, hexLocOfLoc(loc), "black", reinforcementScale)
+            fillHex(ctx, hexLocOfLoc(loc), "yellow", pieceScale, alpha=0.1)
+            strokeHex(ctx, hexLocOfLoc(loc), "black", pieceScale)
         }
         val locs = board.legalSpawnLocs(pieceName)
         for(loc <- locs) {
@@ -450,8 +446,8 @@ object Drawing {
           UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
             case None => ()
             case Some(loc) =>
-              fillHex(ctx, hexLocOfLoc(loc), "yellow", reinforcementScale, alpha=0.1)
-              strokeHex(ctx, hexLocOfLoc(loc), "black", reinforcementScale)
+              fillHex(ctx, hexLocOfLoc(loc), "yellow", pieceScale, alpha=0.1)
+              strokeHex(ctx, hexLocOfLoc(loc), "black", pieceScale)
           }
         }
       case MousePiece(spec) =>
