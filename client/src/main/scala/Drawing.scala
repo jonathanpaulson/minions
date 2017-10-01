@@ -243,30 +243,36 @@ object Drawing {
       }
     }
 
-    val selectedPiece = mouseState.selected.flatMap { target => target.findPiece(board) }
+    val dragPiece = mouseState.dragTarget.findPiece(board)
 
     //Draw line for movement paths
-    if(mouseState.path.length > 0) {
-      ctx.globalAlpha = 1.0
-      ctx.fillStyle = "black"
-      ctx.setLineDash(scala.scalajs.js.Array(5.0, 10.0))
-      ctx.beginPath()
-      selectedPiece match {
-        case None => sys.error("")
-        case Some(piece) =>
-          val (loc,_) = locAndScaleOfPiece(board,piece)
-          move(ctx, loc)
-      }
-      for(i <- 1 to mouseState.path.length-1) {
-        line(ctx, mouseState.path(i))
-      }
-      ctx.stroke()
-      ctx.closePath()
-      ctx.setLineDash(scala.scalajs.js.Array())
+    mouseState.mode match {
+      case (_: SelectTargetMouseMode) =>
+        //TODO highlight legal targets
+      case (mode: NormalMouseMode) =>
+        val path = mode.path
+        if(path.length > 0) {
+          ctx.globalAlpha = 1.0
+          ctx.fillStyle = "black"
+          ctx.setLineDash(scala.scalajs.js.Array(5.0, 10.0))
+          ctx.beginPath()
+          dragPiece match {
+            case None => sys.error("")
+            case Some(piece) =>
+              val (loc,_) = locAndScaleOfPiece(board,piece)
+              move(ctx, loc)
+          }
+          for(i <- 1 to path.length-1) {
+            line(ctx, path(i))
+          }
+          ctx.stroke()
+          ctx.closePath()
+          ctx.setLineDash(scala.scalajs.js.Array())
+        }
     }
 
     //Highlight movement range
-    selectedPiece match {
+    dragPiece match {
       case None => ()
       case Some(piece) =>
         val moves = board.legalMoves(piece)
@@ -275,68 +281,65 @@ object Drawing {
         }
     }
 
-    //Mouse hover
-    mouseState.hovered.foreach { mouseTarget =>
-      //Highlight hex tile on mouse hover
-      mouseState.hoverLoc.foreach { hoverLoc =>
-        strokeHex(ctx, hoverLoc, "black", tileScale, alpha=0.3)
-      }
+    //Highlight hex tile on mouse hover
+    mouseState.hoverLoc.foreach { hoverLoc =>
+      strokeHex(ctx, hoverLoc, "black", tileScale, alpha=0.3)
+    }
 
-      //Highlight mouse's target on mouse hover
-      mouseTarget match {
-        case MouseTile(_) => ()
-        case MouseEndTurn =>
-          val loc = UI.EndTurn.loc
-          strokeHex(ctx,loc, "black", tileScale)
-        case MouseTech(techIdx) =>
-          val loc = UI.Tech.getLoc(techIdx)
-          strokeHex(ctx,loc, "black", tileScale)
-        case MouseReinforcement(pieceName,side) =>
-          UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
-            case None => ()
-            case Some((loc,count)) =>
-              val locs = locsOfReinforcement(loc,count)
-              strokeHex(ctx,locs.last, "black", reinforcementScale)
-          }
-        case MousePiece(spec) =>
-          board.findPiece(spec) match {
-            case None => ()
-            case Some(piece) =>
-              val (loc,scale) = locAndScaleOfPiece(board,piece)
-              strokeHex(ctx, loc, "black", scale)
-          }
-      }
+    //Highlight mouse's target on mouse hover
+    mouseState.hovered match {
+      case MouseNone => ()
+      case MouseTile(_) => ()
+      case MouseEndTurn =>
+        val loc = UI.EndTurn.loc
+        strokeHex(ctx,loc, "black", tileScale)
+      case MouseTech(techIdx) =>
+        val loc = UI.Tech.getLoc(techIdx)
+        strokeHex(ctx,loc, "black", tileScale)
+      case MouseReinforcement(pieceName,side) =>
+        UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
+          case None => ()
+          case Some((loc,count)) =>
+            val locs = locsOfReinforcement(loc,count)
+            strokeHex(ctx,locs.last, "black", reinforcementScale)
+        }
+      case MousePiece(spec) =>
+        board.findPiece(spec) match {
+          case None => ()
+          case Some(piece) =>
+            val (loc,scale) = locAndScaleOfPiece(board,piece)
+            strokeHex(ctx, loc, "black", scale)
+        }
     }
 
     //Piece selected by mouse click
-    mouseState.selected.foreach { mouseTarget =>
-      mouseTarget match {
-        case MouseTile(_) => ()
-        case MouseEndTurn =>
-          val loc = UI.EndTurn.loc
-          fillHex(ctx, loc, "yellow", tileScale, alpha=0.1)
-          strokeHex(ctx,loc, "black", tileScale)
-        case MouseTech(techIdx) =>
-          val loc = UI.Tech.getLoc(techIdx)
-          fillHex(ctx, loc, "yellow", tileScale, alpha=0.1)
-          strokeHex(ctx,loc, "black", tileScale)
-        case MouseReinforcement(pieceName,side) =>
-          UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
-            case None => ()
-            case Some((loc,count)) =>
-              val locs = locsOfReinforcement(loc,count)
-              fillHex(ctx, locs.last, "yellow", reinforcementScale, alpha=0.1)
-              strokeHex(ctx,locs.last, "black", reinforcementScale)
-          }
-        case MousePiece(spec) =>
-          board.findPiece(spec) match {
-            case None => ()
-            case Some(piece) =>
-              val (loc,scale) = locAndScaleOfPiece(board,piece)
-              //Only stroke and no highlight since we're already getting a highlight from drawing paths.
-              strokeHex(ctx, loc, "black", scale)
-          }
-      }
+    mouseState.dragTarget match {
+      case MouseNone => ()
+      case MouseTile(_) => ()
+      case MouseEndTurn =>
+        val loc = UI.EndTurn.loc
+        fillHex(ctx, loc, "yellow", tileScale, alpha=0.1)
+        strokeHex(ctx,loc, "black", tileScale)
+      case MouseTech(techIdx) =>
+        val loc = UI.Tech.getLoc(techIdx)
+        fillHex(ctx, loc, "yellow", tileScale, alpha=0.1)
+        strokeHex(ctx,loc, "black", tileScale)
+      case MouseReinforcement(pieceName,side) =>
+        UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
+          case None => ()
+          case Some((loc,count)) =>
+            val locs = locsOfReinforcement(loc,count)
+            fillHex(ctx, locs.last, "yellow", reinforcementScale, alpha=0.1)
+            strokeHex(ctx,locs.last, "black", reinforcementScale)
+        }
+      case MousePiece(spec) =>
+        board.findPiece(spec) match {
+          case None => ()
+          case Some(piece) =>
+            val (loc,scale) = locAndScaleOfPiece(board,piece)
+            //Only stroke and no highlight since we're already getting a highlight from drawing paths.
+            strokeHex(ctx, loc, "black", scale)
+        }
     }
   }
 }

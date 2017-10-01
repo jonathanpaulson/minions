@@ -95,15 +95,17 @@ object ServerMain extends App {
 
       //Testing
       {
-        state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
-        state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
-        state.spawnPieceInitial(S0, Units.test.name, Loc(7,7))
+        state.spawnPieceInitial(S0, Units.test.name, Loc(5,5))
+        state.spawnPieceInitial(S0, Units.test.name, Loc(5,5))
+        state.spawnPieceInitial(S0, Units.test.name, Loc(5,5))
+        state.spawnPieceInitial(S0, Units.haunt.name, Loc(5,6))
+        state.spawnPieceInitial(S0, Units.shrieker.name, Loc(5,4))
 
-        state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
-        state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
-        state.spawnPieceInitial(S1, Units.test.name, Loc(8,7))
+        state.spawnPieceInitial(S1, Units.test.name, Loc(6,5))
+        state.spawnPieceInitial(S1, Units.test.name, Loc(6,5))
+        state.spawnPieceInitial(S1, Units.test.name, Loc(6,5))
 
-        state.spawnPieceInitial(S1, Units.wight.name, Loc(8,8))
+        state.spawnPieceInitial(S1, Units.wight.name, Loc(6,6))
 
         state.addReinforcementInitial(S0,"zombie")
         state.addReinforcementInitial(S0,"bat")

@@ -44,6 +44,9 @@ with Ordered[SpawnedThisTurn] {
         (that.pieceName,that.spawnLoc.x,that.spawnLoc.y,that.nthAtLoc)
     )
 }
+object PieceSpec {
+  val none: PieceSpec = StartedTurnWithID(-1)
+}
 
 /**
   * PlayerAction:
@@ -113,6 +116,11 @@ case class SpellOrAbilityTargets(
   val loc0: Loc,
   val loc1: Loc
 )
+object SpellOrAbilityTargets {
+  val none = new SpellOrAbilityTargets(PieceSpec.none,PieceSpec.none,Loc(-1,-1),Loc(-1,-1))
+  def singlePiece(pieceSpec: PieceSpec) =
+    new SpellOrAbilityTargets(pieceSpec,PieceSpec.none,Loc(-1,-1),Loc(-1,-1))
+}
 
 /** GeneralBoardAction:
   * Actions relating to this board that involve interaction with the broader game (a shared spell pool, a shared mana pool).
