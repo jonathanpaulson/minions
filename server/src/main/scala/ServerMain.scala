@@ -69,7 +69,12 @@ object ServerMain extends App {
         Units.wight,
         Units.haunt,
         Units.shrieker,
-        Units.warg
+        Units.warg,
+        Units.dark_tower,
+        Units.witch,
+        Units.lich,
+        Units.mummy,
+        Units.bone_rat
       ).map { unit =>
         PieceTech(unit.name)
       }.toArray

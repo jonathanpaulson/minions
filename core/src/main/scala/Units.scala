@@ -60,12 +60,12 @@ object Units {
 
   val test = createPieceStats(
     name = "test",
+    cost = 2,
+    rebate = 1,
     attackEffect = Some(Damage(1)),
     defense = 2,
     moveRange = 5,
     attackRange = 2,
-    cost = 2,
-    rebate = 1,
     isFlying = true,
     swarmMax = 3
   )
@@ -73,12 +73,12 @@ object Units {
   val necromancer = createPieceStats(
     name = "necromancer",
     shortDisplayName = "Necro",
+    cost = 0,
+    rebate = 0,
     attackEffect = Some(Unsummon),
     defense = 7,
     moveRange = 1,
     attackRange = 1,
-    cost = 0,
-    rebate = 0,
     isPersistent = true,
     isNecromancer = true,
     spawnRange = 1,
@@ -89,102 +89,101 @@ object Units {
 
   val zombie = createPieceStats(
     name = "zombie",
+    cost = 2,
+    rebate = 0,
     attackEffect = Some(Damage(1)),
     defense = 2,
     moveRange = 1,
     attackRange = 1,
-    cost = 2,
-    rebate = 0,
     isLumbering = true
   )
 
   val acolyte = createPieceStats(
     name = "acolyte",
+    cost = 5,
+    rebate = 3,
     attackEffect = None,
     defense = 2,
     moveRange = 2,
     attackRange = 0,
-    cost = 5,
-    rebate = 3,
     spawnRange = 1
   )
 
   val spire = createPieceStats(
     name = "spire",
+    cost = 7,
+    rebate = 4,
     attackEffect = Some(Damage(4)),
     defense = 4,
     moveRange = 0,
     attackRange = 1,
-    cost = 7,
-    rebate = 4,
-    spawnRange = 0,
     isPersistent = true
   )
 
   val initiate = createPieceStats(
     name = "initiate",
+    cost = 5,
+    rebate = 3,
     attackEffect = Some(Damage(5)),
     defense = 5,
     moveRange = 2,
     attackRange = 1,
-    cost = 5,
-    rebate = 3,
     spawnRange = 1,
     isLumbering = true
   )
 
   val skeleton = createPieceStats(
     name = "skeleton",
+    cost = 4,
+    rebate = 2,
     attackEffect = Some(Damage(5)),
     defense = 2,
     moveRange = 1,
     attackRange = 1,
-    cost = 4,
-    rebate = 2
   )
 
   val serpent = createPieceStats(
     name = "serpent",
+    cost = 5,
+    rebate = 3,
     attackEffect = Some(Damage(3)),
     defense = 1,
     moveRange = 2,
     attackRange = 1,
-    cost = 5,
-    rebate = 3
   )
 
   val bat = createPieceStats(
     name = "bat",
+    cost = 4,
+    rebate = 2,
     attackEffect = Some(Damage(1)),
     defense = 1,
     moveRange = 3,
     attackRange = 1,
-    cost = 4,
-    rebate = 2,
     isFlying = true
   )
 
   val ghost = createPieceStats(
     name = "ghost",
+    cost = 3,
+    rebate = 0,
     attackEffect = Some(Damage(1)),
     defense = 4,
     moveRange = 1,
     attackRange = 1,
-    cost = 3,
-    rebate = 0,
     isFlying = true,
     isPersistent = true
   )
 
   val wight = createPieceStats(
     name = "wight",
+    cost = 5,
+    rebate = 0,
+    deathSpawn = Some(zombie.name),
     attackEffect = Some(Damage(3)),
     defense = 3,
     moveRange = 1,
     attackRange = 1,
-    cost = 5,
-    rebate = 0,
-    deathSpawn = Some(zombie.name),
     abilities = Map("doubleattack" -> SelfEnchantAbility(
       name = "doubleattack",
       displayName = "Double Strike (sorcery)",
@@ -197,24 +196,24 @@ object Units {
 
   val haunt = createPieceStats(
     name = "haunt",
+    cost = 5,
+    rebate = 1,
     attackEffect = Some(Damage(2)),
     defense = 2,
     moveRange = 0,
     attackRange = 3,
-    cost = 5,
-    rebate = 1,
     abilities = Map(BlinkAbility.name -> BlinkAbility)
   )
 
   val shrieker = createPieceStats(
     name = "shrieker",
+    cost = 2,
+    rebate = 0,
     attackEffect = Some(Damage(1)),
     defense = 2,
     moveRange = 3,
     attackRange = 1,
     numAttacks = 2,
-    cost = 2,
-    rebate = 0,
     isWailing = true,
     canHurtNecromancer = false,
     abilities = Map(SuicideAbility.name -> SuicideAbility)
@@ -222,12 +221,81 @@ object Units {
 
   val warg = createPieceStats(
     name = "warg",
+    cost = 7,
+    rebate = 5,
     attackEffect = Some(Damage(2)),
     defense = 3,
     moveRange = 3,
     attackRange = 1,
-    cost = 7,
-    rebate = 5
+  )
+
+  val dark_tower = createPieceStats(
+    name = "dark_tower",
+    displayName = "Dark Tower",
+    cost = 8,
+    rebate = 0,
+    deathSpawn = Some(spire.name),
+    attackEffect = Some(Damage(4)),
+    defense = 4,
+    moveRange = 0,
+    attackRange = 2,
+    isPersistent = true,
+    spawnRange = 1
+  )
+
+  val witch = createPieceStats(
+    name = "witch",
+    cost = 4,
+    rebate = 0,
+    attackEffect = Some(Damage(1)),
+    defense = 2,
+    moveRange = 1,
+    attackRange = 3,
+    swarmMax = 3,
+  )
+
+  val lich = createPieceStats(
+    name = "lich",
+    cost = 8,
+    deathSpawn = Some(skeleton.name),
+    rebate = 0,
+    attackEffect = Some(Kill),
+    defense = 3,
+    moveRange = 1,
+    attackRange = 3,
+    isLumbering = true,
+  )
+
+  val mummy = createPieceStats(
+    name = "mummy",
+    cost = 8,
+    rebate = 0,
+    attackEffect = Some(Damage(5)),
+    defense = 8,
+    moveRange = 1,
+    attackRange = 1,
+    deathSpawn = Some(initiate.name),
+  )
+
+  val bone_rat = createPieceStats(
+    name = "bone_rat",
+    shortDisplayName = "BnRat",
+    displayName = "Bone Rat",
+    cost = 2,
+    rebate = 1,
+    attackEffect = Some(Damage(1)),
+    defense = 1,
+    moveRange = 1,
+    attackRange = 1,
+    swarmMax = 3,
+    abilities = Map("unsummonattack" -> SelfEnchantAbility(
+      name = "unsummonattack",
+      displayName = "Unsummon Strike (sorcery)",
+      desc = "Pay 1 sorcery power: Attack unsummons",
+      isSorcery = true,
+      tryIsUsableNow = { (_: Piece) => Success(()) },
+      mod = PieceModWithDuration(PieceMods.DoubleAttack,turnsLeft = Some(1))
+    ))
   )
 
   //All pieces
@@ -235,7 +303,7 @@ object Units {
     test,
     necromancer,
     zombie, acolyte, spire,
-    initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker, warg
+    initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker, warg, dark_tower, witch, lich, mummy, bone_rat
   )
 
   //Generally, we store and send the PieceName everywhere in the protocol, since unlike a PieceStats it's easily serialized.

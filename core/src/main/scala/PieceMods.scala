@@ -12,6 +12,7 @@ sealed trait PieceMod {
   override def toString: String = this match {
     case PieceMods.Shield => "Shield"
     case PieceMods.DoubleAttack => "DoubleAttack"
+    case PieceMods.UnsummonAttack => "UnsummonAttack"
   }
 }
 object PieceMod {
@@ -19,6 +20,7 @@ object PieceMod {
     s match {
       case "Shield" => PieceMods.Shield
       case "DoubleAttack" => PieceMods.DoubleAttack
+      case "UnsummonAttack" => PieceMods.UnsummonAttack
       case _ => throw new Exception("Could not parse PieceMod: " + s)
     }
   }
@@ -45,6 +47,17 @@ object PieceMods {
       pieceStats.copy(
         isBaseStats = false,
         numAttacks = Math.max(pieceStats.numAttacks,2)
+      )
+    }
+  }
+
+  case object UnsummonAttack extends PieceMod {
+    val displayName = "Unsummon Strike"
+    val desc = "Attack unsummons this turn"
+    def apply(pieceStats: PieceStats): PieceStats = {
+      pieceStats.copy(
+        isBaseStats = false,
+        attackEffect = Some(Unsummon)
       )
     }
   }
