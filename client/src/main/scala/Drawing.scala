@@ -289,30 +289,59 @@ object Drawing {
       }
     }
 
-    def getAttackStringAndColor(baseStats: PieceStats, curStats: PieceStats): (String,String) = {
-      val str = {
-        { if(curStats.numAttacks > 1) curStats.numAttacks.toString else "" } +
-        { curStats.attackEffect match {
-          case None => ""
-          case Some(Damage(n)) => "A" + n
-          case Some(Unsummon) => "A*"
-          case Some(Kill) => "AK"
-          case Some(_) => "A!"
-        }}
+    def getAttackStringAndColor(baseStats: PieceStats, curStats: PieceStats, actState: ActState): (String,String) = {
+      val effectStr = curStats.attackEffect match {
+        case None => ""
+        case Some(Damage(n)) => "A" + n
+        case Some(Unsummon) => "A*"
+        case Some(Kill) => "AK"
+        case Some(_) => "A!"
       }
-      val color = (curStats.attackEffect, baseStats.attackEffect) match {
-        case (Some(Damage(c)), Some(Damage(b))) => if(c < b) "magenta" else if(c == b) "black" else "green"
-        case (None, Some(Damage(_))) => "magenta"
-        case (Some(Unsummon), Some(Damage(_))) => "green"
-        case _ => "black"
+      val displayedAttacks = actState match {
+        case DoneActing => curStats.numAttacks
+        case Moving(_) => curStats.numAttacks
+        case Attacking(attacksUsed) =>
+          if(attacksUsed >= curStats.numAttacks) curStats.numAttacks
+          else curStats.numAttacks - attacksUsed
       }
-      (str,color)
+      val countStr = {
+        if(displayedAttacks > 1) displayedAttacks.toString
+        else ""
+      }
+      val colorFromEnchantments: Option[String] = {
+        if(curStats.numAttacks > baseStats.numAttacks) Some("green")
+        else {
+          (curStats.attackEffect, baseStats.attackEffect) match {
+            case (Some(Damage(c)), Some(Damage(b))) => if(c < b) Some("magenta") else if(c == b) None else Some("green")
+            case (None, Some(Damage(_))) => Some("magenta")
+            case (Some(Unsummon), Some(Damage(_))) => Some("green")
+            case _ => None
+          }
+        }
+      }
+
+      val color = {
+        actState match {
+          case DoneActing => "#777777"
+          case Moving(n) =>
+            if(n >= 0 && curStats.isLumbering) "#777777"
+            else colorFromEnchantments.getOrElse("black")
+          case Attacking(attacksUsed) =>
+            if(attacksUsed >= curStats.numAttacks) "#777777"
+            else colorFromEnchantments.getOrElse {
+              if(attacksUsed > 0) "brown"
+              else "black"
+            }
+        }
+      }
+      (countStr+effectStr,color)
     }
 
     def getDefenseStringAndColor(baseStats: PieceStats, curStats: PieceStats, damage: Int): (String,String) = {
-      val str = "D" + (curStats.defense - damage)
+      val str = (if(curStats.isPersistent) "P" else "D") + (curStats.defense - damage)
       val color = {
         if(damage > 0 || curStats.defense < baseStats.defense) "magenta"
+        else if(curStats.isPersistent > !baseStats.isPersistent) "green"
         else if(curStats.defense > baseStats.defense) "green"
         else "black"
       }
@@ -334,18 +363,37 @@ object Drawing {
       (str,color)
     }
 
-    def getMoveStringAndColor(baseStats: PieceStats, curStats: PieceStats): (String,String) = {
+    def getMoveStringAndColor(baseStats: PieceStats, curStats: PieceStats, actState: ActState): (String,String) = {
+      val displayedMoveRange = {
+        actState match {
+          case DoneActing | Attacking(_) => curStats.moveRange
+          case Moving(stepsUsed) =>
+            if(stepsUsed >= curStats.moveRange) curStats.moveRange
+            else curStats.moveRange - stepsUsed
+        }
+      }
+
       val str = {
         if(curStats.abilities.contains(BlinkAbility.name)) "M*"
         else if(!curStats.isFlying && curStats.moveRange == 1) ""
         else if(curStats.isFlying && curStats.moveRange == 1) "F"
-        else if(curStats.isFlying) "F" + curStats.moveRange
-        else "M" + curStats.moveRange
+        else if(curStats.isFlying) "F" + displayedMoveRange
+        else "M" + displayedMoveRange
       }
       val color = {
-        if(curStats.moveRange < baseStats.moveRange) "magenta"
-        else if(curStats.moveRange > baseStats.moveRange) "green"
-        else "black"
+        actState match {
+          case DoneActing => "#777777"
+          case Attacking(_) =>
+            if(curStats.abilities.contains(BlinkAbility.name)) "black"
+            else "#777777"
+          case Moving(stepsUsed) =>
+            if(curStats.abilities.contains(BlinkAbility.name)) "black"
+            else if(stepsUsed >= curStats.moveRange) "#777777"
+            else if(curStats.moveRange < baseStats.moveRange) "magenta"
+            else if(curStats.moveRange > baseStats.moveRange) "green"
+            else if(displayedMoveRange < curStats.moveRange) "brown"
+            else "black"
+        }
       }
       (str,color)
     }
@@ -360,10 +408,10 @@ object Drawing {
 
         drawPiece(loc, scale, piece.side, "")
 
-        val (aStr,aColor) = getAttackStringAndColor(baseStats,curStats)
+        val (aStr,aColor) = getAttackStringAndColor(baseStats,curStats,piece.actState)
         val (dStr,dColor) = getDefenseStringAndColor(baseStats,curStats,piece.damage)
         val (rStr,rColor) = getRangeStringAndColor(baseStats,curStats)
-        val (mStr,mColor) = getMoveStringAndColor(baseStats,curStats)
+        val (mStr,mColor) = getMoveStringAndColor(baseStats,curStats,piece.actState)
 
         //Multiple pieces in same hex
         if(board.pieces(piece.loc).length > 1) {

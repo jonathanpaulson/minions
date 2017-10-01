@@ -93,7 +93,8 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     cost = 2,
-    rebate = 0
+    rebate = 0,
+    isLumbering = true
   )
 
   val acolyte = createPieceStats(
