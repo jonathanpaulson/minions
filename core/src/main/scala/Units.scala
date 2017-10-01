@@ -7,6 +7,7 @@ import scala.util.{Try,Success,Failure}
 object Units {
   private def createPieceStats(
     name : String,
+    shortDisplayName: String = "",
     displayName: String = "",
     attackEffect : Option[TargetEffect],
     defense : Int,
@@ -31,6 +32,7 @@ object Units {
   ) : PieceStats = {
     PieceStats(
       name = name,
+      shortDisplayName = (if(shortDisplayName == "") name.capitalize else shortDisplayName),
       displayName = (if(displayName == "") name.capitalize else displayName),
       isBaseStats = true,
       attackEffect = attackEffect,
@@ -70,6 +72,7 @@ object Units {
 
   val necromancer = createPieceStats(
     name = "necromancer",
+    shortDisplayName = "Necro",
     attackEffect = Some(Unsummon),
     defense = 7,
     moveRange = 1,

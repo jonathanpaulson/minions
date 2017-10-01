@@ -40,6 +40,11 @@ case object TechAcquired extends TechLevel
   * Element in the tech sequence.
   */
 sealed trait Tech {
+  def shortDisplayName: String = {
+    this match {
+      case PieceTech(pieceName) => Units.pieceMap(pieceName).shortDisplayName
+    }
+  }
   def displayName: String = {
     this match {
       case PieceTech(pieceName) => Units.pieceMap(pieceName).displayName
@@ -52,6 +57,7 @@ case class PieceTech(pieceName:PieceName) extends Tech
   * State of a single tech.
   */
 case class TechState(
+  val shortDisplayName: String,
   val displayName: String,
   val tech: Tech,
   val level: SideArray[TechLevel],
@@ -81,6 +87,7 @@ case object Game {
   ) = {
     val techStatesAlwaysAcquired = techsAlwaysAcquired.map { tech =>
       TechState(
+        shortDisplayName = tech.shortDisplayName,
         displayName = tech.displayName,
         tech = tech,
         level = SideArray.ofArrayInplace(Array(TechAcquired,TechAcquired)),
@@ -89,6 +96,7 @@ case object Game {
     }
     val techStatesLocked = lockedTechs.map { tech =>
       TechState(
+        shortDisplayName = tech.shortDisplayName,
         displayName = tech.displayName,
         tech = tech,
         level = SideArray.ofArrayInplace(Array(TechLocked,TechLocked)),

@@ -83,6 +83,7 @@ case class PieceStats(
   //displayName is for the GUI.
   //The separation this from PieceName allows us to make graphical and cosmetic changes to things like piece names without
   //invalidating recorded games (although of course there's no help for modifications to piece stats that affect gameplay!)
+  val shortDisplayName: String,
   val displayName: String,
   //Indicates when a pieceStats has been modified by a spell or ablity
   val isBaseStats: Boolean,

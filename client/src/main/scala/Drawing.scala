@@ -46,12 +46,18 @@ object Drawing {
       text : String,
       pixel : PixelLoc,
       color : String,
-      textAlign : String = "center"
+      textAlign : String = "center",
+      smaller : Boolean = false
     ) : Unit
     = {
       ctx.globalAlpha = 1.0
       ctx.fillStyle = color
       ctx.textAlign = textAlign
+      if(smaller)
+        ctx.font = "8px sans-serif"
+      else
+        ctx.font = "10px sans-serif"
+
       ctx.fillText(text, Math.floor(pixel.x), Math.floor(pixel.y))
     }
 
@@ -107,7 +113,7 @@ object Drawing {
     }
 
     def displayNameOfPieceName(pieceName: PieceName): String = {
-      Units.pieceMap(pieceName).displayName
+      Units.pieceMap(pieceName).shortDisplayName
     }
 
     def drawPiece(hexLoc : HexLoc, scale : Double, side: Side, label: String) : Unit = {
@@ -117,7 +123,8 @@ object Drawing {
           case S1 => "red"
         }
       fillHex(hexLoc, pieceColor, scale)
-      text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
+      if(label != "")
+        text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
     def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
@@ -212,8 +219,11 @@ object Drawing {
     Side.foreach { side =>
       val locsAndContents = UI.Reinforcements.getLocsAndContents(side,flipDisplay,board)
       locsAndContents.foreach { case (loc,pieceName,count) =>
-        val label = displayNameOfPieceName(pieceName) + " x " + count
-        drawPiece(hexLocOfLoc(loc), pieceScale, side, label)
+        val hexLoc = hexLocOfLoc(loc)
+        drawPiece(hexLoc, pieceScale, side, "")
+        val label = displayNameOfPieceName(pieceName)
+        text(label, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
+        text("x " + count, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,4.0), "black")
       }
     }
 
@@ -255,7 +265,7 @@ object Drawing {
       }
 
       val hexLoc = hexLocOfLoc(loc)
-      text(techState.displayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
+      text(techState.shortDisplayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
       text(techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techScale, gridSize), "blue")
       text(techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techScale, gridSize), "red")
     }
@@ -279,12 +289,102 @@ object Drawing {
       }
     }
 
+    def getAttackStringAndColor(baseStats: PieceStats, curStats: PieceStats): (String,String) = {
+      val str = {
+        { if(curStats.numAttacks > 1) curStats.numAttacks.toString else "" } +
+        { curStats.attackEffect match {
+          case None => ""
+          case Some(Damage(n)) => "A" + n
+          case Some(Unsummon) => "A*"
+          case Some(Kill) => "AK"
+          case Some(_) => "A!"
+        }}
+      }
+      val color = (curStats.attackEffect, baseStats.attackEffect) match {
+        case (Some(Damage(c)), Some(Damage(b))) => if(c < b) "magenta" else if(c == b) "black" else "green"
+        case (None, Some(Damage(_))) => "magenta"
+        case (Some(Unsummon), Some(Damage(_))) => "green"
+        case _ => "black"
+      }
+      (str,color)
+    }
+
+    def getDefenseStringAndColor(baseStats: PieceStats, curStats: PieceStats, damage: Int): (String,String) = {
+      val str = "D" + (curStats.defense - damage)
+      val color = {
+        if(damage > 0 || curStats.defense < baseStats.defense) "magenta"
+        else if(curStats.defense > baseStats.defense) "green"
+        else "black"
+      }
+      (str,color)
+    }
+
+    def getRangeStringAndColor(baseStats: PieceStats, curStats: PieceStats): (String,String) = {
+      val str = {
+        if(!curStats.isLumbering && curStats.attackRange <= 1) ""
+        else if(curStats.isLumbering && curStats.attackRange <= 1) "L"
+        else if(curStats.isLumbering) "L" + curStats.attackRange
+        else "R" + curStats.attackRange
+      }
+      val color = {
+        if(curStats.isLumbering && !baseStats.isLumbering) "magenta"
+        else if(curStats.attackRange < baseStats.attackRange) "magenta"
+        else "black"
+      }
+      (str,color)
+    }
+
+    def getMoveStringAndColor(baseStats: PieceStats, curStats: PieceStats): (String,String) = {
+      val str = {
+        if(curStats.abilities.contains(BlinkAbility.name)) "M*"
+        else if(!curStats.isFlying && curStats.moveRange == 1) ""
+        else if(curStats.isFlying && curStats.moveRange == 1) "F"
+        else if(curStats.isFlying) "F" + curStats.moveRange
+        else "M" + curStats.moveRange
+      }
+      val color = {
+        if(curStats.moveRange < baseStats.moveRange) "magenta"
+        else if(curStats.moveRange > baseStats.moveRange) "green"
+        else "black"
+      }
+      (str,color)
+    }
+
     //Pieces
     board.pieces.foreach { pieces =>
       pieces.foreach { piece =>
         val (loc,scale) = locAndScaleOfPiece(board,piece)
-        val label = piece.baseStats.displayName
-        drawPiece(loc, scale, piece.side, label)
+        val baseStats = piece.baseStats
+        val curStats = piece.curStats(board)
+        val label = baseStats.shortDisplayName
+
+        drawPiece(loc, scale, piece.side, "")
+
+        val (aStr,aColor) = getAttackStringAndColor(baseStats,curStats)
+        val (dStr,dColor) = getDefenseStringAndColor(baseStats,curStats,piece.damage)
+        val (rStr,rColor) = getRangeStringAndColor(baseStats,curStats)
+        val (mStr,mColor) = getMoveStringAndColor(baseStats,curStats)
+
+        //Multiple pieces in same hex
+        if(board.pieces(piece.loc).length > 1) {
+          text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-3.0), "black", smaller=true)
+          text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-5.0,5.0), aColor, smaller=true)
+          text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(5.0,5.0), dColor, smaller=true)
+        }
+        //One piece in hex
+        else {
+          if(baseStats.name == Units.zombie.name && curStats.isBaseStats) {
+            text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-4.0), "black")
+          }
+          else {
+            text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-8.0), "black")
+            text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,2.0), aColor)
+            text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,2.0), dColor)
+            text(rStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,12.0), rColor)
+            text(mStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,12.0), mColor)
+          }
+        }
+
         if(piece.side != game.curSide) {
           if(piece.damage > 0)
             strokeHex(loc, "magenta", scale)
