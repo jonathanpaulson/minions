@@ -405,11 +405,23 @@ class Plane[T:ClassTag] (
   }
 
   def foreachi(f: (Loc, T) => Unit): Unit = {
-    for(y <- 0 to ySize-1) {
-      for (x <- 0 to xSize-1) {
+    for(y <- 0 until ySize) {
+      for (x <- 0 until xSize) {
         f(Loc(x,y), arr(x + y * xSize))
       }
     }
+  }
+
+  def filterLocs(f: Loc => Boolean): List[Loc] = {
+    var ret: List[Loc] = Nil
+    for(y <- 0 until ySize) {
+      for (x <- 0 until xSize) {
+        val loc = Loc(x,y)
+        if(f(loc))
+          ret = loc :: ret
+      }
+    }
+    ret.reverse
   }
 
   def getArrayInplace: Array[T] = arr

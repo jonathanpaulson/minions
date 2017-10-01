@@ -417,6 +417,11 @@ object Drawing {
             fillHex(ctx, hexLocOfLoc(loc), "yellow", reinforcementScale, alpha=0.1)
             strokeHex(ctx, hexLocOfLoc(loc), "black", reinforcementScale)
         }
+        val locs = board.legalSpawnLocs(pieceName)
+        for(loc <- locs) {
+          fillHex(ctx, loc, "yellow", tileScale, alpha=0.1)
+        }
+
       case MouseDeadPiece(pieceSpec) =>
         if(ctrlPressed) {
           UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {

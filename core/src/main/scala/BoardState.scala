@@ -589,7 +589,7 @@ case class BoardState private (
   }
 
   //Find the set of all legal locations that a piece can move to, along with the number of steps to reach the location
-  def legalMoves(piece : Piece) : Map[Loc, Int] = {
+  def legalMoves(piece : Piece): Map[Loc, Int] = {
     val ans = scala.collection.mutable.HashMap[Loc, Int]()
     forEachLegalMoveHelper(piece,List()) { case (loc,revPath) =>
       ans(loc) = revPath.length
@@ -605,6 +605,21 @@ case class BoardState private (
       }
     }
     None
+  }
+
+  //Find all locations that a piece can legally spawn
+  def legalSpawnLocs(pieceName: PieceName): List[Loc] = {
+    Units.pieceMap.get(pieceName) match {
+      case None => Nil
+      case Some(spawnStats) =>
+        //Not the most efficient algorithm to just iterate and test every loc, but it should work
+        tiles.filterLocs { loc =>
+          //Make up a fake spec that won't match anything else
+          val pieceSpec = SpawnedThisTurn(pieceName, loc, nthAtLoc = -1)
+          tryCanEndOnLoc(side, pieceSpec, spawnStats, loc, Nil).isSuccess &&
+          isSpawnerInRange(loc,spawnStats)
+        }
+    }
   }
 
   def canAttack(attackerStats: PieceStats, attackerHasMoved: Boolean, attackerState: ActState, targetStats: PieceStats): Boolean = {
@@ -736,6 +751,16 @@ case class BoardState private (
     }
   }
 
+  private def isSpawnerInRange(spawnLoc: Loc, spawnStats:PieceStats): Boolean = {
+    pieceById.values.exists { piece =>
+      val distance = topology.distance(spawnLoc,piece.loc)
+      if(piece.side != side)  false
+      else if((!spawnStats.isEldritch || distance > 1) && (piece.curStats(this).spawnRange < distance)) false
+      else if(piece.actState > Spawning) false
+      else true
+    }
+  }
+
   private def killAttackingWailingUnits(otherThan: Option[PieceSpec] = None): Unit = {
     val attackedWailings = pieceById.iterator.filter { case (_,piece) =>
       piece.curStats(this).isWailing && piece.hasAttacked && otherThan.forall { spec => piece.spec != spec }
@@ -769,7 +794,7 @@ case class BoardState private (
       case Some(spawnStats) =>
         //Make up a fake spec that won't match anything else
         val pieceSpec = SpawnedThisTurn(spawnName, spawnLoc, nthAtLoc = -1)
-        canEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnLoc, List())
+        canEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnLoc, Nil)
     }
   }
   private def trySpawnIsLegal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Try[Unit] = {
@@ -778,7 +803,7 @@ case class BoardState private (
       case Some(spawnStats) =>
         //Make up a fake spec that won't match anything else
         val pieceSpec = SpawnedThisTurn(spawnName, spawnLoc, nthAtLoc = -1)
-        tryCanEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnLoc, List())
+        tryCanEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnLoc, Nil)
     }
   }
 
@@ -846,16 +871,7 @@ case class BoardState private (
         //A bunch of tests that don't depend on the spawner or on reinforcements state
         trySpawnIsLegal(side, spawnName, spawnLoc).get
         val spawnStats = Units.pieceMap(spawnName)
-
-        def spawnOkayUsing(piece: Piece): Boolean = {
-          val distance = topology.distance(spawnLoc,piece.loc)
-          if(piece.side != side)  false
-          else if((!spawnStats.isEldritch || distance > 1) && (piece.curStats(this).spawnRange < distance)) false
-          else if(piece.actState > Spawning) false
-          else true
-        }
-
-        failUnless(pieceById.values.exists(spawnOkayUsing), "No non-newly-spawned piece with spawn in range")
+        failUnless(isSpawnerInRange(spawnLoc,spawnStats), "No non-newly-spawned piece with spawn in range")
         failUnless(reinforcements(side).contains(spawnName), "No such piece in reinforcements")
 
       case ActivateAbility(pieceSpec,abilityName,targets) =>
