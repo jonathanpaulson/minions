@@ -101,6 +101,28 @@ class Client() {
     connection.sendIfOpen(query)
   }
 
+  //Timing mechanism
+  private def getNow(): Double = {
+    (new scala.scalajs.js.Date()).getTime() / 1000.0
+  }
+  var estimatedTurnEndTime: Option[Double] = None
+  def updateEstimatedTurnEndTime(serverTimeLeft: Option[Double]) = {
+    //Compute estimate from the most recent server time left message
+    val newEstimatedEndTime = serverTimeLeft.map { serverTimeLeft => getNow() + serverTimeLeft }
+
+    //Server updates can only push the end time earlier within a given turn.
+    //That way, we always use the min-lag update to compute the time.
+    estimatedTurnEndTime =
+      newEstimatedEndTime match {
+        case None => None
+        case Some(newEstimatedEndTime) =>
+          estimatedTurnEndTime match {
+            case None => Some(newEstimatedEndTime)
+            case Some(endTime) => Some(Math.min(endTime,newEstimatedEndTime))
+          }
+      }
+  }
+
   //TODO if numActionsLocalAhead remains ahead of the server for too long (say, it never
   //decreases in a certain number of seconds), warn the user, since that may mean the server
   //never got the actions or the connection is bad.
@@ -238,6 +260,12 @@ class Client() {
           if(board.curState.side != newSide)
             throw new Exception("Server reported side is not the same as game side")
         }
+
+        //At each new turn, clear the time left so that it can be refreshed by the next server update
+        estimatedTurnEndTime = None
+
+      case Protocol.ReportTimeLeft(timeLeft) =>
+        updateEstimatedTurnEndTime(timeLeft)
     }
   }
 
@@ -289,7 +317,8 @@ class Client() {
       mouseState.refresh(game.get,board.curState)
     }
     curLocalBoard().foreach { _ =>
-      Drawing.drawEverything(canvas, ctx, game.get, localBoards, curBoardIdx, mouseState, flipDisplay, ctrlPressed, showCoords)
+      val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
+      Drawing.drawEverything(canvas, ctx, game.get, localBoards, curBoardIdx, mouseState, flipDisplay, ctrlPressed, showCoords, timeLeft)
     }
   }
 
@@ -410,6 +439,10 @@ class Client() {
   canvas.onmouseout = mouseout _
 
   draw()
+
+  scala.scalajs.js.timers.setInterval(200) {
+    draw()
+  }
 
   val _ : Future[Unit] = connection.run(handleWebsocketEvent)
 

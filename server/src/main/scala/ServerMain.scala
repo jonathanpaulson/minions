@@ -7,7 +7,7 @@ import com.typesafe.config.ConfigFactory
 import java.util.Calendar
 import java.text.SimpleDateFormat
 
-import akka.actor.{ActorSystem, Actor, ActorRef, Terminated, Props, Status}
+import akka.actor.{ActorSystem, Actor, ActorRef, Cancellable, Terminated, Props, Status}
 import akka.stream.{ActorMaterializer,OverflowStrategy}
 import akka.stream.scaladsl.{Flow,Sink,Source}
 import akka.http.scaladsl.Http
@@ -134,12 +134,24 @@ object ServerMain extends App {
   val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
 
   //----------------------------------------------------------------------------------
+  //TIME LIMITS
+  val secondsPerTurn = config.getDouble("app.secondsPerTurn")
+  //Server reports time left every this often
+  val reportTimePeriod = 5.0
+  def getNow(): Double = {
+    System.currentTimeMillis.toDouble / 1000.0
+  }
+  var endOfTurnTime: Option[Double] = None
+
+  //----------------------------------------------------------------------------------
   //GAME ACTOR - singleton actor that maintains the state of the game being played
 
   sealed trait GameActorEvent
   case class UserJoined(val sessionId: Int, val username: String, val side: Option[Side], val out: ActorRef) extends GameActorEvent
   case class UserLeft(val sessionId: Int) extends GameActorEvent
   case class QueryStr(val sessionId: Int, val queryStr: String) extends GameActorEvent
+  case class ShouldEndTurn(val turnNumberToEnd: Int) extends GameActorEvent
+  case class ShouldReportTimeLeft() extends GameActorEvent
 
   private class GameActor extends Actor {
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
@@ -147,6 +159,14 @@ object ServerMain extends App {
     var usernameOfSession: Map[Int,String] = Map()
     var userSides: Map[Int,Option[Side]] = Map()
     var userOuts: Map[Int,ActorRef] = Map()
+
+    val timeReportJob: Cancellable = {
+      import scala.concurrent.duration._
+      import scala.language.postfixOps
+      actorSystem.scheduler.schedule(reportTimePeriod seconds, reportTimePeriod seconds) {
+        self ! ShouldReportTimeLeft()
+      }
+    }
 
     // private def broadcast(response: Protocol.Response, side: Option[Side]): Unit = {
     //   userOuts.foreach { case (sid,out) =>
@@ -224,6 +244,38 @@ object ServerMain extends App {
       game.endTurn()
       boards.foreach { board => board.endTurn() }
       broadcastAll(Protocol.ReportNewTurn(newSide))
+
+      //Schedule the next end of turn
+      scheduleEndOfTurn(game.turnNumber)
+    }
+
+    private def getTimeLeftEvent(): Option[Protocol.Response] = {
+      if(game.winner.isEmpty) {
+        val timeLeft = endOfTurnTime.map { endOfTurnTime => endOfTurnTime - getNow() }
+        Some(Protocol.ReportTimeLeft(timeLeft))
+      }
+      else {
+        val (_: Boolean) = timeReportJob.cancel()
+        None
+      }
+    }
+
+    private def maybeBroadcastTimeLeft(): Unit = {
+      getTimeLeftEvent().foreach { response =>
+        broadcastAll(response)
+      }
+    }
+
+    private def scheduleEndOfTurn(turnNumber: Int): Unit = {
+      import scala.concurrent.duration._
+      import scala.language.postfixOps
+      endOfTurnTime = Some(getNow() + secondsPerTurn)
+      maybeBroadcastTimeLeft()
+      val (_: Cancellable) = actorSystem.scheduler.scheduleOnce(secondsPerTurn seconds) {
+        //Make sure to do this via sending event to self, rather than directly, to
+        //take advantage of the actor's synchronization
+        self ! ShouldEndTurn(turnNumber)
+      }
     }
 
     private def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side]): Unit = {
@@ -358,6 +410,7 @@ object ServerMain extends App {
         userOuts = userOuts + (sessionId -> out)
         out ! Protocol.Version(CurrentVersion.version)
         out ! Protocol.Initialize(game, boards.map { board => board.toSummary()},boardSequences.clone())
+        getTimeLeftEvent().foreach { response => out ! response }
         broadcastAll(Protocol.UserJoined(username,side))
         log("UserJoined: " + username + " Side: " + side)
 
@@ -388,6 +441,13 @@ object ServerMain extends App {
               }
           }
         }
+      case ShouldEndTurn(turnNumberToEnd) =>
+        if(game.turnNumber == turnNumberToEnd && game.winner.isEmpty) {
+          doEndOfTurn()
+        }
+
+      case ShouldReportTimeLeft() =>
+        maybeBroadcastTimeLeft()
     }
 
   }
@@ -442,7 +502,6 @@ object ServerMain extends App {
 
   //----------------------------------------------------------------------------------
   //DEFINE WEB SERVER ROUTES
-
 
   val route = get {
     pathEndOrSingleSlash {

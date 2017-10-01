@@ -21,6 +21,7 @@ object Protocol {
   case class ReportGameAction(gameAction: GameAction, newGameSequence: Int) extends Response
   case class ReportNewTurn(newSide: Side) extends Response
   case class ReportResetBoard(boardIdx: Int, necroNames:SideArray[PieceName]) extends Response
+  case class ReportTimeLeft(timeLeft: Option[Double]) extends Response
 
   sealed trait Query
   case class Heartbeat(i: Int) extends Query
@@ -433,6 +434,7 @@ object Protocol {
   implicit val reportGameActionFormat = Json.format[ReportGameAction]
   implicit val reportNewTurnFormat = Json.format[ReportNewTurn]
   implicit val reportResetBoardFormat = Json.format[ReportResetBoard]
+  implicit val reportTimeLeftFormat = Json.format[ReportTimeLeft]
   implicit val responseFormat = {
     val reads: Reads[Response] = readsFromPair[Response]("Response",Map(
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
@@ -447,7 +449,8 @@ object Protocol {
       "ReportBoardAction" -> ((json:JsValue) => reportBoardActionFormat.reads(json)),
       "ReportGameAction" -> ((json:JsValue) => reportGameActionFormat.reads(json)),
       "ReportNewTurn" -> ((json:JsValue) => reportNewTurnFormat.reads(json)),
-      "ReportResetBoard" -> ((json:JsValue) => reportResetBoardFormat.reads(json))
+      "ReportResetBoard" -> ((json:JsValue) => reportResetBoardFormat.reads(json)),
+      "ReportTimeLeft" -> ((json:JsValue) => reportTimeLeftFormat.reads(json))
     ))
     val writes: Writes[Response] = new Writes[Response] {
       def writes(t: Response): JsValue = t match {
@@ -464,6 +467,7 @@ object Protocol {
         case (t:ReportGameAction) => jsPair("ReportGameAction",reportGameActionFormat.writes(t))
         case (t:ReportNewTurn) => jsPair("ReportNewTurn",reportNewTurnFormat.writes(t))
         case (t:ReportResetBoard) => jsPair("ReportResetBoard",reportResetBoardFormat.writes(t))
+        case (t:ReportTimeLeft) => jsPair("ReportTimeLeft",reportTimeLeftFormat.writes(t))
       }
     }
     Format(reads,writes)

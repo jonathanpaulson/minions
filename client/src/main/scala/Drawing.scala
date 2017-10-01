@@ -24,7 +24,8 @@ object Drawing {
     mouseState: MouseState,
     flipDisplay: Boolean,
     ctrlPressed: Boolean,
-    showCoords: Boolean
+    showCoords: Boolean,
+    timeLeft: Option[Double]
   ) : Unit = {
 
     val board = boards(boardIdx).curState
@@ -189,8 +190,17 @@ object Drawing {
           textAtLoc(side.toColorName + " Team wins the game!", 0.0, -9.0)
       }
       else {
-        if(side == board.side)
+        if(side == board.side) {
           textAtLoc(side.toColorName + " Team's Turn!", 0.0, -9.0)
+          timeLeft.foreach { timeLeft =>
+            val seconds: Int = Math.floor(timeLeft).toInt
+            val timeStr = {
+              if(seconds < 0) "-" + ((-seconds) / 60).toString + ":" + "%02d".format((-seconds) % 60)
+              else (seconds / 60).toString + ":" + "%02d".format(seconds % 60)
+            }
+            textAtLoc("Time left: " + timeStr, 120.0, -9.0)
+          }
+        }
       }
 
       textAtLoc(side.toColorName + " Team Mana: " + mana, 0.0, 3.0)
