@@ -51,6 +51,25 @@ object UI {
 
   }
 
+  object DeadPieces {
+    def getLocsAndContents(board: BoardState): Array[(Loc,PieceSpec,PieceName,Side)] = {
+      board.killedThisTurn.zipWithIndex.map { case ((spec,pieceName,side),i) =>
+        val loc = Loc(-board.tiles.ySize / 2 + i, board.tiles.ySize + 1)
+        (loc,spec,pieceName,side)
+      }.toArray
+    }
+
+    def getSelectedSpec(board: BoardState, loc: Loc): Option[PieceSpec] = {
+      val locs = getLocsAndContents(board)
+      locs.findMap { case (l,spec,_,_) => if(loc == l) Some(spec) else None }
+    }
+
+    def getSelectedLoc(board: BoardState, pieceSpec: PieceSpec): Option[Loc] = {
+      val locs = getLocsAndContents(board)
+      locs.findMap { case (l,spec,_,_) => if(pieceSpec == spec) Some(l) else None }
+    }
+  }
+
   //Positioning for reinforcements
   object Reinforcements {
     val unflippedLocs = Array(

@@ -54,11 +54,13 @@ case class PieceTech(pieceName:PieceName) extends Tech
 case class TechState(
   val displayName: String,
   val tech: Tech,
-  val level: SideArray[TechLevel]
+  val level: SideArray[TechLevel],
+  val startingLevelThisTurn: SideArray[TechLevel]
 )
 
 sealed trait GameAction
 case class PerformTech(side: Side, techLineIdx: Int) extends GameAction
+case class UndoTech(side: Side, techLineIdx: Int) extends GameAction
 case class SetBoardDone(boardIdx: Int, done: Boolean) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
@@ -74,28 +76,38 @@ case object Game {
     techsAlwaysAcquired: Array[Tech],
     lockedTechs: Array[Tech]
   ) = {
+    val techStatesAlwaysAcquired = techsAlwaysAcquired.map { tech =>
+      TechState(
+        displayName = tech.displayName,
+        tech = tech,
+        level = SideArray.ofArrayInplace(Array(TechAcquired,TechAcquired)),
+        startingLevelThisTurn = SideArray.ofArrayInplace(Array(TechAcquired,TechAcquired))
+      )
+    }
+    val techStatesLocked = lockedTechs.map { tech =>
+      TechState(
+        displayName = tech.displayName,
+        tech = tech,
+        level = SideArray.ofArrayInplace(Array(TechLocked,TechLocked)),
+        startingLevelThisTurn = SideArray.ofArrayInplace(Array(TechLocked,TechLocked))
+      )
+    }
+    val piecesAlwaysAcquired: Map[PieceName,TechState] =
+      techStatesAlwaysAcquired.map { techState =>
+        techState.tech match { case PieceTech(pieceName) => (pieceName -> techState) }
+      }.toMap
+
     val game = new Game(
       curSide = startingSide,
       turnNumber = 0,
       mana = startingMana.copy(),
       wins = SideArray.create(0),
-      techLine = (techsAlwaysAcquired ++ lockedTechs).map { tech =>
-        TechState(
-          displayName = tech.displayName,
-          tech = tech,
-          level = SideArray.ofArrayInplace(Array(TechLocked,TechLocked)))
-      },
-      piecesAcquired = SideArray.create(Set()),
-      hasTechedThisTurn = false,
+      techLine = techStatesAlwaysAcquired ++ techStatesLocked,
+      piecesAcquired = SideArray.create(piecesAlwaysAcquired),
+      numTechsThisTurn = 0,
       extraTechCost = extraTechCost,
       isBoardDone = Array.fill(numBoards)(false)
     )
-    for(techLineIdx <- 0 until techsAlwaysAcquired.length) {
-      game.performTechWithoutCost(S0,techLineIdx)
-      game.performTechWithoutCost(S0,techLineIdx)
-      game.performTechWithoutCost(S1,techLineIdx)
-      game.performTechWithoutCost(S1,techLineIdx)
-    }
     game
   }
 }
@@ -111,8 +123,8 @@ case class Game (
   val wins: SideArray[Int],
 
   val techLine: Array[TechState],
-  val piecesAcquired: SideArray[Set[PieceName]],
-  var hasTechedThisTurn: Boolean,
+  val piecesAcquired: SideArray[Map[PieceName,TechState]],
+  var numTechsThisTurn: Int,
   val extraTechCost: Int,
 
   //Flags set when user indicates that the board is done. Server ends the turn when all boards have this set.
@@ -131,6 +143,7 @@ case class Game (
       case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
       case AddWin(_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
+      case UndoTech(side,techLineIdx) => tryCanUndoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => tryCanSetBoardDone(boardIdx,done)
     }
   }
@@ -141,6 +154,7 @@ case class Game (
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
       case AddWin(side) => { wins(side) = wins(side) + 1; Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
+      case UndoTech(side,techLineIdx) => undoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
     }
   }
@@ -148,8 +162,15 @@ case class Game (
   def endTurn(): Unit = {
     curSide = curSide.opp
     turnNumber += 1
-    hasTechedThisTurn = false
-    for(i <- 0 until isBoardDone.length) isBoardDone(i) = false
+    numTechsThisTurn = 0
+
+    techLine.foreach { techState =>
+      techState.startingLevelThisTurn(S0) = techState.level(S0)
+      techState.startingLevelThisTurn(S1) = techState.level(S1)
+    }
+
+    for(i <- 0 until isBoardDone.length)
+      isBoardDone(i) = false
   }
 
   private def tryCanPayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
@@ -157,14 +178,20 @@ case class Game (
       Failure(new Exception("Currently the other team's turn"))
     else if(!Units.pieceMap.contains(pieceName))
       Failure(new Exception("Trying to pay for reinforcement piece with unknown name: " + pieceName))
-    else if(!piecesAcquired(side).contains(pieceName))
-      Failure(new Exception("Piece tech not acquired yet: " + pieceName))
     else {
-      val stats = Units.pieceMap(pieceName)
-      if(mana(side) < stats.cost)
-        Failure(new Exception("Not enough souls"))
-      else
-        Success(())
+      piecesAcquired(side).get(pieceName) match {
+        case None => Failure(new Exception("Piece tech not acquired yet: " + pieceName))
+        case Some(techState) =>
+          if(techState.startingLevelThisTurn(side) != TechAcquired)
+            Failure(new Exception("Cannot buy pieces on the same turn as teching to them"))
+          else {
+            val stats = Units.pieceMap(pieceName)
+            if(mana(side) < stats.cost)
+              Failure(new Exception("Not enough souls"))
+            else
+              Success(())
+          }
+      }
     }
   }
 
@@ -200,7 +227,7 @@ case class Game (
   private def tryCanPerformTech(side: Side, techLineIdx: Int): Try[Unit] = {
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
-    else if(hasTechedThisTurn && mana(side) < extraTechCost)
+    else if(numTechsThisTurn > 0 && mana(side) < extraTechCost)
       Failure(new Exception("Not enough souls to tech more than once this turn"))
     else if(techLineIdx < 0 || techLineIdx >= techLine.length)
       Failure(new Exception("Invalid tech idx"))
@@ -224,28 +251,68 @@ case class Game (
     tryCanPerformTech(side,techLineIdx) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        if(hasTechedThisTurn)
+        if(numTechsThisTurn > 0)
           mana(side) = mana(side) - extraTechCost
-        else
-          hasTechedThisTurn = true
 
-        performTechWithoutCost(side,techLineIdx)
+        numTechsThisTurn += 1
+        val techState = techLine(techLineIdx)
+        techState.level(side) match {
+          case TechAcquired => assertUnreachable()
+          case TechLocked =>
+            techState.level(side) = TechUnlocked
+          case TechUnlocked =>
+            techState.level(side) = TechAcquired
+            techState.tech match {
+              case PieceTech(pieceName) =>
+                piecesAcquired(side) = piecesAcquired(side) + (pieceName -> techState)
+            }
+        }
         suc
     }
   }
 
-  private def performTechWithoutCost(side: Side, techLineIdx: Int): Unit = {
-    val techState = techLine(techLineIdx)
-    techState.level(side) match {
-      case TechAcquired => assertUnreachable()
-      case TechLocked =>
-        techState.level(side) = TechUnlocked
-      case TechUnlocked =>
-        techState.level(side) = TechAcquired
-        techState.tech match {
-          case PieceTech(pieceName) =>
-            piecesAcquired(side) = piecesAcquired(side) + pieceName
+  private def tryCanUndoTech(side: Side, techLineIdx: Int): Try[Unit] = {
+    if(side != curSide)
+      Failure(new Exception("Currently the other team's turn"))
+    else if(techLineIdx < 0 || techLineIdx >= techLine.length)
+      Failure(new Exception("Invalid tech idx"))
+    else if(techLine(techLineIdx).level(side) == techLine(techLineIdx).startingLevelThisTurn(side))
+      Failure(new Exception("Cannot undo tech from previous turns"))
+    else if(techLineIdx < techLine.length - 1 &&
+      techLine(techLineIdx).level(side) == TechUnlocked &&
+      techLine(techLineIdx+1).level(side) != techLine(techLineIdx+1).startingLevelThisTurn(side))
+      Failure(new Exception("Cannot undo this tech without undoing later techs first"))
+    else {
+      val techState = techLine(techLineIdx)
+      techState.level(side) match {
+        case TechLocked => Failure(new Exception("Cannot undo tech never acquired"))
+        case TechUnlocked | TechAcquired => Success(())
+      }
+    }
+  }
+
+  private def undoTech(side: Side, techLineIdx: Int): Try[Unit] = {
+    tryCanUndoTech(side,techLineIdx) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        if(numTechsThisTurn > 1)
+          mana(side) = mana(side) + extraTechCost
+
+        numTechsThisTurn -= 1
+        val techState = techLine(techLineIdx)
+        techState.level(side) match {
+          case TechAcquired =>
+            techState.level(side) = TechUnlocked
+            techState.tech match {
+              case PieceTech(pieceName) =>
+                piecesAcquired(side) = piecesAcquired(side) - pieceName
+            }
+          case TechUnlocked =>
+            techState.level(side) = TechLocked
+          case TechLocked =>
+            assertUnreachable()
         }
+        suc
     }
   }
 

@@ -14,6 +14,7 @@ sealed trait MouseTarget {
       case MouseTile(_) => None
       case MouseTech(_) => None
       case MouseReinforcement(_,_) => None
+      case MouseDeadPiece(_) => None
       case MouseEndTurn => None
     }
   }
@@ -23,6 +24,7 @@ case class MousePiece(pieceSpec: PieceSpec) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int) extends MouseTarget
 case class MouseReinforcement(pieceName: PieceName, side:Side) extends MouseTarget
+case class MouseDeadPiece(pieceSpec: PieceSpec) extends MouseTarget
 case object MouseEndTurn extends MouseTarget
 
 //Different modes the mouse can be in for selecting different things
@@ -30,7 +32,7 @@ sealed trait MouseMode {
   //Handlers in this mouse mode
   def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit
   def handleMouseMove(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit
-  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int): Unit
+  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, ctrlPressed: Boolean): Unit
 }
 
 //---------------------------------------------------------------------------------------
@@ -49,6 +51,9 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean)
   //The target of the last mousedown, if the mouse is still held down.
   var dragTarget: MouseTarget = MouseNone
 
+  //Last pixel location of the mouse, for refreshing the state in case the board changed
+  var lastPixelLoc: Option[PixelLoc] = None
+
   //Current mode that the mouse is operating in.
   var mode: MouseMode = NormalMouseMode(this)
 
@@ -56,12 +61,19 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean)
     hoverLoc = None
     hovered = MouseNone
     dragTarget = MouseNone
+    lastPixelLoc = None
     mode = NormalMouseMode(this)
   }
 
   def clearSelect() = {
     dragTarget = MouseNone
     mode = NormalMouseMode(this)
+  }
+
+  def refresh(game: Game, board: BoardState) = {
+    lastPixelLoc.foreach { pixelLoc =>
+      handleMouseMove(pixelLoc,game,board)
+    }
   }
 
   private def getLocAndDelta(pixelLoc: PixelLoc, board: BoardState): (Loc,HexVec) = {
@@ -104,13 +116,17 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean)
           UI.Reinforcements.getSelectedPiece(game.curSide,flipDisplay,board,loc) match {
             case Some(pieceName) => MouseReinforcement(pieceName,game.curSide)
             case None =>
-              UI.Tech.getSelectedTechIdx(game,loc) match {
-                case Some(techIdx) => MouseTech(techIdx)
+              UI.DeadPieces.getSelectedSpec(board,loc) match {
+                case Some(pieceSpec) => MouseDeadPiece(pieceSpec)
                 case None =>
-                  if(loc == UI.EndTurn.loc)
-                    MouseEndTurn
-                  else
-                    MouseNone
+                  UI.Tech.getSelectedTechIdx(game,loc) match {
+                    case Some(techIdx) => MouseTech(techIdx)
+                    case None =>
+                      if(loc == UI.EndTurn.loc)
+                        MouseEndTurn
+                      else
+                        MouseNone
+                  }
               }
           }
         }
@@ -118,6 +134,7 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean)
   }
 
   def handleMouseDown(pixelLoc: PixelLoc, game: Game, board: BoardState) : Unit = {
+    lastPixelLoc = Some(pixelLoc)
     ourSide match {
       case None => ()
       case Some(ourSide) =>
@@ -131,20 +148,23 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean)
     }
   }
 
-  def handleMouseUp(pixelLoc: PixelLoc, game: Game, board: BoardState, boardIdx: Int): Unit = {
+  def handleMouseUp(pixelLoc: PixelLoc, game: Game, board: BoardState, boardIdx: Int, ctrlPressed: Boolean): Unit = {
+    lastPixelLoc = Some(pixelLoc)
     ourSide match {
       case None => ()
       case Some(ourSide) =>
         if(ourSide == board.side) {
           val curTarget = getTarget(pixelLoc,game,board)
           val (curLoc,_) = getLocAndDelta(pixelLoc,board)
-          mode.handleMouseUp(dragTarget,curTarget,curLoc,game,board,boardIdx)
+          mode.handleMouseUp(dragTarget,curTarget,curLoc,game,board,boardIdx,ctrlPressed)
           dragTarget = MouseNone
         }
     }
   }
 
   def handleMouseMove(pixelLoc: PixelLoc, game: Game, board: BoardState) : Unit = {
+    lastPixelLoc = Some(pixelLoc)
+
     val curTarget = getTarget(pixelLoc,game,board)
     val (curLoc,_) = getLocAndDelta(pixelLoc,board)
     hoverLoc = Some(curLoc)
@@ -261,7 +281,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     }
   }
 
-  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int): Unit = {
+  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, ctrlPressed: Boolean): Unit = {
     val didDoubleClick = {
       doubleClickState match {
         case None => false
@@ -276,86 +296,128 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
 
       case MouseEndTurn =>
         //Require mouse down and up on the same target
-        if(curTarget == MouseEndTurn)
+        if(curTarget == dragTarget)
           mouseState.doGameAction(SetBoardDone(boardIdx,!game.isBoardDone(boardIdx)))
 
       case MouseTech(techIdx) =>
         //Require mouse down and up on the same target
-        if(curTarget == MouseTech(techIdx)) {
+        if(curTarget == dragTarget) {
           val techState = game.techLine(techIdx)
-          techState.level(game.curSide) match {
-            case TechLocked | TechUnlocked =>
-              mouseState.doGameAction(PerformTech(game.curSide,techIdx))
-            case TechAcquired =>
-              techState.tech match {
-                case PieceTech(pieceName) =>
-                  mouseState.doBoardAction(DoGeneralBoardAction(BuyReinforcement(pieceName),mouseState.makeActionId()))
-              }
+          if(ctrlPressed) {
+            (techState.level(game.curSide), techState.startingLevelThisTurn(game.curSide)) match {
+              case (TechAcquired,TechAcquired) =>
+                techState.tech match {
+                  case PieceTech(pieceName) =>
+                    mouseState.doBoardAction(BuyReinforcementUndo(pieceName,mouseState.makeActionId()))
+                }
+              case _ =>
+                mouseState.doGameAction(UndoTech(game.curSide,techIdx))
+            }
+          }
+          else {
+            techState.level(game.curSide) match {
+              case TechLocked | TechUnlocked =>
+                mouseState.doGameAction(PerformTech(game.curSide,techIdx))
+              case TechAcquired =>
+                techState.tech match {
+                  case PieceTech(pieceName) =>
+                    mouseState.doBoardAction(DoGeneralBoardAction(BuyReinforcement(pieceName),mouseState.makeActionId()))
+                }
+            }
+          }
+        }
+
+      case MouseDeadPiece(pieceSpec) =>
+        if(ctrlPressed) {
+          //Require mouse down and up on the same target
+          if(curTarget == dragTarget) {
+            mouseState.doBoardAction(LocalPieceUndo(pieceSpec,mouseState.makeActionId()))
           }
         }
 
       case MouseReinforcement(pieceName,_) =>
-        mouseState.doBoardAction(PlayerActions(List(Spawn(curLoc,pieceName)),mouseState.makeActionId()))
+        if(ctrlPressed) {
+          //Require mouse down and up on the same target
+          if(curTarget == dragTarget) {
+            val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
+              if(pieceName == name) Some(pieceSpec) else None
+            }
+            pieceSpec.foreach { pieceSpec =>
+              mouseState.doBoardAction(LocalPieceUndo(pieceSpec,mouseState.makeActionId()))
+            }
+          }
+        }
+        else {
+          mouseState.doBoardAction(PlayerActions(List(Spawn(curLoc,pieceName)),mouseState.makeActionId()))
+        }
 
-      case MousePiece(selectedSpec) =>
-        board.findPiece(selectedSpec) match {
-          case None => ()
-          case Some(piece) =>
-            if(piece.side == game.curSide) {
-              //Double-clicking on a piece activates its ability
-              if(didDoubleClick) {
-                val pieceStats = piece.curStats(board)
-                val abilityNames = pieceStats.abilities.keys.toArray
-                if(abilityNames.length > 0) {
-                  //TODO disambiguate which action if there's more than one?
-                  val abilityName = abilityNames(0)
-                  val ability = pieceStats.abilities(abilityName)
-                  val spec = piece.spec
-                  ability match {
-                    case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) =>
-                      val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.none))
-                      mouseState.doBoardAction(PlayerActions(abilityActions,mouseState.makeActionId()))
-                    case (_:TargetedAbility) =>
-                      mouseState.mode = SelectTargetMouseMode(mouseState) { (target:MouseTarget) =>
-                        target.findPiece(board) match {
-                          case None => ()
-                          case Some(targetPiece) =>
-                            val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.singlePiece(targetPiece.spec)))
-                            mouseState.doBoardAction(PlayerActions(abilityActions,mouseState.makeActionId()))
+      case MousePiece(dragSpec) =>
+        if(ctrlPressed) {
+          //Require mouse down and up on the same target
+          if(curTarget == dragTarget) {
+            mouseState.doBoardAction(LocalPieceUndo(dragSpec,mouseState.makeActionId()))
+          }
+        }
+        else {
+          board.findPiece(dragSpec) match {
+            case None => ()
+            case Some(piece) =>
+              if(piece.side == game.curSide) {
+                //Double-clicking on a piece activates its ability
+                if(didDoubleClick) {
+                  val pieceStats = piece.curStats(board)
+                  val abilityNames = pieceStats.abilities.keys.toArray
+                  if(abilityNames.length > 0) {
+                    //TODO disambiguate which action if there's more than one?
+                    val abilityName = abilityNames(0)
+                    val ability = pieceStats.abilities(abilityName)
+                    val spec = piece.spec
+                    ability match {
+                      case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) =>
+                        val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.none))
+                        mouseState.doBoardAction(PlayerActions(abilityActions,mouseState.makeActionId()))
+                      case (_:TargetedAbility) =>
+                        mouseState.mode = SelectTargetMouseMode(mouseState) { (target:MouseTarget) =>
+                          target.findPiece(board) match {
+                            case None => ()
+                            case Some(targetPiece) =>
+                              val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.singlePiece(targetPiece.spec)))
+                              mouseState.doBoardAction(PlayerActions(abilityActions,mouseState.makeActionId()))
+                          }
                         }
-                      }
+                    }
                   }
                 }
-              }
-              //Otherwise, normal click-and-drag
-              else {
-                //Attack if enemy piece under the mouseUp
-                val attack: Option[PlayerAction] = {
-                  curTarget.findPiece(board) match {
-                    case None => None
-                    case Some(other) =>
-                      if(other.side == piece.side) None
-                      else Some(Attack(piece.spec, other.spec))
+                //Otherwise, normal click-and-drag
+                else {
+                  //Attack if enemy piece under the mouseUp
+                  val attack: Option[PlayerAction] = {
+                    curTarget.findPiece(board) match {
+                      case None => None
+                      case Some(other) =>
+                        if(other.side == piece.side) None
+                        else Some(Attack(piece.spec, other.spec))
+                    }
                   }
-                }
-                //Move based on the path, if we have a nontrivial path
-                val movementFromPath: Option[PlayerAction] = movementActionsOfPath(piece)
-                //If the path is empty and the target is a tile one hex away from the piece's current location
-                //then attempt a move so that we can report an illegal move error as help
-                val movement = {
-                  if(attack.isEmpty && movementFromPath.isEmpty) {
-                    if(board.tiles.topology.distance(piece.loc,curLoc) == 1)
-                      Some(Movements(List(Movement(piece.spec, Vector(piece.loc,curLoc)))))
+                  //Move based on the path, if we have a nontrivial path
+                  val movementFromPath: Option[PlayerAction] = movementActionsOfPath(piece)
+                  //If the path is empty and the target is a tile one hex away from the piece's current location
+                  //then attempt a move so that we can report an illegal move error as help
+                  val movement = {
+                    if(attack.isEmpty && movementFromPath.isEmpty) {
+                      if(board.tiles.topology.distance(piece.loc,curLoc) == 1)
+                        Some(Movements(List(Movement(piece.spec, Vector(piece.loc,curLoc)))))
+                      else movementFromPath
+                    }
                     else movementFromPath
                   }
-                  else movementFromPath
-                }
 
-                val actions = List(movement,attack).flatten
-                if(actions.length > 0)
-                  mouseState.doBoardAction(PlayerActions(actions,mouseState.makeActionId()))
+                  val actions = List(movement,attack).flatten
+                  if(actions.length > 0)
+                    mouseState.doBoardAction(PlayerActions(actions,mouseState.makeActionId()))
+                }
               }
-            }
+          }
         }
     }
 
@@ -380,8 +442,8 @@ case class SelectTargetMouseMode(mouseState: MouseState)(f:MouseTarget => Unit) 
     val _ = (dragTarget,curTarget,curLoc,game,board)
   }
 
-  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int): Unit = {
-    val _ = (curLoc,game,board,boardIdx)
+  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, ctrlPressed: Boolean): Unit = {
+    val _ = (curLoc,game,board,boardIdx,ctrlPressed)
 
     //Restore normal mode
     mouseState.mode = NormalMouseMode(mouseState)

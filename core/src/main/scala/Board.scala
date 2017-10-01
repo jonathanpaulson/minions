@@ -102,9 +102,9 @@ object Board {
 
 class Board private (
   //The board state at the start of everything
-  private val initialState: BoardState,
+  val initialState: BoardState,
   //The board history at the start of this turn
-  private var initialStateThisTurn: BoardState,
+  var initialStateThisTurn: BoardState,
 
   //actionsThisTurn is defined in a potentially larger range if undos have happened, as it stores the redo history.
   private var actionsThisTurn: Vector[BoardAction],
@@ -132,6 +132,15 @@ class Board private (
   //Users should NOT modify the BoardState returned by this function!
   def curState(): BoardState = {
     history.spawnState
+  }
+
+  //Find the set of actions that would be undone by a local undo for pieceSpec
+  def findLocalPieceUndoActions(pieceSpec: PieceSpec): Option[List[PlayerAction]] = {
+    findLastMatch(history.spawnActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } } match {
+      case Some(actions) => Some(actions)
+      case None =>
+        findLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
+    }
   }
 
   def tryLegality(action: BoardAction): Try[Unit] = {
@@ -166,6 +175,13 @@ class Board private (
         else
           Success(())
     }
+  }
+
+  def findLastMatch[T](vec: Vector[T])(f: T => Boolean): Option[T] = {
+    val index = vec.lastIndexWhere(f)
+    if(index < 0) //No match
+      None
+    else Some(vec(index))
   }
 
   def dropLastMatch[T](vec: Vector[T])(f: T => Boolean): Vector[T] = {
@@ -256,7 +272,7 @@ class Board private (
             val keptSpawnActionsThisTurn =
               dropLastMatch(history.spawnActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
             val keptMoveAttackActionsThisTurn = {
-              if(keptSpawnActionsThisTurn.length == history.spawnActionsThisTurn.length)
+              if(keptSpawnActionsThisTurn.length != history.spawnActionsThisTurn.length)
                 history.moveAttackActionsThisTurn
               else
                 dropLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
@@ -289,7 +305,7 @@ class Board private (
             val keptSpawnActionsThisTurn =
               dropLastMatch(history.spawnActionsThisTurn) { playerActions => playerActions.exists { _.involvesSpell(spellId) } }
             val keptMoveAttackActionsThisTurn = {
-              if(keptSpawnActionsThisTurn.length == history.spawnActionsThisTurn.length)
+              if(keptSpawnActionsThisTurn.length != history.spawnActionsThisTurn.length)
                 history.moveAttackActionsThisTurn
               else
                 dropLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesSpell(spellId) } }

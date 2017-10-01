@@ -191,6 +191,7 @@ class Client() {
         numActionsLocalAhead = 0
 
       case Protocol.ReportGameAction(gameAction,_) =>
+        println("Received game action " + gameAction)
         game.get.doAction(gameAction) match {
           case Failure(exn) => reportFatalError("Server sent illegal action: " + gameAction + " error: " + exn)
           case Success(()) =>
@@ -198,6 +199,7 @@ class Client() {
         }
 
       case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
+        println("Received board " + boardIdx + " action " + boardAction)
         serverBoards(boardIdx).doAction(boardAction) match {
           case Failure(exn) => reportFatalError("Server sent illegal action: " + boardAction + " error: " + exn)
           case Success(()) => ()
@@ -280,9 +282,11 @@ class Client() {
   }
 
   def draw() : Unit = {
+    withBoardForMouse { board =>
+      mouseState.refresh(game.get,board.curState)
+    }
     curLocalBoard().foreach { _ =>
-      val boards = localBoards.map { board => board.curState }
-      Drawing.drawEverything(canvas, ctx, game.get, boards, curBoardIdx, mouseState, flipDisplay)
+      Drawing.drawEverything(canvas, ctx, game.get, localBoards, curBoardIdx, mouseState, flipDisplay, ctrlPressed)
     }
   }
 
@@ -308,7 +312,7 @@ class Client() {
   def mouseup(e : MouseEvent) : Unit = {
     withBoardForMouse { board =>
       val pixelLoc = mousePixel(e)
-      mouseState.handleMouseUp(pixelLoc,game.get,board.curState,curBoardIdx)
+      mouseState.handleMouseUp(pixelLoc,game.get,board.curState,curBoardIdx,ctrlPressed)
     }
     draw()
   }
@@ -349,6 +353,7 @@ class Client() {
     }
     else if(e.keyCode == 17) {
       ctrlPressed = true
+      draw()
     }
   }
   def keyup(e : KeyboardEvent) : Unit = {
@@ -357,6 +362,7 @@ class Client() {
     }
     else if(e.keyCode == 17) {
       ctrlPressed = false
+      draw()
     }
   }
 

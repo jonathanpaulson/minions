@@ -20,13 +20,14 @@ object Drawing {
     canvas: Canvas,
     ctx: CanvasRenderingContext2D,
     game: Game,
-    boards: Array[BoardState],
+    boards: Array[Board],
     boardIdx: Int,
     mouseState: MouseState,
-    flipDisplay: Boolean
+    flipDisplay: Boolean,
+    ctrlPressed: Boolean
   ) : Unit = {
 
-    val board = boards(boardIdx)
+    val board = boards(boardIdx).curState
 
     import scala.language.implicitConversions
     implicit def hexLocOfLoc(loc: Loc): HexLoc = {
@@ -103,7 +104,7 @@ object Drawing {
     }
 
     def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double,
-      pieceName: PieceName, side: Side, id: Option[Int], count:Option[Int] ) : Unit = {
+      pieceName: PieceName, side: Side, id: Option[Int], count: Option[Int], dead: Boolean = false) : Unit = {
       val pieceColor =
         side match {
           case S0 => "blue"
@@ -114,9 +115,13 @@ object Drawing {
         text(ctx, id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize)+PixelVec(0, gridSize/3.0), "black")
       }
       val stats = Units.pieceMap(pieceName)
-      val displayName = count match {
-        case None => stats.displayName
-        case Some(count) => stats.displayName + " x " + count
+      val displayName = stats.displayName + {
+        count match {
+          case None => ""
+          case Some(count) => " x " + count
+        }
+      } + {
+        if(dead) " (dead)" else ""
       }
       text(ctx, displayName, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
@@ -172,7 +177,7 @@ object Drawing {
         case S1 => "#770000"
       }
       val mana = game.mana(side) + boards.foldLeft(0) { case (sum,board) =>
-        sum + board.manaThisRound(side)
+        sum + board.curState.manaThisRound(side)
       }
 
       def textAtLoc(s: String, dpx: Double, dpy: Double) =
@@ -198,6 +203,14 @@ object Drawing {
       val locsAndContents = UI.Reinforcements.getLocsAndContents(side,flipDisplay,board)
       locsAndContents.foreach { case (loc,pieceName,count) =>
         drawPiece(ctx, hexLocOfLoc(loc), reinforcementScale, pieceName, side, None, Some(count))
+      }
+    }
+
+    //Dead pieces
+    {
+      val locsAndContents = UI.DeadPieces.getLocsAndContents(board)
+      locsAndContents.foreach { case (loc,_,pieceName,side) =>
+        drawPiece(ctx, hexLocOfLoc(loc), reinforcementScale, pieceName, side, None, None, dead = true)
       }
     }
 
@@ -247,30 +260,30 @@ object Drawing {
 
     val dragPiece = mouseState.dragTarget.findPiece(board)
 
+    def drawPath(path: Vector[Loc], overrideStart: Option[HexLoc] = None): Unit = {
+      if(path.length > 0) {
+        ctx.globalAlpha = 1.0
+        ctx.fillStyle = "black"
+        ctx.setLineDash(scala.scalajs.js.Array(5.0, 10.0))
+        ctx.beginPath()
+        move(ctx, overrideStart.getOrElse(path(0)))
+        for(i <- 1 to path.length-1) {
+          line(ctx, path(i))
+        }
+        ctx.stroke()
+        ctx.closePath()
+        ctx.setLineDash(scala.scalajs.js.Array())
+      }
+    }
+
     //Draw line for movement paths
     mouseState.mode match {
       case (_: SelectTargetMouseMode) =>
         //TODO highlight legal targets
       case (mode: NormalMouseMode) =>
         val path = mode.path
-        if(path.length > 0) {
-          ctx.globalAlpha = 1.0
-          ctx.fillStyle = "black"
-          ctx.setLineDash(scala.scalajs.js.Array(5.0, 10.0))
-          ctx.beginPath()
-          dragPiece match {
-            case None => sys.error("")
-            case Some(piece) =>
-              val (loc,_) = locAndScaleOfPiece(board,piece)
-              move(ctx, loc)
-          }
-          for(i <- 1 to path.length-1) {
-            line(ctx, path(i))
-          }
-          ctx.stroke()
-          ctx.closePath()
-          ctx.setLineDash(scala.scalajs.js.Array())
-        }
+        val overrideStart = dragPiece.map { piece => locAndScaleOfPiece(board,piece)._1 }
+        drawPath(path.toVector,overrideStart = overrideStart)
     }
 
     //Highlight movement range
@@ -286,6 +299,60 @@ object Drawing {
     //Highlight hex tile on mouse hover
     mouseState.hoverLoc.foreach { hoverLoc =>
       strokeHex(ctx, hoverLoc, "black", tileScale, alpha=0.3)
+    }
+
+    def findLocOfPiece(pieceSpec: PieceSpec): Option[Loc] = {
+      //First try the initial board
+      board.findPiece(pieceSpec) match {
+        case Some(piece) => Some(piece.loc)
+        case None =>
+          //Then try the start of turn board
+          boards(boardIdx).initialStateThisTurn.findPiece(pieceSpec).map { piece => piece.loc }
+      }
+    }
+
+    def highlightUndoneAction(action: PlayerAction): Unit = {
+      action match {
+        case Movements(movements) =>
+          movements.foreach { case Movement(spec,path) =>
+            drawPath(path)
+            findLocOfPiece(spec).foreach { loc =>
+              strokeHex(ctx,hexLocOfLoc(loc), "black", tileScale)
+            }
+          }
+        case Attack(aSpec,tSpec) =>
+          findLocOfPiece(aSpec).foreach { loc =>
+            strokeHex(ctx,hexLocOfLoc(loc), "black", tileScale)
+          }
+          findLocOfPiece(tSpec).foreach { loc =>
+            strokeHex(ctx,hexLocOfLoc(loc), "magenta", tileScale)
+          }
+        case Spawn(_,_) =>
+          UI.Reinforcements.getLocs(board.side, flipDisplay, board).foreach { loc =>
+            strokeHex(ctx, hexLocOfLoc(loc), "black", tileScale)
+          }
+        case ActivateAbility(spec,_,targets) =>
+          List(spec,targets.target0,targets.target1).foreach { spec =>
+            findLocOfPiece(spec).foreach { loc =>
+              strokeHex(ctx, hexLocOfLoc(loc), "black", tileScale)
+            }
+          }
+        case PlaySpell(_,targets) =>
+          List(targets.target0,targets.target1).foreach { spec =>
+            findLocOfPiece(spec).foreach { loc =>
+              strokeHex(ctx, hexLocOfLoc(loc), "black", tileScale)
+            }
+          }
+        case DiscardSpell(_) =>
+          ()
+      }
+    }
+
+    def highlightUndoneActionsForPieceSpec(pieceSpec: PieceSpec): Unit = {
+      boards(boardIdx).findLocalPieceUndoActions(pieceSpec) match {
+        case None => ()
+        case Some(actions) => actions.foreach(highlightUndoneAction)
+      }
     }
 
     //Highlight mouse's target on mouse hover
@@ -304,6 +371,21 @@ object Drawing {
           case Some((loc,_)) =>
             strokeHex(ctx,hexLocOfLoc(loc), "black", reinforcementScale)
         }
+        if(ctrlPressed) {
+          val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
+            if(pieceName == name) Some(pieceSpec) else None
+          }
+          pieceSpec.foreach { pieceSpec => highlightUndoneActionsForPieceSpec(pieceSpec) }
+        }
+
+      case MouseDeadPiece(pieceSpec) =>
+        UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
+          case None => ()
+          case Some(loc) =>
+            strokeHex(ctx, hexLocOfLoc(loc), "black", reinforcementScale)
+        }
+        if(ctrlPressed)
+          highlightUndoneActionsForPieceSpec(pieceSpec)
       case MousePiece(spec) =>
         board.findPiece(spec) match {
           case None => ()
@@ -311,6 +393,9 @@ object Drawing {
             val (loc,scale) = locAndScaleOfPiece(board,piece)
             strokeHex(ctx, loc, "black", scale)
         }
+
+        if(ctrlPressed)
+          highlightUndoneActionsForPieceSpec(spec)
     }
 
     //Piece selected by mouse click
@@ -331,6 +416,15 @@ object Drawing {
           case Some((loc,_)) =>
             fillHex(ctx, hexLocOfLoc(loc), "yellow", reinforcementScale, alpha=0.1)
             strokeHex(ctx, hexLocOfLoc(loc), "black", reinforcementScale)
+        }
+      case MouseDeadPiece(pieceSpec) =>
+        if(ctrlPressed) {
+          UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
+            case None => ()
+            case Some(loc) =>
+              fillHex(ctx, hexLocOfLoc(loc), "yellow", reinforcementScale, alpha=0.1)
+              strokeHex(ctx, hexLocOfLoc(loc), "black", reinforcementScale)
+          }
         }
       case MousePiece(spec) =>
         board.findPiece(spec) match {

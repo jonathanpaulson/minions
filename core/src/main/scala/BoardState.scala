@@ -238,6 +238,8 @@ object BoardState {
       nextPieceId = 0,
       piecesSpawnedThisTurn = Map(),
       numPiecesSpawnedThisTurnAt = Map(),
+      killedThisTurn = Nil,
+      unsummonedThisTurn = Nil,
       turnNumber = 0,
       reinforcements = SideArray.create(Map()),
       spellsRevealed = SideArray.create(Map()),
@@ -285,6 +287,9 @@ case class BoardState private (
   //Map of pieces spawned this turn
   var piecesSpawnedThisTurn: Map[SpawnedThisTurn,Piece],
   var numPiecesSpawnedThisTurnAt: Map[Loc,Int],
+  //Pieces killed this turn
+  var killedThisTurn: List[(PieceSpec,PieceName,Side)],
+  var unsummonedThisTurn: List[(PieceSpec,PieceName,Side)],
 
   //Number of turns completed
   var turnNumber: Int,
@@ -325,13 +330,15 @@ case class BoardState private (
       nextPieceId = nextPieceId,
       piecesSpawnedThisTurn = Map(), //Set below after construction
       numPiecesSpawnedThisTurnAt = numPiecesSpawnedThisTurnAt,
+      killedThisTurn = killedThisTurn,
+      unsummonedThisTurn = unsummonedThisTurn,
       turnNumber = turnNumber,
       reinforcements = reinforcements.copy(),
       spellsRevealed = spellsRevealed.copy(),
       spellsInHand = spellsInHand.copy(),
       sorceryPower = sorceryPower,
       side = side,
-      hasWon = false,
+      hasWon = hasWon,
       manaThisRound = manaThisRound.copy(),
       totalMana = totalMana.copy(),
       totalCosts = totalCosts.copy()
@@ -440,6 +447,8 @@ case class BoardState private (
     manaThisRound(side) = 0
     piecesSpawnedThisTurn = Map()
     numPiecesSpawnedThisTurnAt = Map()
+    killedThisTurn = Nil
+    unsummonedThisTurn = Nil
 
     //Check for win conditions - start of turn at least 8 graveyards
     var startNumGraveyards = 0
@@ -1060,11 +1069,13 @@ case class BoardState private (
   //Kill a piece, for any reason
   private def killPiece(piece: Piece): Unit = {
     removeFromBoard(piece)
+    killedThisTurn = killedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side))
     updateAfterPieceKill(piece.side,piece.curStats(this),piece.loc)
   }
 
   private def unsummonPiece(piece: Piece): Unit = {
     removeFromBoard(piece)
+    unsummonedThisTurn = unsummonedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side))
     addReinforcementInternal(piece.side,piece.baseStats.name)
   }
   private def removeFromBoard(piece: Piece): Unit = {

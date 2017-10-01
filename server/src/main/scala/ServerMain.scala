@@ -201,7 +201,7 @@ object ServerMain extends App {
       game.addMana(newSide,mana)
 
       //Automatically tech if it hasn't happened yet, as a convenience
-      if(!game.hasTechedThisTurn) {
+      if(game.numTechsThisTurn <= 0) {
         val idx = game.techLine.indexWhere { techState => techState.level(oldSide) == TechLocked}
         if(idx >= 0) { //-1 if not found
           val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(PerformTech(oldSide,idx))
@@ -290,7 +290,7 @@ object ServerMain extends App {
               else {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks
                 val specialResult: Try[Unit] = gameAction match {
-                  case (_: PerformTech) | (_: SetBoardDone) => Success(())
+                  case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) => Success(())
                   case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }
