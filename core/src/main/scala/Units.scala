@@ -79,6 +79,7 @@ object Units {
     attackRange = 1,
     cost = 0,
     rebate = 0,
+    isPersistent = true,
     isNecromancer = true,
     spawnRange = 1,
     extraMana = 3,
