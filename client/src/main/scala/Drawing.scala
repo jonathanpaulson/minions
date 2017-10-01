@@ -230,7 +230,7 @@ object Drawing {
         (techState.level(S0), techState.level(S1)) match {
           case ((TechLocked | TechUnlocked), (TechLocked | TechUnlocked)) => None
           case ((TechLocked | TechUnlocked), TechAcquired) => Some("#ff3333")
-          case (TechAcquired, (TechLocked | TechUnlocked)) => Some("#33333ff")
+          case (TechAcquired, (TechLocked | TechUnlocked)) => Some("#3333ff")
           case (TechAcquired, TechAcquired) => Some("#ff00ff")
         }
 
