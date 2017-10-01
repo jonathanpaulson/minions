@@ -102,7 +102,8 @@ object Drawing {
       text(ctx, loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
     }
 
-    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double, pieceName: PieceName, side: Side, id: Option[Int]) : Unit = {
+    def drawPiece(ctx : CanvasRenderingContext2D, hexLoc : HexLoc, scale : Double,
+      pieceName: PieceName, side: Side, id: Option[Int], count:Option[Int] ) : Unit = {
       val pieceColor =
         side match {
           case S0 => "blue"
@@ -113,7 +114,11 @@ object Drawing {
         text(ctx, id.toString, PixelLoc.ofHexLoc(hexLoc,gridSize)+PixelVec(0, gridSize/3.0), "black")
       }
       val stats = Units.pieceMap(pieceName)
-      text(ctx, stats.displayName, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
+      val displayName = count match {
+        case None => stats.displayName
+        case Some(count) => stats.displayName + " x " + count
+      }
+      text(ctx, displayName, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
     def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
@@ -134,15 +139,15 @@ object Drawing {
       }
     }
 
-    def locsOfReinforcement(loc: Loc, count: Int): Array[HexLoc] = {
-      val hexLoc = hexLocOfLoc(loc)
-      val stackSpacingHeight = 0.10 / Math.sqrt(count.toDouble)
-      val offsetVec = HexVec(0.5,-1.0)
-      val result = (0 until count).map { i =>
-        hexLoc + offsetVec * (i * stackSpacingHeight - 0.05)
-      }.toArray
-      result
-    }
+    // def locsOfReinforcement(loc: Loc, count: Int): Array[HexLoc] = {
+    //   val hexLoc = hexLocOfLoc(loc)
+    //   val stackSpacingHeight = 0.10 / Math.sqrt(count.toDouble)
+    //   val offsetVec = HexVec(0.5,-1.0)
+    //   val result = (0 until count).map { i =>
+    //     hexLoc + offsetVec * (i * stackSpacingHeight - 0.05)
+    //   }.toArray
+    //   result
+    // }
 
     ctx.setTransform(1,0,0,1,0,0)
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
@@ -192,10 +197,7 @@ object Drawing {
     Side.foreach { side =>
       val locsAndContents = UI.Reinforcements.getLocsAndContents(side,flipDisplay,board)
       locsAndContents.foreach { case (loc,pieceName,count) =>
-        val locs = locsOfReinforcement(loc,count)
-        locs.foreach { hexLoc =>
-          drawPiece(ctx, hexLoc, reinforcementScale, pieceName, side, None)
-        }
+        drawPiece(ctx, hexLocOfLoc(loc), reinforcementScale, pieceName, side, None, Some(count))
       }
     }
 
@@ -239,7 +241,7 @@ object Drawing {
     board.pieces.foreach { pieces =>
       pieces.foreach { piece =>
         val (loc,scale) = locAndScaleOfPiece(board,piece)
-        drawPiece(ctx, loc, scale, piece.baseStats.name, piece.side, Some(piece.id))
+        drawPiece(ctx, loc, scale, piece.baseStats.name, piece.side, Some(piece.id), None)
       }
     }
 
@@ -299,9 +301,8 @@ object Drawing {
       case MouseReinforcement(pieceName,side) =>
         UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
           case None => ()
-          case Some((loc,count)) =>
-            val locs = locsOfReinforcement(loc,count)
-            strokeHex(ctx,locs.last, "black", reinforcementScale)
+          case Some((loc,_)) =>
+            strokeHex(ctx,hexLocOfLoc(loc), "black", reinforcementScale)
         }
       case MousePiece(spec) =>
         board.findPiece(spec) match {
@@ -327,10 +328,9 @@ object Drawing {
       case MouseReinforcement(pieceName,side) =>
         UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
           case None => ()
-          case Some((loc,count)) =>
-            val locs = locsOfReinforcement(loc,count)
-            fillHex(ctx, locs.last, "yellow", reinforcementScale, alpha=0.1)
-            strokeHex(ctx,locs.last, "black", reinforcementScale)
+          case Some((loc,_)) =>
+            fillHex(ctx, hexLocOfLoc(loc), "yellow", reinforcementScale, alpha=0.1)
+            strokeHex(ctx, hexLocOfLoc(loc), "black", reinforcementScale)
         }
       case MousePiece(spec) =>
         board.findPiece(spec) match {
