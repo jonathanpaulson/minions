@@ -108,7 +108,8 @@ object Units {
     attackRange = 1,
     cost = 7,
     rebate = 4,
-    spawnRange = 0
+    spawnRange = 0,
+    isPersistent = true
   )
 
   val initiate = createPieceStats(
@@ -162,7 +163,8 @@ object Units {
     attackRange = 1,
     cost = 3,
     rebate = 0,
-    isFlying = true
+    isFlying = true,
+    isPersistent = true
   )
 
   val wight = createPieceStats(
