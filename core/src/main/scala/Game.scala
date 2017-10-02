@@ -264,14 +264,10 @@ case class Game (
       Failure(new Exception("Must unlock techs in order"))
     else {
       val techState = techLine(techLineIdx)
-      techState.level(side.opp) match {
-        case TechAcquired => Failure(new Exception("Cannot acquire tech owned by the opponent"))
-        case TechUnlocked | TechLocked =>
-          techState.level(side) match {
-            case TechAcquired => Failure(new Exception("Already own this tech"))
-            case TechLocked | TechUnlocked =>
-              Success(())
-          }
+      (techState.level(side.opp), techState.level(side)) match {
+        case (TechAcquired, _) => Failure(new Exception("Already own this tech"))
+        case (TechLocked, TechAcquired) => Failure(new Exception("Cannot acquire tech owned by the opponent"))
+        case (_, _) => Success(())
       }
     }
   }

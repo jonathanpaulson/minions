@@ -23,7 +23,7 @@ object Drawing {
     boardIdx: Int,
     mouseState: MouseState,
     flipDisplay: Boolean,
-    ctrlPressed: Boolean,
+    altPressed: Boolean,
     showCoords: Boolean,
     timeLeft: Option[Double]
   ) : Unit = {
@@ -557,7 +557,7 @@ object Drawing {
               case Some((loc,_)) =>
                 strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
             }
-            if(ctrlPressed) {
+            if(altPressed) {
               val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
                 if(pieceName == name) Some(pieceSpec) else None
               }
@@ -570,7 +570,7 @@ object Drawing {
               case Some(loc) =>
                 strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
             }
-            if(ctrlPressed)
+            if(altPressed)
               highlightUndoneActionsForPieceSpec(pieceSpec)
           case MousePiece(spec) =>
             board.findPiece(spec) match {
@@ -580,7 +580,7 @@ object Drawing {
                 strokeHex(loc, "black", scale, alpha=0.5)
             }
 
-            if(ctrlPressed)
+            if(altPressed)
               highlightUndoneActionsForPieceSpec(spec)
         }
 
@@ -615,7 +615,7 @@ object Drawing {
             }
 
           case MouseDeadPiece(pieceSpec) =>
-            if(ctrlPressed) {
+            if(altPressed) {
               UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
                 case None => ()
                 case Some(loc) =>
@@ -629,7 +629,7 @@ object Drawing {
               case Some(piece) =>
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
 
-                if(ctrlPressed) {
+                if(altPressed) {
                   fillHex(loc, "yellow", scale, alpha=0.1)
                   strokeHex(loc, "black", scale, alpha=0.5)
                 }

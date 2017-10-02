@@ -96,7 +96,10 @@ copyStuffTask := {
   val unused = (fastOptJS in Compile in minionsClient).value
   streams.value.log.info("Copying stuff to web/")
   def createDirectory(dst: String) = IO.createDirectory(new File(dst))
-  def copyFile(src: String, dst: String) = IO.copyFile(new File(src), new File(dst))
+  def copyFile(src: String, dst: String) = {
+    streams.value.log.info("Copying " + src + " to " + dst)
+    IO.copyFile(new File(src), new File(dst))
+  }
   createDirectory("web")
   createDirectory("web/js")
   copyFile("client/minionsclient_dev.html","web/index.html")
