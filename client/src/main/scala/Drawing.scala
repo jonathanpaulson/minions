@@ -334,7 +334,7 @@ object Drawing {
         actState match {
           case DoneActing => "#777777"
           case Moving(n) =>
-            if(n >= 0 && curStats.isLumbering) "#777777"
+            if(n > 0 && curStats.isLumbering) "#777777"
             else colorFromEnchantments.getOrElse("black")
           case Attacking(attacksUsed) =>
             if(attacksUsed >= curStats.numAttacks) "#777777"
