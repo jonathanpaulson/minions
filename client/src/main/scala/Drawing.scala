@@ -88,6 +88,8 @@ object Drawing {
     def strokeHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0) : Unit = {
       drawHex(hexLoc,color,scale,true,false,alpha,lineWidth);
     }
+    //TODO stop drawing pieces with so much alpha. They change color too much on different terrain
+    //This requires recalibrating all the colors
     def fillHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 0.2) : Unit = {
       drawHex(hexLoc,color,scale,false,true,alpha,1.0);
     }
@@ -104,11 +106,11 @@ object Drawing {
           fillHex(hexLoc, "#ff55ff", tileScale)
           strokeHex(hexLoc, "#ff55ff", tileScale, alpha=0.4)
         case Teleporter =>
-          fillHex(hexLoc, "#bbbbbb", tileScale)
-          strokeHex(hexLoc, "#ffff00", tileScale, alpha=0.3, lineWidth=2.0)
+          fillHex(hexLoc, "#ffee22", tileScale)
+          strokeHex(hexLoc, "#ffee22", tileScale, alpha=0.3, lineWidth=2.0)
         case Spawner(_) =>
-          fillHex(hexLoc, "gray", tileScale)
-          strokeHex(hexLoc, "#cc00ff", tileScale, alpha=0.3, lineWidth=2.0)
+          fillHex(hexLoc, "#77ccff", tileScale)
+          strokeHex(hexLoc, "#77ccff", tileScale, alpha=0.3, lineWidth=2.0)
       }
       if(showCoords) {
         val (loc,_) = hexLoc.round(flipDisplay,board)
