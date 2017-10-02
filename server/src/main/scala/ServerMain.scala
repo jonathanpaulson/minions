@@ -71,10 +71,19 @@ object ServerMain extends App {
         Units.shrieker,
         Units.warg,
         Units.dark_tower,
+        Units.bone_rat,
         Units.witch,
-        Units.lich,
+        Units.vampire,
         Units.mummy,
-        Units.bone_rat
+        Units.lich,
+        Units.void,
+        Units.hell_hound,
+        Units.wraith,
+        Units.fiend,
+        Units.banshee,
+        Units.elemental,
+        Units.fallen_angel,
+        Units.shadowlord
       ).map { unit =>
         PieceTech(unit.name)
       }.toArray
@@ -104,15 +113,8 @@ object ServerMain extends App {
 
       //Testing
       {
-        state.spawnPieceInitial(S0, Units.test.name, Loc(5,5))
-        state.spawnPieceInitial(S0, Units.test.name, Loc(5,5))
-        state.spawnPieceInitial(S0, Units.test.name, Loc(5,5))
         state.spawnPieceInitial(S0, Units.haunt.name, Loc(5,6))
         state.spawnPieceInitial(S0, Units.shrieker.name, Loc(5,4))
-
-        state.spawnPieceInitial(S1, Units.test.name, Loc(6,5))
-        state.spawnPieceInitial(S1, Units.test.name, Loc(6,5))
-        state.spawnPieceInitial(S1, Units.test.name, Loc(6,5))
 
         state.spawnPieceInitial(S1, Units.wight.name, Loc(6,6))
 
