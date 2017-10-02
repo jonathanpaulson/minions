@@ -269,7 +269,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                     None
                   else {
                     board.findLegalMove(dragPiece,pathBias=path) { loc =>
-                      board.tiles.topology.distance(loc, curLoc) <= dpStats.attackRange &&
+                      board.topology.distance(loc, curLoc) <= dpStats.attackRange &&
                       (loc == dragPiece.loc || !dpStats.isLumbering)
                     }
                   }
@@ -415,7 +415,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                   //then attempt a move so that we can report an illegal move error as help
                   val movement = {
                     if(attack.isEmpty && movementFromPath.isEmpty) {
-                      if(board.tiles.topology.distance(piece.loc,curLoc) == 1)
+                      if(board.topology.distance(piece.loc,curLoc) == 1)
                         Some(Movements(List(Movement(piece.spec, Vector(piece.loc,curLoc)))))
                       else movementFromPath
                     }

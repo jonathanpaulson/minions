@@ -229,6 +229,7 @@ object Units {
 
   val dark_tower = createPieceStats(
     name = "dark_tower",
+    shortDisplayName = "DrkTower",
     displayName = "Dark Tower",
     cost = 8,
     rebate = 0,

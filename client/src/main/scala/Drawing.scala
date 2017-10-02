@@ -643,20 +643,50 @@ object Drawing {
                     drawPath(path.toVector,overrideStart = Some(loc))
 
                     //Highlight the movement range
-                    val moves = board.legalMoves(piece)
-                    for((loc,_) <- moves) {
+                    val moveLocsAndSteps = board.legalMoves(piece)
+                    moveLocsAndSteps.foreach { case (loc,_) =>
                       fillHex(loc, "yellow", tileScale, alpha=0.1)
                     }
 
-                    //Indicate attacking a piece if legal
+                    val attackerStats = piece.curStats(board)
+                    val attackerState = piece.actState
+                    def canAttackIfInRange(targetPiece: Piece, attackerHasMoved: Boolean): Boolean = {
+                      val targetStats = targetPiece.curStats(board)
+                      board.canAttack(attackerStats,attackerHasMoved,attackerState,targetStats)
+                    }
+                    def canBeInRange(targetPiece: Piece): Boolean = {
+                      moveLocsAndSteps.exists { case (loc,_) =>
+                        board.topology.distance(loc,targetPiece.loc) <= attackerStats.attackRange
+                      }
+                    }
+                    def inRangeNow(targetPiece: Piece): Boolean = {
+                      board.topology.distance(piece.loc,targetPiece.loc) <= attackerStats.attackRange
+                    }
+                    def canAttack(targetPiece: Piece): Boolean = {
+                      if(targetPiece.side == piece.side)
+                        false
+                      else if(inRangeNow(targetPiece) && !piece.hasMoved)
+                        canAttackIfInRange(targetPiece, attackerHasMoved = false)
+                      else if(canBeInRange(targetPiece))
+                        canAttackIfInRange(targetPiece, attackerHasMoved = true)
+                      else false
+                    }
+
+                    //Highlight all legal pieces to attack
+                    board.pieces.foreach { pieces =>
+                      pieces.foreach { targetPiece =>
+                        if(canAttack(targetPiece)) {
+                          val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
+                          strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
+                        }
+                      }
+                    }
+
+                    //Highlight the hovered piece if attacking it is legal
                     mouseState.hovered.findPiece(board) match {
                       case None => ()
                       case Some(targetPiece) =>
-                        val attackerStats = piece.curStats(board)
-                        val targetStats = targetPiece.curStats(board)
-                        val attackerHasMoved = piece.hasMoved || path.length > 1
-                        if(targetPiece.side != piece.side &&
-                          board.canAttack(attackerStats,attackerHasMoved,piece.actState,targetStats)) {
+                        if(canAttack(targetPiece)) {
                           val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
                           fillHex(targetLoc, "magenta", targetScale, alpha=0.1)
                           strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
