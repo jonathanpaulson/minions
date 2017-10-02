@@ -86,7 +86,7 @@ class Client() {
   //TODO Shift-click should allow performing swaps and triangle rotations of pieces?
   //Keyboard controls
   var shiftPressed: Boolean = false
-  var ctrlPressed: Boolean = false
+  var altPressed: Boolean = false
   var showCoords: Boolean = false
 
   val flipDisplay: Boolean = ourSide == Some(S1) //Flip so that 0,0 is in the lower right
@@ -318,7 +318,7 @@ class Client() {
     }
     curLocalBoard().foreach { _ =>
       val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
-      Drawing.drawEverything(canvas, ctx, game.get, localBoards, curBoardIdx, mouseState, flipDisplay, ctrlPressed, showCoords, timeLeft)
+      Drawing.drawEverything(canvas, ctx, game.get, localBoards, curBoardIdx, mouseState, flipDisplay, altPressed, showCoords, timeLeft)
     }
   }
 
@@ -344,7 +344,7 @@ class Client() {
   def mouseup(e : MouseEvent) : Unit = {
     withBoardForMouse { board =>
       val pixelLoc = mousePixel(e)
-      mouseState.handleMouseUp(pixelLoc,game.get,board.curState,curBoardIdx,ctrlPressed)
+      mouseState.handleMouseUp(pixelLoc,game.get,board.curState,curBoardIdx,e.altKey)
     }
     draw()
   }
@@ -362,6 +362,10 @@ class Client() {
   }
 
   def keydown(e : KeyboardEvent) : Unit = {
+    if(altPressed != e.altKey) {
+      altPressed = e.altKey
+      draw()
+    }
     //Page up
     if(e.keyCode == 33) {
       e.preventDefault()
@@ -383,10 +387,6 @@ class Client() {
     else if(e.keyCode == 16) {
       shiftPressed = true
     }
-    else if(e.keyCode == 17) {
-      ctrlPressed = true
-      draw()
-    }
     //'c'
     else if(e.keyCode == 67) {
       showCoords = !showCoords
@@ -394,19 +394,19 @@ class Client() {
     }
   }
   def keyup(e : KeyboardEvent) : Unit = {
+    if(altPressed != e.altKey) {
+      altPressed = e.altKey
+      draw()
+    }
     if(e.keyCode == 16) {
       shiftPressed = false
-    }
-    else if(e.keyCode == 17) {
-      ctrlPressed = false
-      draw()
     }
   }
 
   def onBlur(e : Any) : Unit = {
     val _ = e
     shiftPressed = false
-    ctrlPressed = false
+    altPressed = false
   }
 
   def showResignConfirm(): Unit = {
