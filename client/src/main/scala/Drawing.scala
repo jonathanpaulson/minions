@@ -11,7 +11,7 @@ object Drawing {
   val gridSize = 30.0
   val tileScale = 29.0 / gridSize
   val pieceScale = 25.0 / gridSize
-  val techScale = 23.0 / gridSize
+  val techScale = 19.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
 

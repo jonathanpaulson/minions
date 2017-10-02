@@ -13,8 +13,8 @@ sealed trait TechLevel {
     case TechAcquired => "Acquired"
   }
   def toUnicodeSymbol() : String = this match {
-    case TechLocked => "\uD83D\uDD12" //Unicode lock
-    case TechUnlocked => "\uD83D\uDD13" //Unicode unlock
+    case TechLocked => "0"
+    case TechUnlocked => "1"
     case TechAcquired => "\u2605" //Unicode star
   }
 }
@@ -264,9 +264,9 @@ case class Game (
       Failure(new Exception("Must unlock techs in order"))
     else {
       val techState = techLine(techLineIdx)
-      (techState.level(side.opp), techState.level(side)) match {
+      (techState.level(side), techState.level(side.opp)) match {
         case (TechAcquired, _) => Failure(new Exception("Already own this tech"))
-        case (TechLocked, TechAcquired) => Failure(new Exception("Cannot acquire tech owned by the opponent"))
+        case (TechUnlocked, TechAcquired) => Failure(new Exception("Cannot acquire tech owned by the opponent"))
         case (_, _) => Success(())
       }
     }
