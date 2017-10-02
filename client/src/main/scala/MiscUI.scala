@@ -21,15 +21,15 @@ object UI {
 
   //Positioning for end turn hex button
   object EndTurn {
-    val loc: Loc = Loc(15, -3)
+    val loc: Loc = Loc(16, -3)
   }
   object ResignBoard {
-    val loc: Loc = Loc(17, -3)
+    val loc: Loc = Loc(18, -3)
   }
 
   //Positioning for tech line
   object Tech {
-    val xOffset = 2
+    val xOffset = 1
     val yOffset = -3
 
     def getLoc(techIdx: Int): Loc = {
