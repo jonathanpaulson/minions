@@ -408,12 +408,46 @@ object Units {
   )
 
   //All pieces
-  val pieces = Array(
+  val pieces: Array[PieceStats] = Array(
     necromancer,
     zombie, acolyte, spire,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
     warg, dark_tower, witch, vampire, mummy, lich, bone_rat, void, hell_hound,
     wraith, fiend, banshee, elemental, fallen_angel, shadowlord
+  )
+
+  //Pieces that start off buyable
+  val alwaysAcquiredPieces: Array[PieceStats] = Array(
+    zombie,
+    acolyte,
+    spire
+  )
+
+  //Pieces that need to be unlocked, in order
+  val techPieces: Array[PieceStats] = Array(
+    initiate,
+    skeleton,
+    serpent,
+    bat,
+    ghost,
+    wight,
+    haunt,
+    shrieker,
+    warg,
+    dark_tower,
+    bone_rat,
+    witch,
+    vampire,
+    mummy,
+    lich,
+    void,
+    hell_hound,
+    wraith,
+    fiend,
+    banshee,
+    elemental,
+    fallen_angel,
+    shadowlord
   )
 
   //Generally, we store and send the PieceName everywhere in the protocol, since unlike a PieceStats it's easily serialized.

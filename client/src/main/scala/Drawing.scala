@@ -100,12 +100,15 @@ object Drawing {
         case Graveyard =>
           fillHex(hexLoc, "#aa8899", tileScale)
           strokeHex(hexLoc, "#aa8899", tileScale, alpha=0.4)
-        case Spawner(S0, _) =>
+        case SorceryNode =>
+          fillHex(hexLoc, "#ff55ff", tileScale)
+          strokeHex(hexLoc, "#ff55ff", tileScale, alpha=0.4)
+        case Teleporter =>
+          fillHex(hexLoc, "#bbbbbb", tileScale)
+          strokeHex(hexLoc, "#ffff00", tileScale, alpha=0.3, lineWidth=2.0)
+        case Spawner(_) =>
           fillHex(hexLoc, "gray", tileScale)
-          fillHex(hexLoc, "red", tileScale*0.7)
-        case Spawner(S1, _) =>
-          fillHex(hexLoc, "gray", tileScale)
-          fillHex(hexLoc, "blue", tileScale*0.7)
+          strokeHex(hexLoc, "#cc00ff", tileScale, alpha=0.3, lineWidth=2.0)
       }
       if(showCoords) {
         val (loc,_) = hexLoc.round(flipDisplay,board)

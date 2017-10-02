@@ -287,9 +287,16 @@ case object Wall extends Terrain
 case object Ground extends Terrain
 case object Water extends Terrain
 case object Graveyard extends Terrain
-case class StartHex(side:Side) extends Terrain
+case object SorceryNode extends Terrain
+
 //TODO implement this
-case class Spawner(side:Side, pieceName:PieceName) extends Terrain
+case object Teleporter extends Terrain
+
+case class StartHex(side:Side) extends Terrain
+
+//TODO implement this
+case class Spawner(pieceName:PieceName) extends Terrain
+
 //TODO implement this
 //case class UnstableGround extends Terrain  //Units unsummon at the end of turn
 

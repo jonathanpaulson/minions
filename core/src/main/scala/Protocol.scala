@@ -87,6 +87,8 @@ object Protocol {
       "Ground" -> ((_:JsValue) => JsSuccess(Ground: Terrain)),
       "Water" -> ((_:JsValue) => JsSuccess(Water: Terrain)),
       "Graveyard" -> ((_:JsValue) => JsSuccess(Graveyard: Terrain)),
+      "SorceryNode" -> ((_:JsValue) => JsSuccess(SorceryNode: Terrain)),
+      "Teleporter" -> ((_:JsValue) => JsSuccess(Teleporter: Terrain)),
       "StartHex" -> ((json:JsValue) => startHexFormat.reads(json)),
       "Spawner" -> ((json:JsValue) => spawnerFormat.reads(json))
     ))
@@ -96,6 +98,8 @@ object Protocol {
         case (Ground) => jsPair("Ground",JsString(""))
         case (Water) => jsPair("Water",JsString(""))
         case (Graveyard) => jsPair("Graveyard",JsString(""))
+        case (SorceryNode) => jsPair("SorceryNode",JsString(""))
+        case (Teleporter) => jsPair("Teleporter",JsString(""))
         case (t:StartHex) => jsPair("StartHex",startHexFormat.writes(t))
         case (t:Spawner) => jsPair("Spawner",spawnerFormat.writes(t))
       }

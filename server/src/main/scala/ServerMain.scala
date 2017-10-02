@@ -54,40 +54,10 @@ object ServerMain extends App {
     val startingMana = SideArray.create(0)
     startingMana(S0) = config.getInt("app.s0StartingManaPerBoard") * numBoards
     startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
-    val techsAlwaysAcquired: Array[Tech] = Array(
-      PieceTech(Units.zombie.name),
-      PieceTech(Units.acolyte.name),
-      PieceTech(Units.spire.name)
-    )
-    val lockedTechs: Array[Tech] = {
-      List(
-        Units.initiate,
-        Units.skeleton,
-        Units.serpent,
-        Units.bat,
-        Units.ghost,
-        Units.wight,
-        Units.haunt,
-        Units.shrieker,
-        Units.warg,
-        Units.dark_tower,
-        Units.bone_rat,
-        Units.witch,
-        Units.vampire,
-        Units.mummy,
-        Units.lich,
-        Units.void,
-        Units.hell_hound,
-        Units.wraith,
-        Units.fiend,
-        Units.banshee,
-        Units.elemental,
-        Units.fallen_angel,
-        Units.shadowlord
-      ).map { unit =>
-        PieceTech(unit.name)
-      }.toArray
-    }
+    val techsAlwaysAcquired: Array[Tech] =
+      Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
+    val lockedTechs: Array[Tech] =
+      Units.techPieces.map { piece => PieceTech(piece.name) }
     val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
     val extraManaPerTurn = config.getInt("app.extraManaPerTurn")
 
@@ -105,9 +75,21 @@ object ServerMain extends App {
   }
   var gameSequence: Int = 0
 
-  val boards: Array[Board] = {
-    val boards = (0 until numBoards).toArray.map { _ =>
-      val state = BoardState.create(BoardMaps.basic)
+  val (boards,boardNames): (Array[Board],Array[String]) = {
+    val availableMaps = {
+      if(config.getBoolean("app.includeAdvancedMaps"))
+        BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList
+      else
+        BoardMaps.basicMaps.toList
+    }
+
+    if(numBoards > availableMaps.length)
+      throw new Exception("Configured for " + numBoards + " boards but only " + availableMaps.length + " available")
+
+    val chosenMaps = scala.util.Random.shuffle(availableMaps).take(numBoards)
+
+    val boardsAndNames = chosenMaps.toArray.map { case (boardName,map) =>
+      val state = map()
       val necroNames = SideArray.create(Units.necromancer.name)
       state.resetBoard(necroNames)
 
@@ -129,9 +111,10 @@ object ServerMain extends App {
         state.addReinforcementInitial(S1,"bat")
       }
 
-      Board.create(state)
+      (Board.create(state), boardName)
     }
-    boards
+
+    (boardsAndNames.map(_._1),boardsAndNames.map(_._2))
   }
   val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
 

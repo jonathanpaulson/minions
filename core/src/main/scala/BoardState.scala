@@ -415,8 +415,11 @@ case class BoardState private (
     var newMana = 0
     var newSorceryPower = 0
     tiles.foreachi { case (loc,tile) =>
-      if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
+      val occupied = pieceById.values.exists { piece => piece.side == side && piece.loc == loc }
+      if(tile.terrain == Graveyard && occupied)
         newMana += 1
+      if(tile.terrain == SorceryNode && occupied)
+        newSorceryPower += 1
     }
     pieceById.values.foreach { piece =>
       if(piece.side == side) {
@@ -677,14 +680,14 @@ case class BoardState private (
   private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {
     tile.terrain match {
       case Wall => false
-      case Ground | Graveyard | StartHex(_) | Spawner(_,_) => true
+      case Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) => true
       case Water => pieceStats.isFlying
     }
   }
   private def tryCanWalkOnTile(pieceStats: PieceStats, tile: Tile): Try[Unit] = {
     tile.terrain match {
       case Wall => failed("Cannot move or spawn through borders")
-      case Ground | Graveyard | StartHex(_) | Spawner(_,_) => Success(())
+      case Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) => Success(())
       case Water => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
     }
   }
