@@ -351,7 +351,7 @@ object Drawing {
       val str = (if(curStats.isPersistent) "P" else "D") + (curStats.defense - damage)
       val color = {
         if(damage > 0 || curStats.defense < baseStats.defense) "magenta"
-        else if(curStats.isPersistent > !baseStats.isPersistent) "green"
+        else if(curStats.isPersistent && !baseStats.isPersistent) "green"
         else if(curStats.defense > baseStats.defense) "green"
         else "black"
       }
