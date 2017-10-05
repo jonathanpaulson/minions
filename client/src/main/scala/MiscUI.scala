@@ -26,6 +26,9 @@ object UI {
   object ResignBoard {
     val loc: Loc = Loc(18, -3)
   }
+  object Sidebar {
+    val loc: Loc = Loc(19, 3)
+  }
 
   //Positioning for tech line
   object Tech {
@@ -74,6 +77,11 @@ object UI {
     def getSelectedLoc(board: BoardState, pieceSpec: PieceSpec): Option[Loc] = {
       val locs = getLocsAndContents(board)
       locs.findMap { case (l,spec,_,_) => if(pieceSpec == spec) Some(l) else None }
+    }
+
+    def getSelectedPiece(board: BoardState, pieceSpec: PieceSpec): Option[(PieceStats, Side)] = {
+      val locs = getLocsAndContents(board)
+      locs.findMap { case (_,spec,pieceName,side) => if(pieceSpec == spec) Some((Units.pieceMap(pieceName), side)) else None }
     }
   }
 
@@ -129,23 +137,29 @@ object UI {
       }
     }
 
-    def getSelectedPiece(side: Side, flipDisplay: Boolean, board: BoardState, loc: Loc): Option[PieceName] = {
-      val locs = getLocs(side,flipDisplay,board)
-      val selectedIdx = locs.indexOf(loc)
-      if(selectedIdx == -1) None
-      else {
-        var i = 0
-        Units.pieces.findMap { stats =>
-          board.reinforcements(side).get(stats.name) match {
-            case None => None
-            case Some(_) =>
-              if(i == selectedIdx) Some(stats.name)
-              else {
-                i += 1
-                None
-              }
+    def getSelectedPiece(flipDisplay: Boolean, board: BoardState, loc: Loc): Option[(PieceName, Side)] = {
+      def f(side : Side) : Option[(PieceName, Side)] = {
+        val locs = getLocs(side,flipDisplay,board)
+        val selectedIdx = locs.indexOf(loc)
+        if(selectedIdx == -1) None
+        else {
+          var i = 0
+          Units.pieces.findMap { stats =>
+            board.reinforcements(side).get(stats.name) match {
+              case None => None
+              case Some(_) =>
+                if(i == selectedIdx) Some((stats.name, side))
+                else {
+                  i += 1
+                  None
+                }
+            }
           }
         }
+      }
+      f(S0) match {
+        case None => f(S1)
+        case Some(x) => Some(x)
       }
     }
 

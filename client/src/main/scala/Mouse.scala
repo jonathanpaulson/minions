@@ -111,8 +111,8 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
         if(board.inBounds(loc))
           MouseTile(loc)
         else {
-          UI.Reinforcements.getSelectedPiece(game.curSide,flipDisplay,board,loc) match {
-            case Some(pieceName) => MouseReinforcement(pieceName,game.curSide)
+          UI.Reinforcements.getSelectedPiece(flipDisplay,board,loc) match {
+            case Some((pieceName, side)) => MouseReinforcement(pieceName, side)
             case None =>
               UI.DeadPieces.getSelectedSpec(board,loc) match {
                 case Some(pieceSpec) => MouseDeadPiece(pieceSpec)

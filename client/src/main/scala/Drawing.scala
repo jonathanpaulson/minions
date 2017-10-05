@@ -122,11 +122,12 @@ object Drawing {
       Units.pieceMap(pieceName).shortDisplayName
     }
 
-    def drawPiece(hexLoc : HexLoc, scale : Double, side: Side, label: String) : Unit = {
+    def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], label: String) : Unit = {
       val pieceColor =
         side match {
-          case S0 => "blue"
-          case S1 => "red"
+          case None => "grey"
+          case Some(S0) => "blue"
+          case Some(S1) => "red"
         }
       fillHex(hexLoc, pieceColor, scale)
       if(label != "")
@@ -150,6 +151,92 @@ object Drawing {
         case _ => assertUnreachable()
       }
     }
+
+    def drawSidebar(stats: PieceStats, side: Option[Side]) = {
+      val loc = UI.Sidebar.loc
+      drawPiece(loc, 5.0, side, "")
+      var row_idx = 0
+      def row(n:Int) : PixelLoc = {
+        return PixelLoc.ofHexLoc(loc, gridSize) + PixelVec(0, 15.0*(n-6))
+      }
+      def show(s:String) : Unit = {
+        text(s, row(row_idx), "black")
+        row_idx = row_idx + 1
+      }
+      show(stats.displayName)
+      val aStr = stats.attackEffect match {
+        case None => "Can't attack"
+        case Some(Damage(n)) => "Attack: " + n + " damage"
+        case Some(Unsummon) => "Attack: Unsummon"
+        case Some(Kill) => "Attack: Instant kill (cannot attack necromancers)"
+        case Some(Enchant(_)) => ""
+        case Some(TransformInto(_)) => ""
+      }
+      if(stats.isNecromancer) {
+        show("If your necromancer dies, you lose the board")
+      } else {
+        show("Cost: " + stats.cost)
+        if(stats.rebate > 0) {
+          show("Rebate when killed: " + stats.rebate)
+        }
+      }
+      show(aStr)
+      show(stats.defense + " health")
+      if(stats.moveRange == 0) {
+        show("Cannot move")
+      } else if(stats.moveRange == 1) {
+        show("Speed: one hex per turn")
+      } else {
+        show("Speed: " + stats.moveRange + " hexes per turn")
+      }
+      if(stats.attackEffect.isDefined) {
+        if(stats.attackRange == 1) {
+          show("Attack range: 1 hex")
+        } else {
+          show("Attack range: " + stats.attackRange + " hexes")
+        }
+      }
+      if(stats.numAttacks > 1) {
+        show("Can attack " + stats.numAttacks + " times per turn")
+      }
+      if(stats.isFlying) {
+        show("Can move on water and fly over enemies")
+      }
+      if(stats.isLumbering) {
+        show("Can either move or attack in a turn, but not both")
+      }
+      if(stats.isPersistent) {
+        show("Cannot be unsummoned")
+      }
+      if(stats.isEldritch) {
+        show("Can be summoned next to any unit, not just units with spawn")
+      }
+      if(stats.isWailing) {
+        show("Dies after the first turn it attacks")
+      }
+      if(!stats.canHurtNecromancer) {
+        show("Cannot attack necromancers")
+      }
+      if(stats.swarmMax > 1) {
+        show("Swarm: " + stats.swarmMax + " can be in the same hex")
+      }
+      if(stats.spawnRange > 0) {
+        assert(stats.spawnRange == 1)
+        show("Friendly units can spawn next to this unit")
+      }
+      if(stats.extraSorceryPower > 0) {
+        show("Provides " + stats.extraSorceryPower + " sorcery power per turn")
+      }
+      stats.deathSpawn match {
+        case None => ()
+        case Some(pieceName) => show("Turns into " + pieceName + " when killed")
+      }
+
+    /*
+    abilities : Map[String,PieceAbility] = Map.empty
+    */
+    }
+
 
     // def locsOfReinforcement(loc: Loc, count: Int): Array[HexLoc] = {
     //   val hexLoc = hexLocOfLoc(loc)
@@ -235,7 +322,7 @@ object Drawing {
       val locsAndContents = UI.Reinforcements.getLocsAndContents(side,flipDisplay,board)
       locsAndContents.foreach { case (loc,pieceName,count) =>
         val hexLoc = hexLocOfLoc(loc)
-        drawPiece(hexLoc, pieceScale, side, "")
+        drawPiece(hexLoc, pieceScale, Some(side), "")
         val label = displayNameOfPieceName(pieceName)
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
         text("x " + count, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,8.0), "black")
@@ -250,7 +337,7 @@ object Drawing {
       }
       locsAndContents.foreach { case (loc,_,pieceName,side) =>
         val label = displayNameOfPieceName(pieceName)
-        drawPiece(hexLocOfLoc(loc), pieceScale, side, label)
+        drawPiece(hexLocOfLoc(loc), pieceScale, Some(side), label)
       }
     }
 
@@ -421,7 +508,7 @@ object Drawing {
         val curStats = piece.curStats(board)
         val label = baseStats.shortDisplayName
 
-        drawPiece(loc, scale, piece.side, "")
+        drawPiece(loc, scale, Some(piece.side), "")
 
         val (aStr,aColor) = getAttackStringAndColor(baseStats,curStats,piece.actState)
         val (dStr,dColor) = getDefenseStringAndColor(baseStats,curStats,piece.damage)
@@ -556,6 +643,7 @@ object Drawing {
               val loc = UI.Tech.getLoc(techIdx)
               strokeHex(loc, "black", tileScale, alpha=0.5)
             }
+            drawSidebar(game.techLine(techIdx).tech.pieceStats, None)
           case MouseReinforcement(pieceName,side) =>
             UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
               case None => ()
@@ -568,7 +656,7 @@ object Drawing {
               }
               pieceSpec.foreach { pieceSpec => highlightUndoneActionsForPieceSpec(pieceSpec) }
             }
-
+            drawSidebar(Units.pieceMap(pieceName), Some(side))
           case MouseDeadPiece(pieceSpec) =>
             UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
               case None => ()
@@ -577,12 +665,18 @@ object Drawing {
             }
             if(altPressed)
               highlightUndoneActionsForPieceSpec(pieceSpec)
+            UI.DeadPieces.getSelectedPiece(board, pieceSpec) match {
+              case None => ()
+              case Some((stats, side)) =>
+                drawSidebar(stats, Some(side))
+            }
           case MousePiece(spec) =>
             board.findPiece(spec) match {
               case None => ()
               case Some(piece) =>
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
                 strokeHex(loc, "black", scale, alpha=0.5)
+                drawSidebar(piece.curStats(board), Some(piece.side))
             }
 
             if(altPressed)

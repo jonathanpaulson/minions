@@ -50,6 +50,11 @@ sealed trait Tech {
       case PieceTech(pieceName) => Units.pieceMap(pieceName).displayName
     }
   }
+  def pieceStats : PieceStats = {
+    this match {
+      case PieceTech(pieceName) => Units.pieceMap(pieceName)
+    }
+  }
 }
 case class PieceTech(pieceName:PieceName) extends Tech
 

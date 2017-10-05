@@ -95,8 +95,14 @@ object ServerMain extends App {
 
       //Testing
       {
-        state.spawnPieceInitial(S0, Units.haunt.name, Loc(5,6))
         state.spawnPieceInitial(S0, Units.shrieker.name, Loc(5,4))
+        state.spawnPieceInitial(S0, Units.witch.name, Loc(6,4))
+        state.spawnPieceInitial(S0, Units.fallen_angel.name, Loc(7,4))
+        state.spawnPieceInitial(S0, Units.dark_tower.name, Loc(5,5))
+        state.spawnPieceInitial(S0, Units.lich.name, Loc(6,5))
+        state.spawnPieceInitial(S0, Units.banshee.name, Loc(7,5))
+
+        state.spawnPieceInitial(S0, Units.haunt.name, Loc(5,6))
 
         state.spawnPieceInitial(S1, Units.wight.name, Loc(6,6))
 
