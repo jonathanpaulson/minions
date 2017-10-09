@@ -558,29 +558,29 @@ object Drawing {
           text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(5.0,5.0), dColor, smaller=true)
         }
         //One piece in hex
-      else {
-        if(baseStats.name == Units.zombie.name && curStats.isBaseStats) {
-          text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-4.0), "black")
+        else {
+          if(baseStats.name == Units.zombie.name && curStats.isBaseStats) {
+            text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-4.0), "black")
+          }
+          else {
+            text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-8.0), "black")
+            text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,2.0), aColor)
+            text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,2.0), dColor)
+            text(rStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,12.0), rColor)
+            text(mStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,12.0), mColor)
+          }
+        }
+
+        if(piece.side != game.curSide) {
+          if(piece.damage > 0)
+            strokeHex(loc, "magenta", scale)
         }
         else {
-          text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-8.0), "black")
-          text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,2.0), aColor)
-          text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,2.0), dColor)
-          text(rStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,12.0), rColor)
-          text(mStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,12.0), mColor)
+          if(pieceHasNotDoneThings(piece))
+            strokeHex(loc, "green", scale, lineWidth=1.5)
+          else if(pieceCanStillDoThings(piece))
+            strokeHex(loc, "orange", scale, lineWidth=1.5)
         }
-      }
-
-      if(piece.side != game.curSide) {
-        if(piece.damage > 0)
-          strokeHex(loc, "magenta", scale)
-      }
-      else {
-        if(pieceHasNotDoneThings(piece))
-          strokeHex(loc, "green", scale, lineWidth=1.5)
-        else if(pieceCanStillDoThings(piece))
-          strokeHex(loc, "orange", scale, lineWidth=1.5)
-      }
       }
     }
 
@@ -694,30 +694,30 @@ object Drawing {
               pieceSpec.foreach { pieceSpec => highlightUndoneActionsForPieceSpec(pieceSpec) }
             }
             drawSidebar(Some(Units.pieceMap(pieceName)), Some(side), None)
-              case MouseDeadPiece(pieceSpec) =>
-                UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
-                  case None => ()
-                  case Some(loc) =>
-                    strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
-                }
-                if(altPressed)
-                  highlightUndoneActionsForPieceSpec(pieceSpec)
-                UI.DeadPieces.getSelectedPiece(board, pieceSpec) match {
-                  case None => ()
-                  case Some((stats, side)) =>
-                    drawSidebar(Some(stats), Some(side), None)
-                }
-                  case MousePiece(spec) =>
-                    board.findPiece(spec) match {
-                      case None => ()
-                      case Some(piece) =>
-                        val (loc,scale) = locAndScaleOfPiece(board,piece)
-                        strokeHex(loc, "black", scale, alpha=0.5)
-                        drawSidebar(Some(piece.curStats(board)), Some(piece.side), Some(board.tiles(piece.loc)))
-                    }
+          case MouseDeadPiece(pieceSpec) =>
+            UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
+              case None => ()
+              case Some(loc) =>
+                strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
+            }
+            if(altPressed)
+              highlightUndoneActionsForPieceSpec(pieceSpec)
+            UI.DeadPieces.getSelectedPiece(board, pieceSpec) match {
+              case None => ()
+              case Some((stats, side)) =>
+                drawSidebar(Some(stats), Some(side), None)
+            }
+          case MousePiece(spec) =>
+            board.findPiece(spec) match {
+              case None => ()
+              case Some(piece) =>
+                val (loc,scale) = locAndScaleOfPiece(board,piece)
+                strokeHex(loc, "black", scale, alpha=0.5)
+                drawSidebar(Some(piece.curStats(board)), Some(piece.side), Some(board.tiles(piece.loc)))
+            }
 
-                    if(altPressed)
-                      highlightUndoneActionsForPieceSpec(spec)
+            if(altPressed)
+              highlightUndoneActionsForPieceSpec(spec)
         }
 
         //Draw highlights based on piece selected by mouse click
@@ -750,87 +750,87 @@ object Drawing {
               fillHex(loc, "yellow", tileScale, alpha=0.1)
             }
 
-              case MouseDeadPiece(pieceSpec) =>
+          case MouseDeadPiece(pieceSpec) =>
+            if(altPressed) {
+              UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
+                case None => ()
+                case Some(loc) =>
+                  fillHex(hexLocOfLoc(loc), "yellow", pieceScale, alpha=0.1)
+                  strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
+              }
+            }
+          case MousePiece(spec) =>
+            board.findPiece(spec) match {
+              case None => ()
+              case Some(piece) =>
+                val (loc,scale) = locAndScaleOfPiece(board,piece)
+
                 if(altPressed) {
-                  UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
-                    case None => ()
-                    case Some(loc) =>
-                      fillHex(hexLocOfLoc(loc), "yellow", pieceScale, alpha=0.1)
-                      strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
+                  fillHex(loc, "yellow", scale, alpha=0.1)
+                  strokeHex(loc, "black", scale, alpha=0.5)
+                }
+                else {
+                  if(piece.side == game.curSide) {
+                    //Only stroke and no highlight since we're already getting a highlight from drawing paths.
+                    strokeHex(loc, "black", scale, alpha=0.5)
+
+                    //Draw the movement path
+                    val path = mode.path
+                    drawPath(path.toVector,overrideStart = Some(loc))
+
+                    //Highlight the movement range
+                    val moveLocsAndSteps = board.legalMoves(piece)
+                    moveLocsAndSteps.foreach { case (loc,_) =>
+                      fillHex(loc, "yellow", tileScale, alpha=0.1)
+                    }
+
+                    val attackerStats = piece.curStats(board)
+                    val attackerState = piece.actState
+                    def canAttackIfInRange(targetPiece: Piece, attackerHasMoved: Boolean): Boolean = {
+                      val targetStats = targetPiece.curStats(board)
+                      board.canAttack(attackerStats,attackerHasMoved,attackerState,targetStats)
+                    }
+                    def canBeInRange(targetPiece: Piece): Boolean = {
+                      moveLocsAndSteps.exists { case (loc,_) =>
+                        board.topology.distance(loc,targetPiece.loc) <= attackerStats.attackRange
+                      }
+                    }
+                    def inRangeNow(targetPiece: Piece): Boolean = {
+                      board.topology.distance(piece.loc,targetPiece.loc) <= attackerStats.attackRange
+                    }
+                    def canAttack(targetPiece: Piece): Boolean = {
+                      if(targetPiece.side == piece.side)
+                        false
+                      else if(inRangeNow(targetPiece) && !piece.hasMoved)
+                        canAttackIfInRange(targetPiece, attackerHasMoved = false)
+                      else if(canBeInRange(targetPiece))
+                        canAttackIfInRange(targetPiece, attackerHasMoved = true)
+                      else false
+                    }
+
+                    //Highlight all legal pieces to attack
+                    board.pieces.foreach { pieces =>
+                      pieces.foreach { targetPiece =>
+                        if(canAttack(targetPiece)) {
+                          val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
+                          strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
+                        }
+                      }
+                    }
+
+                    //Highlight the hovered piece if attacking it is legal
+                    mouseState.hovered.findPiece(board) match {
+                      case None => ()
+                      case Some(targetPiece) =>
+                        if(canAttack(targetPiece)) {
+                          val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
+                          fillHex(targetLoc, "magenta", targetScale, alpha=0.1)
+                          strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
+                        }
+                    }
                   }
                 }
-                    case MousePiece(spec) =>
-                      board.findPiece(spec) match {
-                        case None => ()
-                        case Some(piece) =>
-                          val (loc,scale) = locAndScaleOfPiece(board,piece)
-
-                          if(altPressed) {
-                            fillHex(loc, "yellow", scale, alpha=0.1)
-                            strokeHex(loc, "black", scale, alpha=0.5)
-                          }
-                          else {
-                            if(piece.side == game.curSide) {
-                              //Only stroke and no highlight since we're already getting a highlight from drawing paths.
-                              strokeHex(loc, "black", scale, alpha=0.5)
-
-                              //Draw the movement path
-                              val path = mode.path
-                              drawPath(path.toVector,overrideStart = Some(loc))
-
-                              //Highlight the movement range
-                              val moveLocsAndSteps = board.legalMoves(piece)
-                              moveLocsAndSteps.foreach { case (loc,_) =>
-                                fillHex(loc, "yellow", tileScale, alpha=0.1)
-                              }
-
-                              val attackerStats = piece.curStats(board)
-                              val attackerState = piece.actState
-                              def canAttackIfInRange(targetPiece: Piece, attackerHasMoved: Boolean): Boolean = {
-                                val targetStats = targetPiece.curStats(board)
-                                board.canAttack(attackerStats,attackerHasMoved,attackerState,targetStats)
-                              }
-                              def canBeInRange(targetPiece: Piece): Boolean = {
-                                moveLocsAndSteps.exists { case (loc,_) =>
-                                  board.topology.distance(loc,targetPiece.loc) <= attackerStats.attackRange
-                                }
-                              }
-                              def inRangeNow(targetPiece: Piece): Boolean = {
-                                board.topology.distance(piece.loc,targetPiece.loc) <= attackerStats.attackRange
-                              }
-                              def canAttack(targetPiece: Piece): Boolean = {
-                                if(targetPiece.side == piece.side)
-                                  false
-                                else if(inRangeNow(targetPiece) && !piece.hasMoved)
-                                  canAttackIfInRange(targetPiece, attackerHasMoved = false)
-                                else if(canBeInRange(targetPiece))
-                                  canAttackIfInRange(targetPiece, attackerHasMoved = true)
-                                else false
-                              }
-
-                              //Highlight all legal pieces to attack
-                              board.pieces.foreach { pieces =>
-                                pieces.foreach { targetPiece =>
-                                  if(canAttack(targetPiece)) {
-                                    val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
-                                    strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
-                                  }
-                                }
-                              }
-
-                              //Highlight the hovered piece if attacking it is legal
-                              mouseState.hovered.findPiece(board) match {
-                                case None => ()
-                                case Some(targetPiece) =>
-                                  if(canAttack(targetPiece)) {
-                                    val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
-                                    fillHex(targetLoc, "magenta", targetScale, alpha=0.1)
-                                    strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
-                                  }
-                              }
-                            }
-                          }
-                      }
+            }
         }
     }
 

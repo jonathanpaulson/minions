@@ -39,14 +39,10 @@ class Client() {
   }
 
   def reportError(err: String) = {
-    //TODO display to user instead of printing to console
-    println(err)
     messages.value += err+"\n"
     messages.scrollTop = messages.scrollHeight.toDouble
   }
   def reportFatalError(err: String) = {
-    //TODO display to user instead of printing to console
-    println(err)
     messages.value += err+"\n"
     messages.scrollTop = messages.scrollHeight.toDouble
   }

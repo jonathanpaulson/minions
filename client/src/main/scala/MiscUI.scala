@@ -138,7 +138,7 @@ object UI {
     }
 
     def getSelectedPiece(flipDisplay: Boolean, board: BoardState, loc: Loc): Option[(PieceName, Side)] = {
-      def f(side : Side) : Option[(PieceName, Side)] = {
+      Side.sides.findMap { side =>
         val locs = getLocs(side,flipDisplay,board)
         val selectedIdx = locs.indexOf(loc)
         if(selectedIdx == -1) None
@@ -156,10 +156,6 @@ object UI {
             }
           }
         }
-      }
-      f(S0) match {
-        case None => f(S1)
-        case Some(x) => Some(x)
       }
     }
 
