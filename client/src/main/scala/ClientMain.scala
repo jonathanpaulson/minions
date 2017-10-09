@@ -7,7 +7,7 @@ import scala.scalajs.js.JSApp
 import org.scalajs.jquery.{JQuery,jQuery,JQueryEventObject}
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.{MouseEvent, KeyboardEvent}
-import org.scalajs.dom.html.Canvas
+import org.scalajs.dom.html.{Canvas, TextArea}
 import org.scalajs.dom.window
 
 import minionsgame.core._
@@ -41,10 +41,14 @@ class Client() {
   def reportError(err: String) = {
     //TODO display to user instead of printing to console
     println(err)
+    messages.value += err+"\n"
+    messages.scrollTop = messages.scrollHeight.toDouble
   }
   def reportFatalError(err: String) = {
     //TODO display to user instead of printing to console
     println(err)
+    messages.value += err+"\n"
+    messages.scrollTop = messages.scrollHeight.toDouble
   }
 
   def reportUserJoined(username: String, side: Option[Side]) = {
@@ -63,6 +67,7 @@ class Client() {
 
   val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
   val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
+  val messages = jQuery("#messages").get(0).asInstanceOf[TextArea]
 
   //State of game, as far as we can tell from the server
   var game: Option[Game] = None
@@ -156,7 +161,7 @@ class Client() {
           case (a: BoardAction) => localBoards(boardIdx).doAction(a)
         }
         result match {
-          case Failure(err) => reportError(err.toString)
+          case Failure(err) => reportError(err.getLocalizedMessage)
           case Success(()) =>
             localSequence(boardIdx) = localSequence(boardIdx) + 1
             localActionSequence(boardIdx) = localActionSequence(boardIdx) :+ action
@@ -292,7 +297,7 @@ class Client() {
         if(game.exists { game => game.winner.nonEmpty })
           reportError("Game is over")
         localBoards(curBoardIdx).doAction(action) match {
-          case Failure(error) => reportError(error.toString)
+          case Failure(error) => reportError(error.getLocalizedMessage)
           case Success(()) =>
             localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
             localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
