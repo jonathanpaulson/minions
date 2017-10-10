@@ -3,7 +3,7 @@ package minionsgame.jsclient
 import scala.concurrent.Future
 import scala.util.{Try, Success, Failure}
 
-import scala.scalajs.js.JSApp
+import scala.scalajs.js.{JSApp, Dictionary}
 import org.scalajs.jquery.{JQuery,jQuery,JQueryEventObject}
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.{MouseEvent, KeyboardEvent}
@@ -17,9 +17,15 @@ object ClientMain extends JSApp {
 
   def main(): Unit = {
     //Call setupUI once the document is ready
-    jQuery { () => new Client() }
+    jQuery { () => new Client().init() }
     ()
   }
+}
+
+@scala.scalajs.js.native
+trait Offset extends scala.scalajs.js.Object {
+  def left : Double = scala.scalajs.js.native
+  def top : Double = scala.scalajs.js.native
 }
 
 class Client() {
@@ -36,6 +42,16 @@ class Client() {
     val username = fields("username")
     val ourSide = fields.get("side").map(Side.ofString)
     (username,ourSide)
+  }
+  def init(): Unit = {
+    val jcanvas = jQuery(canvas)
+    val jmessages = jQuery(messages)
+    jmessages.height(canvas.height*0.3)
+    jmessages.width(canvas.width*0.3)
+    val canvas_offset = jcanvas.offset.asInstanceOf[Offset]
+    val left = canvas_offset.left + jcanvas.width - jmessages.outerWidth(true)
+    val top = canvas_offset.top + jcanvas.height - jmessages.outerHeight(true)
+    val _ = jmessages.offset(Dictionary("left"->left, "top"->top))
   }
 
   def reportError(err: String) = {
