@@ -16,6 +16,8 @@ sealed trait MouseTarget {
       case MouseReinforcement(_,_) => None
       case MouseDeadPiece(_) => None
       case MouseEndTurn => None
+      case MouseNextBoard => None
+      case MousePrevBoard => None
       case MouseResignBoard => None
     }
   }
@@ -27,6 +29,8 @@ case class MouseTech(techIdx: Int) extends MouseTarget
 case class MouseReinforcement(pieceName: PieceName, side:Side) extends MouseTarget
 case class MouseDeadPiece(pieceSpec: PieceSpec) extends MouseTarget
 case object MouseEndTurn extends MouseTarget
+case object MouseNextBoard extends MouseTarget
+case object MousePrevBoard extends MouseTarget
 case object MouseResignBoard extends MouseTarget
 
 //Different modes the mouse can be in for selecting different things
@@ -124,6 +128,10 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
                         MouseEndTurn
                       else if(loc == UI.ResignBoard.loc)
                         MouseResignBoard
+                      else if(loc == UI.PrevBoard.loc)
+                        MousePrevBoard
+                      else if(loc == UI.NextBoard.loc)
+                        MouseNextBoard
                       else
                         MouseNone
                   }
@@ -307,6 +315,27 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
         //Require mouse down and up on the same target
         if(curTarget == dragTarget) {
           mouseState.client.showResignConfirm()
+        }
+
+      case MouseNextBoard =>
+        //Require mouse down and up on the same target
+        if(curTarget == dragTarget) {
+          val client = mouseState.client
+          if(client.curBoardIdx < client.numBoards - 1) {
+            mouseState.clear()
+            client.curBoardIdx += 1
+            client.draw()
+          }
+        }
+
+      case MousePrevBoard =>
+        if(curTarget == dragTarget) {
+          val client = mouseState.client
+          if(client.curBoardIdx > 0) {
+            mouseState.clear()
+            client.curBoardIdx -= 1
+            client.draw()
+          }
         }
 
       case MouseTech(techIdx) =>

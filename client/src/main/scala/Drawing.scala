@@ -48,7 +48,8 @@ object Drawing {
       pixel : PixelLoc,
       color : String,
       textAlign : String = "center",
-      smaller : Boolean = false
+      smaller : Boolean = false,
+      bigger : Boolean = false
     ) : Unit
     = {
       ctx.globalAlpha = 1.0
@@ -56,6 +57,8 @@ object Drawing {
       ctx.textAlign = textAlign
       if(smaller)
         ctx.font = "8px sans-serif"
+      else if(bigger)
+        ctx.font = "12px sans-serif"
       else
         ctx.font = "10px sans-serif"
 
@@ -298,6 +301,8 @@ object Drawing {
 
     ctx.translate(UI.translateOrigin.dx,UI.translateOrigin.dy)
 
+    text("Board " + (boardIdx+1), PixelLoc.ofLoc(UI.Info.getBoardIdxLoc(board), gridSize), "grey", textAlign="left", bigger=true)
+
     //Game info text
     Side.foreach { side =>
       val infoLoc = UI.Info.getLoc(side,flipDisplay,board)
@@ -352,6 +357,12 @@ object Drawing {
     //Resign board hex
     fillHex(UI.ResignBoard.loc, "gray", tileScale)
     text("Resign Board", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize), "black")
+
+    fillHex(UI.PrevBoard.loc, "gray", tileScale, if (boardIdx > 0) 0.2 else 1.0)
+    text("Prev Board", PixelLoc.ofLoc(UI.PrevBoard.loc, gridSize), "black")
+
+    fillHex(UI.NextBoard.loc, "gray", tileScale, if (boardIdx+1 < boards.length) 0.2 else 1.0)
+    text("Next Board", PixelLoc.ofLoc(UI.NextBoard.loc, gridSize), "black")
 
     //Reinforcements
     Side.foreach { side =>
@@ -675,6 +686,13 @@ object Drawing {
           case MouseResignBoard =>
             val loc = UI.ResignBoard.loc
             strokeHex(loc, "black", tileScale, alpha=0.5)
+          case MousePrevBoard =>
+            val loc = UI.PrevBoard.loc
+            strokeHex(loc, "black", tileScale, alpha=0.5)
+          case MouseNextBoard =>
+            val loc = UI.NextBoard.loc
+            strokeHex(loc, "black", tileScale, alpha=0.5)
+
           case MouseTech(techIdx) =>
             if(canClickOnTech(techIdx)) {
               val loc = UI.Tech.getLoc(techIdx)
@@ -730,6 +748,14 @@ object Drawing {
             strokeHex(loc, "black", tileScale, alpha=0.5)
           case MouseResignBoard =>
             val loc = UI.ResignBoard.loc
+            fillHex(loc, "yellow", tileScale, alpha=0.1)
+            strokeHex(loc, "black", tileScale, alpha=0.5)
+          case MousePrevBoard =>
+            val loc = UI.PrevBoard.loc
+            fillHex(loc, "yellow", tileScale, alpha=0.1)
+            strokeHex(loc, "black", tileScale, alpha=0.5)
+          case MouseNextBoard =>
+            val loc = UI.NextBoard.loc
             fillHex(loc, "yellow", tileScale, alpha=0.1)
             strokeHex(loc, "black", tileScale, alpha=0.5)
           case MouseTech(techIdx) =>
