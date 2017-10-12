@@ -381,6 +381,17 @@ class Client() {
     draw()
   }
 
+  def ignore(e : Any) : Unit = {
+    val _ = e
+    ()
+  }
+
+  //Prevents double click on canvas from selecting text
+  def selectStart(e : Any) : Boolean = {
+    ignore(e)
+    false
+  }
+
   def keydown(e : KeyboardEvent) : Unit = {
     //Page up
     if(e.keyCode == 33) {
@@ -461,6 +472,7 @@ class Client() {
   canvas.onmousemove = mousemove _
   canvas.onmouseup = mouseup _
   canvas.onmouseout = mouseout _
+  canvas.onselectstart = selectStart _
 
   draw()
 
