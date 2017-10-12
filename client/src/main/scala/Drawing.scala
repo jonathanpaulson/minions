@@ -174,26 +174,36 @@ object Drawing {
             case None => "Can't attack"
             case Some(Damage(n)) => "Attack: " + n + " damage"
             case Some(Unsummon) => "Attack: Unsummon"
-            case Some(Kill) => "Attack: Instant kill (cannot attack necromancers)"
+            case Some(Kill) => "Attack: Instant kill"
             case Some(Enchant(_)) => ""
             case Some(TransformInto(_)) => ""
           }
           if(stats.isNecromancer) {
-            show("If your necromancer dies, you lose the board")
+            show("If your necromancer dies, you lose the board!")
           } else {
-            show("Cost: " + stats.cost)
+            val costStr = "Cost: " + stats.cost + " souls"
             if(stats.rebate > 0) {
-              show("Rebate when killed: " + stats.rebate)
+              show(costStr + " (death: +" + stats.rebate + " souls)")
+            }
+            stats.deathSpawn match {
+              case None => ()
+              case Some(pieceName) =>
+                show(costStr + " (death: becomes " + Units.pieceMap(pieceName).displayName + ")")
             }
           }
-          show(aStr)
-          show(stats.defense + " health")
+          if(stats.numAttacks <= 1) {
+            show(aStr)
+          } else {
+            show(aStr + " (" + stats.numAttacks "x/turn)")
+          }
+
+          show("Defense: " + stats.defense)
           if(stats.moveRange == 0) {
             show("Cannot move")
           } else if(stats.moveRange == 1) {
-            show("Speed: one hex per turn")
+            show("Speed: 1 hex/turn")
           } else {
-            show("Speed: " + stats.moveRange + " hexes per turn")
+            show("Speed: " + stats.moveRange + " hexes/turn")
           }
           if(stats.attackEffect.isDefined) {
             if(stats.attackRange == 1) {
@@ -202,76 +212,62 @@ object Drawing {
               show("Attack range: " + stats.attackRange + " hexes")
             }
           }
-          if(stats.numAttacks > 1) {
-            show("Can attack " + stats.numAttacks + " times per turn")
-          }
           if(stats.isFlying) {
-            show("Can move on water and fly over enemies")
+            show("Flying (move over water or enemies)")
           }
           if(stats.isLumbering) {
-            show("Can either move or attack in a turn, but not both")
-          }
-          if(stats.isPersistent) {
-            show("Cannot be unsummoned")
-          }
-          if(stats.isEldritch) {
-            show("Can be summoned next to any unit, not just units with spawn")
-          }
-          if(stats.isWailing) {
-            show("Dies after the first turn it attacks")
-          }
-          if(!stats.canHurtNecromancer) {
-            show("Cannot attack necromancers")
+            show("Lumbering (cannot attack after moving)")
           }
           if(stats.swarmMax > 1) {
-            show("Swarm: " + stats.swarmMax + " can be in the same hex")
+            show("Swarm (up to " + stats.swarmMax + "/hex)")
           }
           if(stats.spawnRange > 0) {
             assert(stats.spawnRange == 1)
-            show("Friendly units can spawn next to this unit")
+            show("Summoner (friendly units can spawn adjacent)")
+          }
+          if(stats.isPersistent) {
+            show("Persistent (cannot be unsummoned)")
+          }
+          if(stats.isEldritch) {
+            show("Eldritch (can spawn next to any friendly unit)")
+          }
+          if(stats.isWailing) {
+            show("Dies after the turn it attacks.")
+          }
+          if(!stats.canHurtNecromancer) {
+            show("Cannot attack necromancers.")
           }
           if(stats.extraSorceryPower > 0) {
-            show("Provides " + stats.extraSorceryPower + " sorcery power per turn")
-          }
-          stats.deathSpawn match {
-            case None => ()
-            case Some(pieceName) => show("Turns into " + pieceName + " when killed")
+            show("Produces " + stats.extraSorceryPower + " sorcery power/turn.")
           }
       }
       tile match {
         case None => ()
         case Some(tile) =>
-          show("")
+          if(stats.nonEmpty)
+            show("------------------------------")
+
           tile.terrain match {
             case Wall =>
-              show("Wall")
+              show("Terrain: Wall")
               show("Impassable")
             case Ground | StartHex(_) =>
-              show("Grass")
+              show("Terrain: Grass")
             case Water =>
-              show("Water")
-              show("Only passable by flying units")
+              show("Terrain: Water")
+              show("Only passable by flying units.")
             case Graveyard =>
-              show("Graveyard")
-              side match {
-                case None => show("You need a unit here to control the graveyard")
-                case Some(S0) => show("Controlled by blue")
-                case Some(S1) => show("Controlled by red")
-              }
-              show("End of turn: +1 soul/graveyard controlled")
-              show("Start of turn: win board if you control at least 8 graveyards")
+              show("Terrain: Graveyard")
+              show("Gain 1 soul at end of turn if occupied.")
+              show("At the start of turn, win the board if you")
+              show("occupy at least 8 graveyards.")
             case SorceryNode =>
-              show("Ley Line")
-              side match {
-                case None => show("You need a unit here to control the ley line")
-                case Some(S0) => show("Controlled by blue")
-                case Some(S1) => show("Controlled by red")
-              }
-              show("Start of turn: +1 sorcery power / ley line controlled")
+              show("Terrain: Ley Line")
+              show("Gain 1 sorcery power at start of turn if occupied.")
             case Teleporter =>
-              show("Teleporter")
+              show("Terrain: Teleporter")
             case Spawner(_) =>
-              show("Spawner")
+              show("Terrain: Spawner")
           }
       }
     }
