@@ -406,30 +406,40 @@ case class BoardState private (
     doActionSingleAssumeLegal(action)
   }
 
-  //End the current turn and begin the next turn
-  def endTurn(): Unit = {
-    //Wailing units that attacked and have not been finished yet die
-    killAttackingWailingUnits()
-
-    //Count and accumulate mana and sorcery power.
-    var newMana = 0
+  def resetSorceryPower(): Unit = {
     var newSorceryPower = 0
     tiles.foreachi { case (loc,tile) =>
       val occupied = pieceById.values.exists { piece => piece.side == side && piece.loc == loc }
-      if(tile.terrain == Graveyard && occupied)
-        newMana += 1
       if(tile.terrain == SorceryNode && occupied)
         newSorceryPower += 1
     }
     pieceById.values.foreach { piece =>
       if(piece.side == side) {
         val stats = piece.curStats(this)
-        newMana += stats.extraMana
         newSorceryPower += stats.extraSorceryPower
       }
     }
-    //Reset sorcery power
     sorceryPower = newSorceryPower
+  }
+
+  //End the current turn and begin the next turn
+  def endTurn(): Unit = {
+    //Wailing units that attacked and have not been finished yet die
+    killAttackingWailingUnits()
+
+    //Count and accumulate mana.
+    var newMana = 0
+    tiles.foreachi { case (loc,tile) =>
+      val occupied = pieceById.values.exists { piece => piece.side == side && piece.loc == loc }
+      if(tile.terrain == Graveyard && occupied)
+        newMana += 1
+    }
+    pieceById.values.foreach { piece =>
+      if(piece.side == side) {
+        val stats = piece.curStats(this)
+        newMana += stats.extraMana
+      }
+    }
     //Heal damage, reset piece state, decay modifiers
     pieceById.values.foreach { piece =>
       refreshPieceForStartOfTurn(piece)
@@ -449,6 +459,9 @@ case class BoardState private (
     //Flip turn
     side = side.opp
     turnNumber += 1
+
+    //Handle sorcery power for the new turn
+    resetSorceryPower()
 
     //Clear mana for the side to move, and other board state
     manaThisRound(side) = 0
@@ -497,6 +510,9 @@ case class BoardState private (
         val (_: Try[Unit]) = spawnPieceInitial(side,Units.zombie.name,loc)
       }
     }
+
+    //Handle sorcery power for the first turn
+    resetSorceryPower()
   }
 
   def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
