@@ -191,7 +191,7 @@ object Drawing {
           if(stats.numAttacks <= 1) {
             show(aStr)
           } else {
-            show(aStr + " (" + stats.numAttacks "x/turn)")
+            show(aStr + " (" + stats.numAttacks + "x/turn)")
           }
 
           show("Defense: " + stats.defense)
@@ -339,6 +339,8 @@ object Drawing {
           }
         }
       }
+
+      textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 240.0, -9.0)
 
       textAtLoc(side.toColorName + " Team Souls: " + mana, 0.0, 3.0)
 

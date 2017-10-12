@@ -32,10 +32,10 @@ object UI {
 
   //Positioning for end turn hex button
   object EndTurn {
-    val loc: Loc = Loc(16, -4)
+    val loc: Loc = Loc(17, -4)
   }
   object ResignBoard {
-    val loc: Loc = Loc(17, -4)
+    val loc: Loc = Loc(18, -4)
   }
   object Sidebar {
     val loc: Loc = Loc(20, -1)
