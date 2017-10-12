@@ -305,6 +305,7 @@ object Units {
     moveRange = 1,
     attackRange = 3,
     isLumbering = true,
+    canHurtNecromancer = false,
   )
 
   val void = createPieceStats(
@@ -364,6 +365,7 @@ object Units {
     attackEffect = Some(Kill),
     defense = 2,
     isWailing = true,
+    canHurtNecromancer = false,
     // TODO: sorcery kill all adjacent enemies (=flurry?)
   )
 
