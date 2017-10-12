@@ -267,6 +267,10 @@ class Client() {
           case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) | (_: PayForReinforcement) | (_: UnpayForReinforcement) => ()
           case ResignBoard(boardIdx) =>
             reportMessage("Team " + game.get.curSide.toColorName + " resigned board " + boardIdx + "!")
+            game.get.winner.foreach { winner =>
+              reportMessage("Team " + winner.toColorName + " won the game!")
+            }
+
           case AddWin(side,boardIdx) =>
             reportMessage("Team " + side.toColorName + " won board " + boardIdx + "!")
         }
