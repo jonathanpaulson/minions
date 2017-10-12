@@ -17,8 +17,8 @@ object UI {
           Loc(board.tiles.xSize/2 + 4, -4)
       }
     }
-    def getBoardIdxLoc(board : BoardState) : Loc = {
-      Loc(board.tiles.xSize/2 + 3, -5)
+    def getBoardTitleLoc(board : BoardState) : Loc = {
+      Loc(board.tiles.xSize/2 + 2, -5)
     }
   }
 

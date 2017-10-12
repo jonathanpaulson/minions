@@ -400,7 +400,7 @@ object ServerMain extends App {
         userSides = userSides + (sessionId -> side)
         userOuts = userOuts + (sessionId -> out)
         out ! Protocol.Version(CurrentVersion.version)
-        out ! Protocol.Initialize(game, boards.map { board => board.toSummary()},boardSequences.clone())
+        out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
         getTimeLeftEvent().foreach { response => out ! response }
         broadcastAll(Protocol.UserJoined(username,side))
         log("UserJoined: " + username + " Side: " + side)

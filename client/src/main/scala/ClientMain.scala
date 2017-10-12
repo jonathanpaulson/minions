@@ -93,6 +93,7 @@ class Client() {
   var serverBoards: Array[Board] = Array()
   var serverSequence: Array[Int] = Array()
   var serverActionSequence: Array[Vector[BoardAction]] = Array()
+  var serverBoardNames: Array[String] = Array()
 
   var numBoards: Int = 0 //Length of the boards arrays
   var curBoardIdx: Int = 0 //Currently selected board
@@ -217,7 +218,7 @@ class Client() {
       case Protocol.OkGameAction(_) =>
         ()
 
-      case Protocol.Initialize(startGame,summaries,boardSequences) =>
+      case Protocol.Initialize(startGame,summaries,boardNames,boardSequences) =>
         println("Setting numBoards to " + summaries.length)
         numBoards = summaries.length
         curBoardIdx = 0
@@ -225,6 +226,7 @@ class Client() {
         serverBoards = summaries.map { summary => Board.ofSummary(summary) }
         serverSequence = boardSequences.clone()
         serverActionSequence = Array.fill(summaries.length)(Vector())
+        serverBoardNames = boardNames.clone()
         localBoards = serverBoards.map { board => board.copy() }
         localSequence = serverSequence.clone()
         localActionSequence = Array.fill(summaries.length)(Vector())
@@ -335,7 +337,8 @@ class Client() {
     }
     curLocalBoard().foreach { _ =>
       val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
-      Drawing.drawEverything(canvas, ctx, game.get, localBoards, curBoardIdx, mouseState, flipDisplay, altPressed, showCoords, timeLeft)
+      Drawing.drawEverything(canvas, ctx, game.get, localBoards, serverBoardNames, curBoardIdx, mouseState,
+        flipDisplay, altPressed, showCoords, timeLeft)
     }
   }
 

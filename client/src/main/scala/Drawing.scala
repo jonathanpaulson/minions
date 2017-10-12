@@ -20,6 +20,7 @@ object Drawing {
     ctx: CanvasRenderingContext2D,
     game: Game,
     boards: Array[Board],
+    boardNames: Array[String],
     boardIdx: Int,
     mouseState: MouseState,
     flipDisplay: Boolean,
@@ -48,20 +49,16 @@ object Drawing {
       pixel : PixelLoc,
       color : String,
       textAlign : String = "center",
-      smaller : Boolean = false,
-      bigger : Boolean = false
+      textBaseline : String = "alphabetic",
+      style : String = "normal",
+      fontSize : Int = 10,
     ) : Unit
     = {
       ctx.globalAlpha = 1.0
       ctx.fillStyle = color
       ctx.textAlign = textAlign
-      if(smaller)
-        ctx.font = "8px sans-serif"
-      else if(bigger)
-        ctx.font = "12px sans-serif"
-      else
-        ctx.font = "10px sans-serif"
-
+      ctx.textBaseline = textBaseline
+      ctx.font = style + " " + fontSize + "px sans-serif"
       ctx.fillText(text, Math.floor(pixel.x), Math.floor(pixel.y))
     }
 
@@ -297,7 +294,12 @@ object Drawing {
 
     ctx.translate(UI.translateOrigin.dx,UI.translateOrigin.dy)
 
-    text("Board " + (boardIdx+1), PixelLoc.ofLoc(UI.Info.getBoardIdxLoc(board), gridSize), "grey", textAlign="left", bigger=true)
+    //Board title
+    text(
+      boardNames(boardIdx) + " (board " + (boardIdx+1) + ")",
+      PixelLoc.ofLoc(UI.Info.getBoardTitleLoc(board), gridSize),
+      "black", textAlign="left", textBaseline="top",fontSize=14
+    )
 
     //Game info text
     Side.foreach { side =>
@@ -560,9 +562,9 @@ object Drawing {
 
         //Multiple pieces in same hex
         if(board.pieces(piece.loc).length > 1) {
-          text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-3.0), "black", smaller=true)
-          text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-5.0,5.0), aColor, smaller=true)
-          text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(5.0,5.0), dColor, smaller=true)
+          text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-3.0), "black", fontSize=8)
+          text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-5.0,5.0), aColor, fontSize=8)
+          text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(5.0,5.0), dColor, fontSize=8)
         }
         //One piece in hex
         else {
