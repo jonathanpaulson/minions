@@ -10,6 +10,8 @@ import org.scalajs.dom.{MouseEvent, KeyboardEvent}
 import org.scalajs.dom.html.{Canvas, TextArea}
 import org.scalajs.dom.window
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
 import minionsgame.core._
 import RichImplicits._
 
@@ -54,22 +56,44 @@ class Client() {
     val _ = jmessages.offset(Dictionary("left"->left, "top"->top))
   }
 
-  def reportError(err: String) = {
-    messages.value += err+"\n"
-    messages.scrollTop = messages.scrollHeight.toDouble
-  }
-  def reportFatalError(err: String) = {
-    messages.value += err+"\n"
+  var gotFatalError: Boolean = false
+
+  def scrollMessages() = {
     messages.scrollTop = messages.scrollHeight.toDouble
   }
 
+  def scrollMessagesIfAtEnd() = {
+    if(messages.scrollTop + messages.clientHeight + 1 >= messages.scrollHeight)
+      scrollMessages()
+  }
+
+  def reportMessage(msg: String) = {
+    messages.value += msg + "\n"
+    scrollMessagesIfAtEnd()
+  }
+  def reportError(err: String) = {
+    reportMessage("Error: " + err)
+    scrollMessages()
+  }
+  def reportFatalError(err: String) = {
+    reportMessage("FATAL ERROR: " + err)
+    scrollMessages()
+    gotFatalError = true
+  }
+
   def reportUserJoined(username: String, side: Option[Side]) = {
-    val _ = (username,side)
-    //TODO
+    val sideStr = side match {
+      case None => "as a spectator"
+      case Some(side) => "team " + side.toColorName
+    }
+    reportMessage(username + " joined " + sideStr + "!")
   }
   def reportUserLeft(username: String, side: Option[Side]) = {
-    val _ = (username,side)
-    //TODO
+    val sideStr = side match {
+      case None => "as a spectator"
+      case Some(side) => "team " + side.toColorName
+    }
+    reportMessage(username + " left " + sideStr)
   }
 
   def addClickedMessage(): Unit = {
@@ -239,6 +263,13 @@ class Client() {
           case Success(()) =>
             draw()
         }
+        gameAction match {
+          case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) | (_: PayForReinforcement) | (_: UnpayForReinforcement) => ()
+          case ResignBoard(boardIdx) =>
+            reportMessage("Team " + game.get.curSide.toColorName + " resigned board " + boardIdx + "!")
+          case AddWin(side,boardIdx) =>
+            reportMessage("Team " + side.toColorName + " won board " + boardIdx + "!")
+        }
 
       case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
         println("Received board " + boardIdx + " action " + boardAction)
@@ -283,6 +314,16 @@ class Client() {
         //At each new turn, clear the time left so that it can be refreshed by the next server update
         estimatedTurnEndTime = None
 
+        game.get.winner match {
+          case Some(winner) =>
+            reportMessage("Team " + winner.toColorName + " won the game!")
+          case None =>
+            reportMessage("Beginning " + newSide.toColorName + " team turn (turn #" + game.get.turnNumber + ")")
+            game.get.newTechsThisTurn.foreach { case (side,tech) =>
+              reportMessage("Team " + side.toColorName + " acquired new tech: " + tech.displayName)
+            }
+        }
+
       case Protocol.ReportTimeLeft(timeLeft) =>
         updateEstimatedTurnEndTime(timeLeft)
     }
@@ -301,29 +342,33 @@ class Client() {
   }
 
   def doActionOnCurBoard(action: BoardAction): Unit = {
-    //For general board actions, send it directly to the server for confirmation, don't do anything locally,
-    //because the dependence on global state might make it illegal, and then when the server reports the
-    //action we will make it during syncLocalAndServerBoards.
-    action match {
-      case (_: DoGeneralBoardAction) =>
-        sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
-      case (_: PlayerActions) | (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) =>
-        if(game.exists { game => game.winner.nonEmpty })
-          reportError("Game is over")
-        localBoards(curBoardIdx).doAction(action) match {
-          case Failure(error) => reportError(error.getLocalizedMessage)
-          case Success(()) =>
-            localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
-            localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
-            numActionsLocalAhead = numActionsLocalAhead + 1
-            sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
-        }
+    if(!gotFatalError) {
+      //For general board actions, send it directly to the server for confirmation, don't do anything locally,
+      //because the dependence on global state might make it illegal, and then when the server reports the
+      //action we will make it during syncLocalAndServerBoards.
+      action match {
+        case (_: DoGeneralBoardAction) =>
+          sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+        case (_: PlayerActions) | (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) =>
+          if(game.exists { game => game.winner.nonEmpty })
+            reportError("Game is over")
+          localBoards(curBoardIdx).doAction(action) match {
+            case Failure(error) => reportError(error.getLocalizedMessage)
+            case Success(()) =>
+              localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
+              localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
+              numActionsLocalAhead = numActionsLocalAhead + 1
+              sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+          }
+      }
     }
   }
 
   def doGameAction(action: GameAction): Unit = {
-    //Send it directly to the server
-    sendWebsocketQuery(Protocol.DoGameAction(action))
+    if(!gotFatalError) {
+      //Send it directly to the server
+      sendWebsocketQuery(Protocol.DoGameAction(action))
+    }
   }
 
   def curLocalBoard() : Option[Board] = {
@@ -480,8 +525,11 @@ class Client() {
     draw()
   }
 
-  val _ : Future[Unit] = connection.run(handleWebsocketEvent)
-
+  val closed : Future[Unit] = connection.run(handleWebsocketEvent)
+  closed.onComplete {
+    case Success(()) => reportFatalError("Connection to server was closed")
+    case Failure(err) => reportFatalError("Error connecting to server: " + err)
+  }
   ()
 
 }

@@ -77,7 +77,7 @@ case class ResignBoard(boardIdx: Int) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
-case class AddWin(side: Side) extends GameAction
+case class AddWin(side: Side, boardIdx: Int) extends GameAction
 
 case object Game {
   def apply(
@@ -125,7 +125,8 @@ case object Game {
       targetNumWins = targetNumWins,
       extraTechCost = extraTechCost,
       extraManaPerTurn = extraManaPerTurn,
-      isBoardDone = Array.fill(numBoards)(false)
+      isBoardDone = Array.fill(numBoards)(false),
+      newTechsThisTurn = Vector()
     )
     game
   }
@@ -151,7 +152,10 @@ case class Game (
   val extraManaPerTurn: Int,
 
   //Flags set when user indicates that the board is done. Server ends the turn when all boards have this set.
-  val isBoardDone: Array[Boolean]
+  val isBoardDone: Array[Boolean],
+
+  //Just for display purposes
+  var newTechsThisTurn: Vector[(Side,Tech)]
 
   // TODO(jpaulson): Spells for the moving side
 ) {
@@ -164,7 +168,7 @@ case class Game (
     action match {
       case PayForReinforcement(side,pieceName) => tryCanPayForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
-      case AddWin(_) => Success(())
+      case AddWin(_,_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => tryCanUndoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => tryCanSetBoardDone(boardIdx,done)
@@ -176,7 +180,7 @@ case class Game (
     action match {
       case PayForReinforcement(side,pieceName) => payForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
-      case AddWin(side) => { doAddWin(side); Success(()) }
+      case AddWin(side,_) => { doAddWin(side); Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => undoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
@@ -191,9 +195,14 @@ case class Game (
 
     mana(curSide) += extraManaPerTurn
 
+    newTechsThisTurn = Vector()
     techLine.foreach { techState =>
-      techState.startingLevelThisTurn(S0) = techState.level(S0)
-      techState.startingLevelThisTurn(S1) = techState.level(S1)
+      Side.foreach { side =>
+        if(techState.startingLevelThisTurn(side) != TechAcquired && techState.level(side) == TechAcquired) {
+          newTechsThisTurn = newTechsThisTurn :+ ((side,techState.tech))
+        }
+        techState.startingLevelThisTurn(side) = techState.level(side)
+      }
     }
 
     for(i <- 0 until isBoardDone.length)

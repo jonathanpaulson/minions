@@ -199,8 +199,8 @@ object ServerMain extends App {
         doEndOfTurn()
     }
 
-    private def doAddWin(side: Side): Unit = {
-      val gameAction: GameAction = AddWin(side)
+    private def doAddWin(side: Side, boardIdx: Int): Unit = {
+      val gameAction: GameAction = AddWin(side,boardIdx)
       val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
     }
 
@@ -212,7 +212,7 @@ object ServerMain extends App {
       for(boardIdx <- 0 until boards.length) {
         val board = boards(boardIdx)
         if(board.curState.hasWon) {
-          doAddWin(oldSide)
+          doAddWin(oldSide,boardIdx)
           if(game.winner.isEmpty)
             doResetBoard(boardIdx)
         }

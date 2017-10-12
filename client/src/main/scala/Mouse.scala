@@ -146,7 +146,7 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
     ourSide match {
       case None => ()
       case Some(ourSide) =>
-        if(ourSide == board.side) {
+        if(ourSide == board.side && !client.gotFatalError) {
           val curTarget = getTarget(pixelLoc,game,board)
           val (curLoc,_) = getLocAndDelta(pixelLoc,board)
           dragTarget = curTarget
@@ -161,7 +161,7 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
     ourSide match {
       case None => ()
       case Some(ourSide) =>
-        if(ourSide == board.side) {
+        if(ourSide == board.side && !client.gotFatalError) {
           val curTarget = getTarget(pixelLoc,game,board)
           val (curLoc,_) = getLocAndDelta(pixelLoc,board)
           mode.handleMouseUp(dragTarget,curTarget,curLoc,game,board,boardIdx,altPressed)
@@ -181,7 +181,7 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
     ourSide match {
       case None => ()
       case Some(ourSide) =>
-        if(ourSide == board.side) {
+        if(ourSide == board.side && !client.gotFatalError) {
           mode.handleMouseMove(dragTarget,curTarget,curLoc,game,board)
         }
     }
