@@ -301,6 +301,12 @@ object Drawing {
       "black", textAlign="left", textBaseline="top",fontSize=14
     )
 
+    //Forward and backward buttons
+    if(boardIdx > 0)
+      text("<- Prev Board", PixelLoc.ofLoc(UI.PrevBoard.locs(0), gridSize), "black", textAlign="left", textBaseline="top", fontSize=12)
+    if(boardIdx < boardNames.length-1)
+      text("Next Board ->", PixelLoc.ofLoc(UI.NextBoard.locs(board)(0), gridSize), "black", textAlign="left", textBaseline="top", fontSize=12)
+
     //Game info text
     Side.foreach { side =>
       val infoLoc = UI.Info.getLoc(side,flipDisplay,board)
@@ -334,12 +340,12 @@ object Drawing {
         }
       }
 
-      textAtLoc(side.toColorName + " Team Mana: " + mana, 0.0, 3.0)
+      textAtLoc(side.toColorName + " Team Souls: " + mana, 0.0, 3.0)
 
       textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 120.0, 3.0)
 
       if(side == board.side)
-        textAtLoc("SorceryPower: " + board.sorceryPower, 240.0, 3.0)
+        textAtLoc("Sorcery Power: " + board.sorceryPower, 240.0, 3.0)
     }
 
     //End turn hex
@@ -349,18 +355,15 @@ object Drawing {
     }
     else {
       fillHex(UI.EndTurn.loc, "gray", tileScale)
+      strokeHex(UI.EndTurn.loc, "#666666", tileScale, lineWidth=0.5)
     }
     text("End Turn", PixelLoc.ofHexLoc(hexLocOfLoc(UI.EndTurn.loc), gridSize), "black")
 
     //Resign board hex
     fillHex(UI.ResignBoard.loc, "gray", tileScale)
-    text("Resign Board", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize), "black")
-
-    fillHex(UI.PrevBoard.loc, "gray", tileScale, if (boardIdx > 0) 0.2 else 1.0)
-    text("Prev Board", PixelLoc.ofLoc(UI.PrevBoard.loc, gridSize), "black")
-
-    fillHex(UI.NextBoard.loc, "gray", tileScale, if (boardIdx+1 < boards.length) 0.2 else 1.0)
-    text("Next Board", PixelLoc.ofLoc(UI.NextBoard.loc, gridSize), "black")
+    strokeHex(UI.ResignBoard.loc, "#666666", tileScale, lineWidth=0.5)
+    text("Resign", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize) + PixelVec(0,-4.0), "black")
+    text("Board", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize) + PixelVec(0,7.0), "black")
 
     //Reinforcements
     Side.foreach { side =>
@@ -685,11 +688,11 @@ object Drawing {
             val loc = UI.ResignBoard.loc
             strokeHex(loc, "black", tileScale, alpha=0.5)
           case MousePrevBoard =>
-            val loc = UI.PrevBoard.loc
-            strokeHex(loc, "black", tileScale, alpha=0.5)
+            if(boardIdx > 0)
+              text("<- Prev Board", PixelLoc.ofLoc(UI.PrevBoard.locs(0), gridSize), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
           case MouseNextBoard =>
-            val loc = UI.NextBoard.loc
-            strokeHex(loc, "black", tileScale, alpha=0.5)
+            if(boardIdx < boardNames.length-1)
+              text("Next Board ->", PixelLoc.ofLoc(UI.NextBoard.locs(board)(0), gridSize), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
 
           case MouseTech(techIdx) =>
             if(canClickOnTech(techIdx)) {
@@ -749,13 +752,11 @@ object Drawing {
             fillHex(loc, "yellow", tileScale, alpha=0.1)
             strokeHex(loc, "black", tileScale, alpha=0.5)
           case MousePrevBoard =>
-            val loc = UI.PrevBoard.loc
-            fillHex(loc, "yellow", tileScale, alpha=0.1)
-            strokeHex(loc, "black", tileScale, alpha=0.5)
+            if(boardIdx > 0)
+              text("<- Prev Board", PixelLoc.ofLoc(UI.PrevBoard.locs(0), gridSize), "cyan", textAlign="left", textBaseline="top", fontSize=12)
           case MouseNextBoard =>
-            val loc = UI.NextBoard.loc
-            fillHex(loc, "yellow", tileScale, alpha=0.1)
-            strokeHex(loc, "black", tileScale, alpha=0.5)
+            if(boardIdx < boardNames.length-1)
+              text("Next Board ->", PixelLoc.ofLoc(UI.NextBoard.locs(board)(0), gridSize), "cyan", textAlign="left", textBaseline="top", fontSize=12)
           case MouseTech(techIdx) =>
             if(canClickOnTech(techIdx)) {
               val loc = UI.Tech.getLoc(techIdx)
@@ -859,9 +860,14 @@ object Drawing {
     }
 
     //Highlight hex tile on mouse hover
-    mouseState.hoverLoc.foreach { hoverLoc =>
-      strokeHex(hoverLoc, "black", tileScale, alpha=0.3)
+    mouseState.hovered match {
+      case MouseNone => ()
+      case MousePrevBoard => ()
+      case MouseNextBoard => ()
+      case _ =>
+        mouseState.hoverLoc.foreach { hoverLoc =>
+          strokeHex(hoverLoc, "black", tileScale, alpha=0.3)
+        }
     }
-
   }
 }

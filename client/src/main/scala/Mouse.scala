@@ -128,9 +128,9 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
                         MouseEndTurn
                       else if(loc == UI.ResignBoard.loc)
                         MouseResignBoard
-                      else if(loc == UI.PrevBoard.loc)
+                      else if(UI.PrevBoard.locs.contains(loc))
                         MousePrevBoard
-                      else if(loc == UI.NextBoard.loc)
+                      else if(UI.NextBoard.locs(board).contains(loc))
                         MouseNextBoard
                       else
                         MouseNone

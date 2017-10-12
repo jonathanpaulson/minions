@@ -46,7 +46,7 @@ class Client() {
   def init(): Unit = {
     val jcanvas = jQuery(canvas)
     val jmessages = jQuery(messages)
-    jmessages.height(canvas.height*0.3)
+    jmessages.height(canvas.height*0.5)
     jmessages.width(canvas.width*0.3)
     val canvas_offset = jcanvas.offset.asInstanceOf[Offset]
     val left = canvas_offset.left + jcanvas.width - jmessages.outerWidth(true)

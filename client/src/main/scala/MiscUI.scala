@@ -5,7 +5,7 @@ import RichImplicits._
 
 object UI {
   //How much to translate the canvas origin inward from the upper left corner.
-  val translateOrigin = PixelVec(3.0 * Drawing.gridSize, 8.0 * Drawing.gridSize)
+  val translateOrigin = PixelVec(2.65 * Drawing.gridSize, 8.0 * Drawing.gridSize)
 
   //Positioning for text about game stats and mana
   object Info {
@@ -21,22 +21,24 @@ object UI {
       Loc(board.tiles.xSize/2 + 2, -5)
     }
   }
+  object PrevBoard {
+    val locs: Array[Loc] = Array(Loc(2, -5),Loc(3, -5))
+  }
+  object NextBoard {
+    def locs(board : BoardState) : Array[Loc] = {
+      Array(Loc(board.tiles.xSize + 4, -5), Loc(board.tiles.xSize + 5, -5))
+    }
+  }
 
   //Positioning for end turn hex button
   object EndTurn {
-    val loc: Loc = Loc(16, -3)
+    val loc: Loc = Loc(16, -4)
   }
   object ResignBoard {
-    val loc: Loc = Loc(18, -3)
-  }
-  object PrevBoard {
-    val loc: Loc = Loc(15, -1)
-  }
-  object NextBoard {
-    val loc: Loc = Loc(17, -1)
+    val loc: Loc = Loc(17, -4)
   }
   object Sidebar {
-    val loc: Loc = Loc(19, 3)
+    val loc: Loc = Loc(20, -1)
   }
 
   //Positioning for tech line
@@ -97,6 +99,8 @@ object UI {
   //Positioning for reinforcements
   object Reinforcements {
     val unflippedLocs = Array(
+      Loc(-3,5),Loc(-2,5),
+      Loc(-3,6),Loc(-2,6),
       Loc(-4,7),Loc(-3,7),Loc(-2,7),
       Loc(-4,8),Loc(-3,8),Loc(-2,8),
       Loc(-5,9),Loc(-4,9),Loc(-3,9),Loc(-2,9),
