@@ -379,10 +379,6 @@ class Client() {
   }
 
   def keydown(e : KeyboardEvent) : Unit = {
-    if(altPressed != e.altKey) {
-      altPressed = e.altKey
-      draw()
-    }
     //Page up
     if(e.keyCode == 33) {
       e.preventDefault()
@@ -401,8 +397,14 @@ class Client() {
         draw()
       }
     }
+    else if(e.keyCode == 18) {
+      e.preventDefault()
+      altPressed = true
+      draw()
+    }
     else if(e.keyCode == 16) {
       shiftPressed = true
+      draw()
     }
     //'c'
     else if(e.keyCode == 67) {
@@ -411,12 +413,14 @@ class Client() {
     }
   }
   def keyup(e : KeyboardEvent) : Unit = {
-    if(altPressed != e.altKey) {
-      altPressed = e.altKey
+    if(e.keyCode == 18) {
+      e.preventDefault()
+      altPressed = false
       draw()
     }
-    if(e.keyCode == 16) {
+    else if(e.keyCode == 16) {
       shiftPressed = false
+      draw()
     }
   }
 
