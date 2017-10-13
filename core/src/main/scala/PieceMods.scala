@@ -14,6 +14,7 @@ sealed trait PieceMod {
     case PieceMods.DoubleAttack => "DoubleAttack"
     case PieceMods.UnsummonAttack => "UnsummonAttack"
     case PieceMods.MoveThree => "MoveThree"
+    case PieceMods.AirStrike => "AirStrike"
   }
 }
 object PieceMod {
@@ -23,6 +24,7 @@ object PieceMod {
       case "DoubleAttack" => PieceMods.DoubleAttack
       case "UnsummonAttack" => PieceMods.UnsummonAttack
       case "MoveThree" => PieceMods.MoveThree
+      case "AirStrike" => PieceMods.AirStrike
       case _ => throw new Exception("Could not parse PieceMod: " + s)
     }
   }
@@ -70,6 +72,17 @@ object PieceMods {
       pieceStats.copy(
         isBaseStats = false,
         moveRange = Math.max(pieceStats.moveRange, 3)
+      )
+    }
+  }
+
+  case object AirStrike extends PieceMod {
+    val displayName = "Air Strike"
+    val desc = "Range 3 attack vs flying units this turn"
+    def apply(pieceStats : PieceStats): PieceStats = {
+      pieceStats.copy(
+        isBaseStats = false,
+        attackRangeVsFlying = Math.max(pieceStats.attackRangeVsFlying, 3)
       )
     }
   }

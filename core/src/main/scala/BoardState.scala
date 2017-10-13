@@ -668,8 +668,9 @@ case class BoardState private (
   }
 
   def tryCanAttack(attackerStats: PieceStats, attackerHasMoved: Boolean, attackerState: ActState, targetStats: PieceStats): Try[Unit] = {
+    val attackRange = { if(targetStats.isFlying) attackerStats.attackRangeVsFlying else attackerStats.attackRange }
     if(attackerStats.attackEffect.isEmpty || attackerStats.numAttacks == 0) failed("Piece cannot attack")
-    else if(attackerStats.attackRange <= 0) failed("Piece cannot attack")
+    else if(attackRange <= 0) failed("Piece cannot attack this unit")
     else if(attackerStats.isLumbering && attackerHasMoved) failed("Lumbering pieces cannot both move and attack on the same turn")
     else {
       val result = attackerState match {
@@ -907,8 +908,9 @@ case class BoardState private (
             failUnless(target.side != side, "Target piece is friendly")
             failUnless(tiles.inBounds(target.loc), "Target location not in bounds")
             val attackerStats = attacker.curStats(this)
-            failUnless(topology.distance(attacker.loc,target.loc) <= attackerStats.attackRange, "Attack range not large enough")
             val targetStats = target.curStats(this)
+            val attackRange = { if(targetStats.isFlying) attackerStats.attackRangeVsFlying else attackerStats.attackRange }
+            failUnless(topology.distance(attacker.loc,target.loc) <= attackRange, "Attack range not large enough")
             tryCanAttack(attackerStats, attacker.hasMoved, attacker.actState, targetStats).get
         }
 

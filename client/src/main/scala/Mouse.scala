@@ -276,8 +276,9 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                   if(!board.canAttack(dpStats,attackerHasMoved=false,dragPiece.actState,tpStats))
                     None
                   else {
+                    val attackRange = { if(tpStats.isFlying) dpStats.attackRangeVsFlying else dpStats.attackRange }
                     board.findLegalMove(dragPiece,pathBias=path) { loc =>
-                      board.topology.distance(loc, curLoc) <= dpStats.attackRange &&
+                      board.topology.distance(loc, curLoc) <= attackRange &&
                       (loc == dragPiece.loc || !dpStats.isLumbering)
                     }
                   }

@@ -205,10 +205,14 @@ object Drawing {
             show("Speed: " + stats.moveRange + " hexes/turn")
           }
           if(stats.attackEffect.isDefined) {
+            val vsFlyingStr = {
+              if(stats.attackRangeVsFlying != stats.attackRange) " (" + stats.attackRangeVsFlying + " vs flying)"
+              else ""
+            }
             if(stats.attackRange == 1) {
-              show("Attack range: 1 hex")
+              show("Attack range: 1 hex" + vsFlyingStr)
             } else {
-              show("Attack range: " + stats.attackRange + " hexes")
+              show("Attack range: " + stats.attackRange + " hexes" + vsFlyingStr)
             }
           }
           if(stats.isFlying) {
@@ -509,15 +513,20 @@ object Drawing {
     }
 
     def getRangeStringAndColor(baseStats: PieceStats, curStats: PieceStats): (String,String) = {
-      val str = {
-        if(!curStats.isLumbering && curStats.attackRange <= 1) ""
+      val baseStr = {
+        if(!curStats.isLumbering && curStats.attackRange <= 1 && curStats.attackRangeVsFlying <= 1) ""
         else if(curStats.isLumbering && curStats.attackRange <= 1) "L"
         else if(curStats.isLumbering) "L" + curStats.attackRange
         else "R" + curStats.attackRange
       }
+      val str = {
+        if(curStats.attackRangeVsFlying != curStats.attackRange) baseStr + "F" + curStats.attackRangeVsFlying
+        else baseStr
+      }
       val color = {
         if(curStats.isLumbering && !baseStats.isLumbering) "magenta"
         else if(curStats.attackRange < baseStats.attackRange) "magenta"
+        else if(curStats.attackRangeVsFlying > baseStats.attackRangeVsFlying) "green"
         else "black"
       }
       (str,color)
@@ -828,12 +837,16 @@ object Drawing {
                       board.canAttack(attackerStats,attackerHasMoved,attackerState,targetStats)
                     }
                     def canBeInRange(targetPiece: Piece): Boolean = {
+                      val targetStats = targetPiece.curStats(board)
+                      val attackRange = { if(targetStats.isFlying) attackerStats.attackRangeVsFlying else attackerStats.attackRange }
                       moveLocsAndSteps.exists { case (loc,_) =>
-                        board.topology.distance(loc,targetPiece.loc) <= attackerStats.attackRange
+                        board.topology.distance(loc,targetPiece.loc) <= attackRange
                       }
                     }
                     def inRangeNow(targetPiece: Piece): Boolean = {
-                      board.topology.distance(piece.loc,targetPiece.loc) <= attackerStats.attackRange
+                      val targetStats = targetPiece.curStats(board)
+                      val attackRange = { if(targetStats.isFlying) attackerStats.attackRangeVsFlying else attackerStats.attackRange }
+                      board.topology.distance(piece.loc,targetPiece.loc) <= attackRange
                     }
                     def canAttack(targetPiece: Piece): Boolean = {
                       if(targetPiece.side == piece.side)

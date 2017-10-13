@@ -93,6 +93,7 @@ case class PieceStats(
   val defense: Int,
   val moveRange: Int,
   val attackRange: Int,
+  val attackRangeVsFlying: Int,
   val numAttacks: Int,
 
   val cost: Int,

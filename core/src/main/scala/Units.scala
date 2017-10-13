@@ -11,6 +11,7 @@ object Units {
     defense : Int,
     moveRange : Int,
     attackRange : Int,
+    attackRangeVsFlying: Int = 0,
     numAttacks : Int = 1,
     cost : Int,
     rebate : Int,
@@ -37,6 +38,7 @@ object Units {
       defense = defense,
       moveRange = moveRange,
       attackRange = attackRange,
+      attackRangeVsFlying = Math.max(attackRange,attackRangeVsFlying),
       numAttacks = numAttacks,
       cost = cost,
       rebate = rebate,
@@ -353,7 +355,14 @@ object Units {
     numAttacks = 9,
     attackEffect = Some(Damage(1)),
     defense = 9,
-    // TODO: sorcery range 3 vs flying
+    abilities = Map("airstrike" -> SelfEnchantAbility(
+      name = "airstrike",
+      displayName = "Air Strike (sorcery)",
+      desc = "Pay 1 sorcery power: Attack range 3 vs flying",
+      isSorcery = true,
+      tryIsUsableNow = { (_: Piece) => Success(()) },
+      mod = PieceModWithDuration(PieceMods.AirStrike, turnsLeft = Some(1))
+    ))
   )
 
   val banshee = createPieceStats(
