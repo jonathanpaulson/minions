@@ -335,7 +335,7 @@ class Client() {
 
   def handleWebsocketEvent(result: Try[Protocol.Response]): Unit = {
     result match {
-      case Failure(exn) => reportError("Websocket exn: " + exn.toString)
+      case Failure(exn) => reportError("Websocket exn: " + exn.getLocalizedMessage)
       case Success(response) => handleResponse(response)
     }
   }

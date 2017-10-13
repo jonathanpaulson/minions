@@ -94,7 +94,7 @@ object ServerMain extends App {
       state.resetBoard(necroNames)
 
       //Testing
-      {
+      /*{
         state.spawnPieceInitial(S0, Units.shrieker.name, Loc(5,4))
         state.spawnPieceInitial(S0, Units.witch.name, Loc(6,4))
         state.spawnPieceInitial(S0, Units.fallen_angel.name, Loc(7,4))
@@ -115,7 +115,7 @@ object ServerMain extends App {
         state.addReinforcementInitial(S1,"zombie")
         state.addReinforcementInitial(S1,"bat")
         state.addReinforcementInitial(S1,"bat")
-      }
+      }*/
 
       (Board.create(state), boardName)
     }
@@ -325,7 +325,7 @@ object ServerMain extends App {
 
                 specialResult.flatMap { case () => boards(boardIdx).doAction(boardAction) } match {
                   case Failure(e) =>
-                    out ! Protocol.QueryError("Illegal action: " + e.toString)
+                    out ! Protocol.QueryError("Illegal action: " + e.getLocalizedMessage)
                   case Success(()) =>
                     //If this board was set as done, then since we did an action on it, unset it.
                     maybeUnsetBoardDone(boardIdx)
@@ -362,7 +362,7 @@ object ServerMain extends App {
                 }
                 specialResult.flatMap { case () => game.doAction(gameAction) } match {
                   case Failure(e) =>
-                    out ! Protocol.QueryError("Illegal action: " + e.toString)
+                    out ! Protocol.QueryError("Illegal action: " + e.getLocalizedMessage)
                   case Success(()) =>
                     gameSequence += 1
                     out ! Protocol.OkGameAction(gameSequence)
@@ -422,7 +422,7 @@ object ServerMain extends App {
           val out = userOuts(sessionId)
           import play.api.libs.json._
           Try(Json.parse(queryStr)) match {
-            case Failure(err) => out ! Protocol.QueryError("Could not parse as json: " + err.toString)
+            case Failure(err) => out ! Protocol.QueryError("Could not parse as json: " + err.getLocalizedMessage)
             case Success(json) =>
               json.validate[Protocol.Query] match {
                 case (e: JsError) => out ! Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
@@ -513,13 +513,13 @@ object ServerMain extends App {
     parameter("username") { username =>
       parameter("side") { side =>
         Try(websocketMessageFlow(username,Some(side))) match {
-          case Failure(exn) => complete(exn.toString)
+          case Failure(exn) => complete(exn.getLocalizedMessage)
           case Success(flow) => handleWebSocketMessages(flow)
         }
       } ~
       pass {
         Try(websocketMessageFlow(username,None)) match {
-          case Failure(exn) => complete(exn.toString)
+          case Failure(exn) => complete(exn.getLocalizedMessage)
           case Success(flow) => handleWebSocketMessages(flow)
         }
       }

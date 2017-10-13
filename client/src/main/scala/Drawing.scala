@@ -179,11 +179,13 @@ object Drawing {
             show("If your necromancer dies, you lose the board!")
           } else {
             val costStr = "Cost: " + stats.cost + " souls"
-            if(stats.rebate > 0) {
-              show(costStr + " (death: +" + stats.rebate + " souls)")
-            }
             stats.deathSpawn match {
-              case None => ()
+              case None =>
+                if(stats.rebate > 0) {
+                  show(costStr + " (death: +" + stats.rebate + " souls)")
+                } else {
+                  show(costStr)
+                }
               case Some(pieceName) =>
                 show(costStr + " (death: becomes " + Units.pieceMap(pieceName).displayName + ")")
             }
