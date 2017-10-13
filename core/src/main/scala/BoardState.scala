@@ -422,12 +422,7 @@ case class BoardState private (
     sorceryPower = newSorceryPower
   }
 
-  //End the current turn and begin the next turn
-  def endTurn(): Unit = {
-    //Wailing units that attacked and have not been finished yet die
-    killAttackingWailingUnits()
-
-    //Count and accumulate mana.
+  def endOfTurnMana(side : Side) : Int = {
     var newMana = 0
     tiles.foreachi { case (loc,tile) =>
       val occupied = pieceById.values.exists { piece => piece.side == side && piece.loc == loc }
@@ -440,6 +435,15 @@ case class BoardState private (
         newMana += stats.extraMana
       }
     }
+    newMana
+  }
+
+  //End the current turn and begin the next turn
+  def endTurn(): Unit = {
+    //Wailing units that attacked and have not been finished yet die
+    killAttackingWailingUnits()
+
+    val newMana = endOfTurnMana(side)
     //Heal damage, reset piece state, decay modifiers
     pieceById.values.foreach { piece =>
       refreshPieceForStartOfTurn(piece)

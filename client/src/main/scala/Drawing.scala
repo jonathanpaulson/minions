@@ -317,8 +317,11 @@ object Drawing {
         case S0 => "#000099"
         case S1 => "#770000"
       }
-      val mana = game.mana(side) + boards.foldLeft(0) { case (sum,board) =>
+      val mana = boards.foldLeft(game.mana(side)) { case (sum,board) =>
         sum + board.curState.manaThisRound(side)
+      }
+      val newMana = boards.foldLeft(0) { case (sum, board) =>
+        sum + board.curState.endOfTurnMana(side)
       }
 
       def textAtLoc(s: String, dpx: Double, dpy: Double) =
@@ -344,9 +347,9 @@ object Drawing {
 
       textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 240.0, -9.0)
 
-      textAtLoc(side.toColorName + " Team Souls: " + mana, 0.0, 3.0)
+      textAtLoc(side.toColorName + " Team Souls: " + mana + " (+" + newMana + "/turn)", 0.0, 3.0)
 
-      textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 120.0, 3.0)
+      textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 140.0, 3.0)
 
       if(side == board.side)
         textAtLoc("Sorcery Power: " + board.sorceryPower, 240.0, 3.0)
