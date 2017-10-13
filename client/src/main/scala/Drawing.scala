@@ -251,7 +251,7 @@ object Drawing {
               show("Terrain: Wall")
               show("Impassable")
             case Ground | StartHex(_) =>
-              show("Terrain: Grass")
+              show("Terrain: Ground")
             case Water =>
               show("Terrain: Water")
               show("Only passable by flying units.")
@@ -265,8 +265,11 @@ object Drawing {
               show("Gain 1 sorcery power at start of turn if occupied.")
             case Teleporter =>
               show("Terrain: Teleporter")
-            case Spawner(_) =>
-              show("Terrain: Spawner")
+            case Spawner(spawnName) =>
+              val name = Units.pieceMap(spawnName).displayName
+              show("Terrain: " + name + " Spawner")
+              show("You may spawn a free " + name + " here.")
+              show("Only one spawner can be used per turn.")
           }
       }
     }
@@ -649,6 +652,8 @@ object Drawing {
           UI.Reinforcements.getLocs(board.side, flipDisplay, board).foreach { loc =>
             strokeHex(hexLocOfLoc(loc), "black", tileScale)
           }
+        case ActivateTile(loc) =>
+          strokeHex(hexLocOfLoc(loc), "black", tileScale)
         case ActivateAbility(spec,_,targets) =>
           List(spec,targets.target0,targets.target1).foreach { spec =>
             findLocOfPiece(spec).foreach { loc =>

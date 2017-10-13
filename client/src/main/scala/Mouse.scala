@@ -304,7 +304,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
 
     //Branch based on what we selected on the mouseDown
     dragTarget match {
-      case MouseNone | MouseTile(_) => ()
+      case MouseNone => ()
 
       case MouseEndTurn =>
         //Require mouse down and up on the same target
@@ -388,6 +388,17 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
         }
         else {
           mouseState.client.doActionOnCurBoard(PlayerActions(List(Spawn(curLoc,pieceName)),makeActionId()))
+        }
+
+      case MouseTile(loc) =>
+        if(altPressed) ()
+        else {
+          board.tiles(loc).terrain match {
+            case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) =>
+              assertUnreachable()
+            case Spawner(_) =>
+              mouseState.client.doActionOnCurBoard(PlayerActions(List(ActivateTile(loc)),makeActionId()))
+          }
         }
 
       case MousePiece(dragSpec) =>

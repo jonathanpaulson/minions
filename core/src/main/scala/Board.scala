@@ -221,6 +221,12 @@ class Board private (
                   moveAttackActionsRev = playerAction :: moveAttackActionsRev
                 case Spawn(_,_) =>
                   delayedToSpawnRev = playerAction :: delayedToSpawnRev
+                case ActivateTile(loc) =>
+                  newMoveAttackState.tiles(loc).terrain match {
+                    case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) => assertUnreachable()
+                    case Spawner(_) =>
+                      delayedToSpawnRev = playerAction :: delayedToSpawnRev
+                  }
                 case ActivateAbility(_,_,_) | PlaySpell(_,_) | DiscardSpell(_) =>
                   //When spells or abilities fail, it may be because they are targeting units only placed during spawn
                   newMoveAttackState.doAction(playerAction) match {

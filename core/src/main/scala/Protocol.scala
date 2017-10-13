@@ -230,6 +230,7 @@ object Protocol {
   implicit val attackFormat = Json.format[Attack]
   implicit val spawnFormat = Json.format[Spawn]
   implicit val spellOrAbilityTargetsFormat = Json.format[SpellOrAbilityTargets]
+  implicit val activateTileFormat = Json.format[ActivateTile]
   implicit val activateAbilityFormat = Json.format[ActivateAbility]
   implicit val playSpellFormat = Json.format[PlaySpell]
   implicit val discardSpellFormat = Json.format[DiscardSpell]
@@ -238,6 +239,7 @@ object Protocol {
       "Movements" -> ((json:JsValue) => movementsFormat.reads(json)),
       "Attack" -> ((json:JsValue) => attackFormat.reads(json)),
       "Spawn" -> ((json:JsValue) => spawnFormat.reads(json)),
+      "ActivateTile" -> ((json:JsValue) => activateTileFormat.reads(json)),
       "ActivateAbility" -> ((json:JsValue) => activateAbilityFormat.reads(json)),
       "PlaySpell" -> ((json:JsValue) => playSpellFormat.reads(json)),
       "DiscardSpell" -> ((json:JsValue) => discardSpellFormat.reads(json))
@@ -247,6 +249,7 @@ object Protocol {
         case (t:Movements) => jsPair("Movements",movementsFormat.writes(t))
         case (t:Attack) => jsPair("Attack",attackFormat.writes(t))
         case (t:Spawn) => jsPair("Spawn",spawnFormat.writes(t))
+        case (t:ActivateTile) => jsPair("ActivateTile",activateTileFormat.writes(t))
         case (t:ActivateAbility) => jsPair("ActivateAbility",activateAbilityFormat.writes(t))
         case (t:PlaySpell) => jsPair("PlaySpell",playSpellFormat.writes(t))
         case (t:DiscardSpell) => jsPair("DiscardSpell",discardSpellFormat.writes(t))

@@ -71,6 +71,13 @@ sealed trait PlayerAction {
           //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex with that name.
           case SpawnedThisTurn(pieceName,sLoc,_) => pieceName == spawnName && sLoc == spawnLoc
         }
+      case ActivateTile(loc) =>
+        pieceSpec match {
+          case StartedTurnWithID(_) => false
+          //Note that we don't check nthAtLoc - this means local undo will undo all units spawned on that hex.
+          case SpawnedThisTurn(_,sLoc,_) =>
+            sLoc == loc
+        }
       case ActivateAbility(spec,_,targets) =>
         pieceSpec == spec ||
         pieceSpec == targets.target0 ||
@@ -89,6 +96,7 @@ sealed trait PlayerAction {
       case Movements(_) => false
       case Attack(_,_) => false
       case Spawn(_,_) => false
+      case ActivateTile(_) => false
       case ActivateAbility(_,_,_) => false
       case PlaySpell(id,_) => spellId == id
       case DiscardSpell(id) => spellId == id
@@ -100,6 +108,7 @@ sealed trait PlayerAction {
 case class Movements(movements: List[Movement]) extends PlayerAction
 case class Attack(attackerSpec: PieceSpec, targetSpec: PieceSpec) extends PlayerAction
 case class Spawn(spawnLoc: Loc, pieceName: PieceName) extends PlayerAction
+case class ActivateTile(loc: Loc) extends PlayerAction
 case class ActivateAbility(spec: PieceSpec, abilityName: AbilityName, targets: SpellOrAbilityTargets) extends PlayerAction
 case class PlaySpell(spellId: Int, targets: SpellOrAbilityTargets) extends PlayerAction
 case class DiscardSpell(spellId: Int) extends PlayerAction
@@ -245,6 +254,7 @@ object BoardState {
       spellsRevealed = SideArray.create(Map()),
       spellsInHand = SideArray.create(List()),
       sorceryPower = 0,
+      hasUsedSpawnerTile = false,
       side = S0,
       hasWon = false,
       manaThisRound = SideArray.create(0),
@@ -304,6 +314,8 @@ case class BoardState private (
 
   //How many units of sorcery power the side to move has (from cantrips and spell discards)
   var sorceryPower: Int,
+  //Has the side to move used a spawner this turn?
+  var hasUsedSpawnerTile: Boolean,
 
   //Current side to move
   var side: Side,
@@ -337,6 +349,7 @@ case class BoardState private (
       spellsRevealed = spellsRevealed.copy(),
       spellsInHand = spellsInHand.copy(),
       sorceryPower = sorceryPower,
+      hasUsedSpawnerTile = hasUsedSpawnerTile,
       side = side,
       hasWon = hasWon,
       manaThisRound = manaThisRound.copy(),
@@ -473,6 +486,7 @@ case class BoardState private (
     numPiecesSpawnedThisTurnAt = Map()
     killedThisTurn = Nil
     unsummonedThisTurn = Nil
+    hasUsedSpawnerTile = false
 
     //Check for win conditions - start of turn at least 8 graveyards
     var startNumGraveyards = 0
@@ -905,6 +919,17 @@ case class BoardState private (
         failUnless(isSpawnerInRange(spawnLoc,spawnStats), "No non-newly-spawned piece with spawn in range")
         failUnless(reinforcements(side).contains(spawnName), "No such piece in reinforcements")
 
+      case ActivateTile(loc) =>
+        failUnless(tiles.inBounds(loc), "Activated location not in bounds")
+        tiles(loc).terrain match {
+          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) =>
+            fail("Tile cannot be activated")
+          case Spawner(spawnName) =>
+            failIf(pieces(loc).nonEmpty, "Spawner tile must be unoccupied")
+            failIf(hasUsedSpawnerTile, "Already used a spawner tile this turn")
+            trySpawnIsLegal(side, spawnName, loc).get
+        }
+
       case ActivateAbility(pieceSpec,abilityName,targets) =>
         findPiece(pieceSpec) match {
           case None => fail("Using ability of a nonexistent or dead piece")
@@ -1007,6 +1032,18 @@ case class BoardState private (
               if(n <= 1) reinforcements(side) - spawnName
               else reinforcements(side) + (spawnName -> (n-1))
           }
+        }
+
+      case ActivateTile(loc) =>
+        tiles(loc).terrain match {
+          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) =>
+            assertUnreachable()
+          case Spawner(spawnName) =>
+            hasUsedSpawnerTile = true
+            spawnPieceInternal(side,spawnName,loc) match {
+              case Some(_: Piece) => ()
+              case None => assertUnreachable()
+            }
         }
 
       case ActivateAbility(pieceSpec,abilityName,targets) =>
