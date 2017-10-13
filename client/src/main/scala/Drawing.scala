@@ -243,6 +243,11 @@ object Drawing {
           if(stats.extraSorceryPower > 0) {
             show("Produces " + stats.extraSorceryPower + " sorcery power/turn.")
           }
+          stats.abilities.foreach { case (_,ability) =>
+            show("")
+            show("Ability: " + ability.displayName)
+            show(ability.desc)
+          }
       }
       tile match {
         case None => ()
