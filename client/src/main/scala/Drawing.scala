@@ -357,14 +357,14 @@ object Drawing {
         }
       }
 
-      textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 240.0, -9.0)
+      textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 250.0, -9.0)
 
       textAtLoc(side.toColorName + " Team Souls: " + mana + " (+" + newMana + "/turn)", 0.0, 3.0)
 
-      textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 140.0, 3.0)
+      textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 150.0, 3.0)
 
       if(side == board.side)
-        textAtLoc("Sorcery Power: " + board.sorceryPower, 240.0, 3.0)
+        textAtLoc("Sorcery Power: " + board.sorceryPower, 250.0, 3.0)
     }
 
     //End turn hex
