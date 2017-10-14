@@ -100,14 +100,21 @@ copyStuffTask := {
     streams.value.log.info("Copying " + src + " to " + dst)
     IO.copyFile(new File(src), new File(dst))
   }
+  def copyDirectory(src: String, dst: String) = {
+    streams.value.log.info("Copying " + src + " to " + dst)
+    IO.delete(new File(dst))
+    IO.copyDirectory(new File(src), new File(dst))
+  }
   createDirectory("web")
   createDirectory("web/js")
+  createDirectory("web/img")
   copyFile("client/minionsclient_dev.html","web/index.html")
   copyFile("client/jquery-2.1.1.min.js","web/js/jquery-2.1.1.min.js")
   copyFile("client/target/scala-2.12/minionsclient-fastopt.js","web/js/minionsclient-fastopt.js")
   copyFile("client/target/scala-2.12/minionsclient-fastopt.js.map","web/js/minionsclient-fastopt.js.map")
   copyFile("client/target/scala-2.12/minionsclient-jsdeps.js","web/js/minionsclient-jsdeps.js")
   copyFile("client/target/scala-2.12/minionsclient-launcher.js","web/js/minionsclient-launcher.js")
+  copyDirectory("client/img","web/img")
 }
 
 //Custom alias that builds everything and copies it

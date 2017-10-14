@@ -2,19 +2,44 @@ package minionsgame.jsclient
 
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.html.Canvas
+import org.scalajs.dom.raw.HTMLImageElement
 
 import minionsgame.core._
 import RichImplicits._
 
 object Drawing {
   //The euclidean distance from the center of a hexagon to the corner in pixels.
-  val gridSize = 30.0
-  val tileScale = 29.5 / gridSize
+  val gridSize = 31.0
+  val tileScale = 30.5 / gridSize
   val pieceScale = 25.0 / gridSize
-  val techScale = 29.0 / gridSize
+  val techScale = 30.0 / gridSize
   val techInteriorScale = 19.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
+
+  def loadImage(src: String): HTMLImageElement = {
+    val image = org.scalajs.dom.document.createElement("img").asInstanceOf[HTMLImageElement]
+    image.src = src
+    image
+  }
+  val textures: Map[String,HTMLImageElement] = Map(
+    "img_terrain_grass0" -> loadImage("img/terrain/grass0.png"),
+    "img_terrain_grass1" -> loadImage("img/terrain/grass1.png"),
+    "img_terrain_grass2" -> loadImage("img/terrain/grass2.png"),
+    "img_terrain_grass3" -> loadImage("img/terrain/grass3.png"),
+    "img_terrain_sand0" -> loadImage("img/terrain/sand0.png"),
+    "img_terrain_dirt0" -> loadImage("img/terrain/dirt0.png"),
+    "img_terrain_dirt1" -> loadImage("img/terrain/dirt1.png"),
+    "img_terrain_water0" -> loadImage("img/terrain/water0.png"),
+    "img_terrain_water1" -> loadImage("img/terrain/water1.png"),
+    "img_terrain_graveyard0" -> loadImage("img/terrain/graveyard0.png"),
+    "img_terrain_graveyard1" -> loadImage("img/terrain/graveyard1.png"),
+    "img_terrain_graveyard2" -> loadImage("img/terrain/graveyard2.png"),
+    "img_terrain_graveyard3" -> loadImage("img/terrain/graveyard3.png"),
+    "img_terrain_teleporter" -> loadImage("img/terrain/teleporter.png"),
+    "img_terrain_spawner" -> loadImage("img/terrain/spawner.png"),
+    "img_terrain_leyline" -> loadImage("img/terrain/leyline.png"),
+  )
 
   def drawEverything(
     canvas: Canvas,
@@ -67,12 +92,19 @@ object Drawing {
       hexLoc + HexVec.corners(corner) * scale
     }
 
-    def drawHex(hexLoc : HexLoc, color : String, scale : Double, doStroke: Boolean, doFill:Boolean, alpha: Double, lineWidth: Double) : Unit = {
+    def drawHex(hexLoc : HexLoc, color : Option[String], texture: Option[(String,String)], scale : Double, doStroke: Boolean, doFill:Boolean, alpha: Double, lineWidth: Double) : Unit = {
       val oldAlpha = ctx.globalAlpha
       ctx.globalAlpha = alpha
       ctx.lineWidth = lineWidth
-      ctx.strokeStyle = color
-      ctx.fillStyle = color
+      color.foreach { color =>
+        ctx.strokeStyle = color
+        ctx.fillStyle = color
+      }
+      texture.foreach { case (texture,mode) =>
+        val img = textures(texture)
+        val pat = ctx.createPattern(img,mode)
+        ctx.fillStyle = pat
+      }
       ctx.beginPath()
       move(hexCorner(hexLoc,scale,0))
       line(hexCorner(hexLoc,scale,1))
@@ -87,31 +119,75 @@ object Drawing {
       ctx.globalAlpha = oldAlpha
     }
     def strokeHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0) : Unit = {
-      drawHex(hexLoc,color,scale,true,false,alpha,lineWidth);
+      drawHex(hexLoc,Some(color),None,scale,true,false,alpha,lineWidth);
     }
     //TODO stop drawing pieces with so much alpha. They change color too much on different terrain
     //This requires recalibrating all the colors
-    def fillHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 0.2) : Unit = {
-      drawHex(hexLoc,color,scale,false,true,alpha,1.0);
+    def fillHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0) : Unit = {
+      drawHex(hexLoc,Some(color),None,scale,false,true,alpha,1.0);
+    }
+    def fillHexWithTexture(hexLoc : HexLoc, texture: String, scale : Double, alpha: Double = 1.0) : Unit = {
+      drawHex(hexLoc,None,Some((texture,"repeat")),scale,false,true,alpha,1.0);
+    }
+    def fillHexWithImage(hexLoc : HexLoc, texture: String, scale : Double, alpha: Double = 1.0) : Unit = {
+      //Adjust so that the image is centered
+      val img = textures(texture)
+      ctx.save()
+      val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
+      ctx.translate(pixel.x,pixel.y)
+      ctx.translate(-img.width*0.5,-img.height*0.5)
+      drawHex(HexLoc.ofPixel(PixelLoc(img.width*0.5,img.height*0.5),gridSize),None,Some((texture,"no-repeat")),scale,false,true,alpha,1.0);
+      ctx.restore()
     }
 
-    def drawTile(hexLoc : HexLoc, tile: Tile) : Unit = {
+    //Based on murmurhash's avalanche mixer
+    def deterministicRandom(x: Int, y: Int, n: Int) = {
+      var h: Long = x.toLong + 37 * y.toLong
+      h ^= h >> 33;
+      h *= 0xff51afd7ed558ccdL;
+      h ^= h >> 33;
+      h *= 0xc4ceb9fe1a85ec53L;
+      h ^= h >> 33;
+      ((h % n) + n) % n
+    }
+
+    def drawTile(loc : Loc, tile: Tile) : Unit = {
+      val hexLoc = hexLocOfLoc(loc)
       tile.terrain match {
         case Wall => fillHex(hexLoc, "white", tileScale)
-        case Ground | StartHex(_) => fillHex(hexLoc, "green", tileScale)
-        case Water => fillHex(hexLoc, "blue", tileScale)
+        case Ground | StartHex(_) =>
+          val texture = BoardMaps.groundImage(boardNames(boardIdx))
+          fillHexWithTexture(hexLoc, texture, tileScale)
+          //fillHex(hexLoc, "green", tileScale)
+        case Water =>
+          val texture = BoardMaps.waterImage(boardNames(boardIdx))
+          fillHexWithTexture(hexLoc, texture, tileScale)
         case Graveyard =>
-          fillHex(hexLoc, "#aa8899", tileScale)
-          strokeHex(hexLoc, "#aa8899", tileScale, alpha=0.4)
+          val img = "img_terrain_graveyard" + deterministicRandom(loc.x,loc.y,4)
+          fillHexWithImage(hexLoc, img, tileScale)
+          //fillHex(hexLoc, "#aa8899", tileScale)
+          strokeHex(hexLoc, "#776677", tileScale, alpha=0.4, lineWidth=1.5)
         case SorceryNode =>
-          fillHex(hexLoc, "#ff55ff", tileScale)
-          strokeHex(hexLoc, "#ff55ff", tileScale, alpha=0.4)
+          val texture = BoardMaps.groundImage(boardNames(boardIdx))
+          fillHexWithTexture(hexLoc, texture, tileScale)
+          fillHex(hexLoc, "#ffcc88", tileScale, alpha=0.15)
+          strokeHex(hexLoc, "#ffcc88", tileScale, alpha=0.5, lineWidth=2.0)
+          val img = "img_terrain_leyline"
+          fillHexWithImage(hexLoc, img, tileScale)
         case Teleporter =>
-          fillHex(hexLoc, "#ffee22", tileScale)
-          strokeHex(hexLoc, "#ffee22", tileScale, alpha=0.3, lineWidth=2.0)
+          val texture = BoardMaps.groundImage(boardNames(boardIdx))
+          fillHexWithTexture(hexLoc, texture, tileScale)
+          fillHex(hexLoc, "#ccff88", tileScale, alpha=0.15)
+          strokeHex(hexLoc, "#ccff88", tileScale, alpha=0.5, lineWidth=2.0)
+          val img = "img_terrain_teleporter"
+          fillHexWithImage(hexLoc, img, tileScale)
         case Spawner(_) =>
-          fillHex(hexLoc, "#77ccff", tileScale)
-          strokeHex(hexLoc, "#77ccff", tileScale, alpha=0.3, lineWidth=2.0)
+          val texture = BoardMaps.groundImage(boardNames(boardIdx))
+          fillHexWithTexture(hexLoc, texture, tileScale)
+          fillHex(hexLoc, "#ff55ff", tileScale, alpha=0.15)
+          strokeHex(hexLoc, "#ff55ff", tileScale, alpha=0.5, lineWidth=2.0)
+          val img = "img_terrain_spawner"
+          fillHexWithImage(hexLoc, img, tileScale)
       }
       if(showCoords) {
         val (loc,_) = hexLoc.round(flipDisplay,board)
@@ -126,11 +202,12 @@ object Drawing {
     def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], label: String) : Unit = {
       val pieceColor =
         side match {
-          case None => "grey"
-          case Some(S0) => "blue"
-          case Some(S1) => "red"
+          case None => "#cccccc"
+          case Some(S0) => "#ccccff"
+          case Some(S1) => "#ffbbbb"
         }
       fillHex(hexLoc, pieceColor, scale)
+      strokeHex(hexLoc, "black", scale, alpha=0.2)
       if(label != "")
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
@@ -390,14 +467,14 @@ object Drawing {
       strokeHex(UI.EndTurn.loc, "#ff00ff", tileScale, lineWidth=2.0)
     }
     else {
-      fillHex(UI.EndTurn.loc, "gray", tileScale)
-      strokeHex(UI.EndTurn.loc, "#666666", tileScale, lineWidth=0.5)
+      fillHex(UI.EndTurn.loc, "#dddddd", tileScale)
+      strokeHex(UI.EndTurn.loc, "#666666", tileScale, lineWidth=1.0)
     }
     text("End Turn", PixelLoc.ofHexLoc(hexLocOfLoc(UI.EndTurn.loc), gridSize), "black")
 
     //Resign board hex
-    fillHex(UI.ResignBoard.loc, "gray", tileScale)
-    strokeHex(UI.ResignBoard.loc, "#666666", tileScale, lineWidth=0.5)
+    fillHex(UI.ResignBoard.loc, "#dddddd", tileScale)
+    strokeHex(UI.ResignBoard.loc, "#666666", tileScale, lineWidth=1.0)
     text("Resign", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize) + PixelVec(0,-4.0), "black")
     text("Board", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize) + PixelVec(0,7.0), "black")
 
@@ -432,14 +509,14 @@ object Drawing {
       val loc = techLocs(i)
       val fillColor =
         (techState.level(S0), techState.level(S1)) match {
-          case (TechLocked, TechLocked) => "#888888"
+          case (TechLocked, TechLocked) => "#aaaaaa"
           case (TechLocked, (TechUnlocked | TechAcquired)) => "#ffbbbb"
           case ((TechUnlocked | TechAcquired), TechLocked) => "#bbbbff"
           case ((TechUnlocked | TechAcquired), (TechUnlocked | TechAcquired)) => "#ff99ff"
         }
       val strokeColor =
         (techState.level(S0), techState.level(S1)) match {
-          case ((TechLocked | TechUnlocked), (TechLocked | TechUnlocked)) => None
+          case ((TechLocked | TechUnlocked), (TechLocked | TechUnlocked)) => Some("#888888")
           case ((TechLocked | TechUnlocked), TechAcquired) => Some("#ff3333")
           case (TechAcquired, (TechLocked | TechUnlocked)) => Some("#3333ff")
           case (TechAcquired, TechAcquired) => Some("#ff00ff")
@@ -633,7 +710,7 @@ object Drawing {
         }
         else {
           if(pieceHasNotDoneThings(piece))
-            strokeHex(loc, "green", scale, lineWidth=1.5)
+            strokeHex(loc, "green", scale, lineWidth=2.0)
           else if(pieceCanStillDoThings(piece))
             strokeHex(loc, "orange", scale, lineWidth=1.5)
         }
@@ -680,11 +757,12 @@ object Drawing {
             strokeHex(hexLocOfLoc(loc), "black", tileScale)
           }
           findLocOfPiece(tSpec).foreach { loc =>
+            fillHex(hexLocOfLoc(loc), "magenta", tileScale, alpha=0.1)
             strokeHex(hexLocOfLoc(loc), "magenta", tileScale)
           }
         case Spawn(_,_) =>
           UI.Reinforcements.getLocs(board.side, flipDisplay, board).foreach { loc =>
-            strokeHex(hexLocOfLoc(loc), "black", tileScale)
+            strokeHex(hexLocOfLoc(loc), "black", tileScale, alpha=0.5)
           }
         case ActivateTile(loc) =>
           strokeHex(hexLocOfLoc(loc), "black", tileScale)
@@ -718,6 +796,11 @@ object Drawing {
     def canClickOnTech(techIdx: Int): Boolean = {
       game.tryIsLegal(PerformTech(game.curSide,techIdx)).isSuccess ||
       game.techLine(techIdx).startingLevelThisTurn(game.curSide) == TechAcquired
+    }
+
+    def highlightHex(hexLoc: HexLoc, scale: Double = tileScale) = {
+      fillHex(hexLoc, "yellow", scale, alpha=0.15)
+      strokeHex(hexLoc, "black", scale, alpha=0.5, lineWidth=1.5)
     }
 
     mouseState.mode match {
@@ -794,12 +877,10 @@ object Drawing {
           case MouseTile(_) => ()
           case MouseEndTurn =>
             val loc = UI.EndTurn.loc
-            fillHex(loc, "yellow", tileScale, alpha=0.1)
-            strokeHex(loc, "black", tileScale, alpha=0.5)
+            highlightHex(loc)
           case MouseResignBoard =>
             val loc = UI.ResignBoard.loc
-            fillHex(loc, "yellow", tileScale, alpha=0.1)
-            strokeHex(loc, "black", tileScale, alpha=0.5)
+            highlightHex(loc)
           case MousePrevBoard =>
             if(boardIdx > 0)
               text("<- Prev Board", PixelLoc.ofLoc(UI.PrevBoard.locs(0), gridSize), "cyan", textAlign="left", textBaseline="top", fontSize=12)
@@ -809,19 +890,17 @@ object Drawing {
           case MouseTech(techIdx) =>
             if(canClickOnTech(techIdx)) {
               val loc = UI.Tech.getLoc(techIdx)
-              fillHex(loc, "yellow", tileScale, alpha=0.1)
-              strokeHex(loc, "black", tileScale, alpha=0.5)
+              highlightHex(loc)
             }
           case MouseReinforcement(pieceName,side) =>
             UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
               case None => ()
               case Some((loc,_)) =>
-                fillHex(hexLocOfLoc(loc), "yellow", pieceScale, alpha=0.1)
-                strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
+                highlightHex(loc,scale=pieceScale)
             }
             val locs = board.legalSpawnLocs(pieceName)
             for(loc <- locs) {
-              fillHex(loc, "yellow", tileScale, alpha=0.1)
+              highlightHex(loc)
             }
 
           case MouseDeadPiece(pieceSpec) =>
@@ -829,8 +908,7 @@ object Drawing {
               UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
                 case None => ()
                 case Some(loc) =>
-                  fillHex(hexLocOfLoc(loc), "yellow", pieceScale, alpha=0.1)
-                  strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
+                  highlightHex(loc)
               }
             }
           case MousePiece(spec) =>
@@ -840,8 +918,7 @@ object Drawing {
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
 
                 if(altPressed) {
-                  fillHex(loc, "yellow", scale, alpha=0.1)
-                  strokeHex(loc, "black", scale, alpha=0.5)
+                  highlightHex(loc)
                 }
                 else {
                   if(piece.side == game.curSide) {
@@ -867,7 +944,7 @@ object Drawing {
                     //Highlight the movement range
                     val moveLocsAndSteps = board.legalMoves(piece)
                     moveLocsAndSteps.foreach { case (loc,_) =>
-                      fillHex(loc, "yellow", tileScale, alpha=0.1)
+                      highlightHex(loc)
                     }
 
                     val attackerStats = piece.curStats(board)
@@ -903,7 +980,8 @@ object Drawing {
                       pieces.foreach { targetPiece =>
                         if(canAttack(targetPiece)) {
                           val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
-                          strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
+                          fillHex(targetLoc, "magenta", targetScale, alpha=0.15)
+                          strokeHex(targetLoc, "magenta", targetScale, alpha=0.5, lineWidth=1.5)
                         }
                       }
                     }

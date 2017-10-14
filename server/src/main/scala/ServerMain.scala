@@ -23,6 +23,7 @@ object Paths {
   val applicationConf = "./application.conf"
   val mainPage = "./web/index.html"
   val webjs = "./web/js/"
+  val webimg = "./web/img/"
 }
 
 object ServerMain extends App {
@@ -531,6 +532,9 @@ object ServerMain extends App {
     } ~
     pathPrefix("js") {
       getFromDirectory(Paths.webjs)
+    } ~
+    pathPrefix("img") {
+      getFromDirectory(Paths.webimg)
     }
   } ~
   path("playGame") {

@@ -184,4 +184,25 @@ object BoardMaps {
     "Blackened Shores" -> blackenedShores,
   )
 
+  val groundImage = Map(
+    "Sorceror's Lair" -> "img_terrain_grass1",
+    "Chaos Diamond" -> "img_terrain_dirt1",
+    "Apocalypse" -> "img_terrain_sand0",
+    "Midnight Lake" -> "img_terrain_grass1",
+    "Eternal Battlefield" -> "img_terrain_grass3",
+    "Forbidden Isle" -> "img_terrain_grass0",
+    "Puddles" -> "img_terrain_grass2",
+    "Blackened Shores" -> "img_terrain_dirt0",
+  )
+
+  val waterImage = Map(
+    "Sorceror's Lair" -> "img_terrain_water0",
+    "Chaos Diamond" -> "img_terrain_water1",
+    "Apocalypse" -> "img_terrain_water1",
+    "Midnight Lake" -> "img_terrain_water0",
+    "Eternal Battlefield" -> "img_terrain_water1",
+    "Forbidden Isle" -> "img_terrain_water1",
+    "Puddles" -> "img_terrain_water1",
+    "Blackened Shores" -> "img_terrain_water0",
+  )
 }
