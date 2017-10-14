@@ -674,6 +674,9 @@ object Drawing {
               strokeHex(hexLocOfLoc(loc), "black", tileScale)
             }
           }
+        case Teleport(_,src,dest) =>
+          strokeHex(hexLocOfLoc(src), "black", tileScale)
+          strokeHex(hexLocOfLoc(dest), "black", tileScale)
         case PlaySpell(_,targets) =>
           List(targets.target0,targets.target1).foreach { spec =>
             findLocOfPiece(spec).foreach { loc =>
@@ -825,9 +828,21 @@ object Drawing {
                     //Only stroke and no highlight since we're already getting a highlight from drawing paths.
                     strokeHex(loc, "black", scale, alpha=0.5)
 
-                    //Draw the movement path
-                    val path = mode.path
-                    drawPath(path.toVector,overrideStart = Some(loc))
+                    //Draw based on what would happen if we released the mouse
+                    mouseState.hoverLoc.foreach { hoverLoc =>
+                      mode.dragPieceMouseUpActions(mouseState.hovered, hoverLoc, piece, board).foreach {
+                        case (_ : Movements) =>
+                          //If moving, draw the movement path
+                          val path = mode.path
+                          drawPath(path.toVector,overrideStart = Some(loc))
+                        case (_ : Teleport) =>
+                          //If teleporting, highlight the teleport location
+                          strokeHex(hoverLoc, "cyan", scale, alpha=0.3, lineWidth=2)
+                          fillHex(hoverLoc, "cyan", scale, alpha=0.05)
+                        case (_ : Attack) | (_ : Spawn) | (_ : ActivateTile) | (_ : ActivateAbility) | (_ : PlaySpell) | (_ : DiscardSpell) =>
+                          ()
+                      }
+                    }
 
                     //Highlight the movement range
                     val moveLocsAndSteps = board.legalMoves(piece)

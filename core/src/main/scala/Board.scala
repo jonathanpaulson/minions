@@ -215,7 +215,7 @@ class Board private (
             var delayedToSpawnRev: List[PlayerAction] = List()
             playerActions.foreach { playerAction =>
               playerAction match {
-                case Movements(_) | Attack(_,_) =>
+                case Movements(_) | Attack(_,_) | Teleport(_,_,_) =>
                   //If move/attacks fail, then they're flat-out illegal
                   newMoveAttackState.doAction(playerAction).get
                   moveAttackActionsRev = playerAction :: moveAttackActionsRev

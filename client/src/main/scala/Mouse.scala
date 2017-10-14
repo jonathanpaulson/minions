@@ -294,6 +294,41 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     }
   }
 
+  //The action to perform on mouseup from dragging the given piece
+  def dragPieceMouseUpActions(curTarget: MouseTarget, curLoc: Loc, piece: Piece, board: BoardState): List[PlayerAction] = {
+    //Attack if enemy piece under the mouseUp
+    val attack: Option[PlayerAction] = {
+      curTarget.findPiece(board) match {
+        case None => None
+        case Some(other) =>
+          if(other.side == piece.side) None
+          else Some(Attack(piece.spec, other.spec))
+      }
+    }
+    val movementFromPath: Option[PlayerAction] = {
+      //Move based on the path, if we have a nontrivial path and either the final location
+      //is under the mouse OR we're attacking.
+     if(attack.nonEmpty || (path.length >= 1 && path.last == curLoc))
+        movementActionsOfPath(piece)
+      //Use teleporter
+      else if(board.tiles(piece.loc).terrain == Teleporter)
+        Some(Teleport(piece.spec, piece.loc, curLoc))
+      else
+        None
+    }
+    //If the path is empty and the target is a tile one hex away from the piece's current location
+    //then attempt a move so that we can report an illegal move error as help
+    val movement = {
+      if(attack.isEmpty && movementFromPath.isEmpty) {
+        if(board.topology.distance(piece.loc,curLoc) == 1)
+          Some(Movements(List(Movement(piece.spec, Vector(piece.loc,curLoc)))))
+        else movementFromPath
+      }
+      else movementFromPath
+    }
+    List(movement,attack).flatten
+  }
+
   def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, altPressed: Boolean): Unit = {
     val didDoubleClick = {
       doubleClickState match {
@@ -441,29 +476,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                 }
                 //Otherwise, normal click-and-drag
                 else {
-                  //Attack if enemy piece under the mouseUp
-                  val attack: Option[PlayerAction] = {
-                    curTarget.findPiece(board) match {
-                      case None => None
-                      case Some(other) =>
-                        if(other.side == piece.side) None
-                        else Some(Attack(piece.spec, other.spec))
-                    }
-                  }
-                  //Move based on the path, if we have a nontrivial path
-                  val movementFromPath: Option[PlayerAction] = movementActionsOfPath(piece)
-                  //If the path is empty and the target is a tile one hex away from the piece's current location
-                  //then attempt a move so that we can report an illegal move error as help
-                  val movement = {
-                    if(attack.isEmpty && movementFromPath.isEmpty) {
-                      if(board.topology.distance(piece.loc,curLoc) == 1)
-                        Some(Movements(List(Movement(piece.spec, Vector(piece.loc,curLoc)))))
-                      else movementFromPath
-                    }
-                    else movementFromPath
-                  }
-
-                  val actions = List(movement,attack).flatten
+                  val actions = dragPieceMouseUpActions(curTarget, curLoc, piece, board)
                   if(actions.length > 0)
                     mouseState.client.doActionOnCurBoard(PlayerActions(actions,makeActionId()))
                 }

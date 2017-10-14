@@ -232,6 +232,7 @@ object Protocol {
   implicit val spellOrAbilityTargetsFormat = Json.format[SpellOrAbilityTargets]
   implicit val activateTileFormat = Json.format[ActivateTile]
   implicit val activateAbilityFormat = Json.format[ActivateAbility]
+  implicit val teleportFormat = Json.format[Teleport]
   implicit val playSpellFormat = Json.format[PlaySpell]
   implicit val discardSpellFormat = Json.format[DiscardSpell]
   implicit val playerActionFormat = {
@@ -241,6 +242,7 @@ object Protocol {
       "Spawn" -> ((json:JsValue) => spawnFormat.reads(json)),
       "ActivateTile" -> ((json:JsValue) => activateTileFormat.reads(json)),
       "ActivateAbility" -> ((json:JsValue) => activateAbilityFormat.reads(json)),
+      "Teleport" -> ((json:JsValue) => teleportFormat.reads(json)),
       "PlaySpell" -> ((json:JsValue) => playSpellFormat.reads(json)),
       "DiscardSpell" -> ((json:JsValue) => discardSpellFormat.reads(json))
     ))
@@ -251,6 +253,7 @@ object Protocol {
         case (t:Spawn) => jsPair("Spawn",spawnFormat.writes(t))
         case (t:ActivateTile) => jsPair("ActivateTile",activateTileFormat.writes(t))
         case (t:ActivateAbility) => jsPair("ActivateAbility",activateAbilityFormat.writes(t))
+        case (t:Teleport) => jsPair("Teleport",teleportFormat.writes(t))
         case (t:PlaySpell) => jsPair("PlaySpell",playSpellFormat.writes(t))
         case (t:DiscardSpell) => jsPair("DiscardSpell",discardSpellFormat.writes(t))
       }
