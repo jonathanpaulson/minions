@@ -174,6 +174,14 @@ case object BlinkAbility extends PieceAbility {
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 
+case object KillAdjacentAbility extends PieceAbility {
+  val name = "scream"
+  val displayName = "Scream"
+  val desc = "Kills everything next to the banshee"
+  val isSorcery = true
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
+}
+
 //Discard abilities that target the piece itself
 case class SelfEnchantAbility(
   val name: AbilityName,

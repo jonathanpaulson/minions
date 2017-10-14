@@ -955,7 +955,7 @@ case class BoardState private (
                 requireSuccess(ability.tryIsUsableNow(piece))
                 failIf(ability.isSorcery && sorceryPower <= 0, "No sorcery power (must first play cantrip or discard spell)")
                 ability match {
-                  case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) => ()
+                  case SuicideAbility | BlinkAbility | KillAdjacentAbility | (_:SelfEnchantAbility) => ()
                   case (ability:TargetedAbility) =>
                     findPiece(targets.target0) match {
                       case None => fail("No target specified for ability")
@@ -1090,6 +1090,15 @@ case class BoardState private (
             killPiece(piece)
           case BlinkAbility =>
             unsummonPiece(piece)
+          case KillAdjacentAbility =>
+            pieces.topology.forEachAdj(piece.loc) { loc =>
+              pieces(loc).foreach { p =>
+                if(p.side != piece.side && !p.baseStats.isNecromancer) {
+                  killPiece(p)
+                }
+              }
+            }
+            killPiece(piece)
           case (ability:SelfEnchantAbility) =>
             piece.modsWithDuration = piece.modsWithDuration :+ ability.mod
           case (ability:TargetedAbility) =>
