@@ -82,6 +82,8 @@ sealed trait PlayerAction {
         pieceSpec == spec ||
         pieceSpec == targets.target0 ||
         pieceSpec == targets.target1
+      case Teleport(spec,_,_) =>
+        pieceSpec == spec
       case PlaySpell(_,targets) =>
         pieceSpec == targets.target0 ||
         pieceSpec == targets.target1
@@ -98,6 +100,7 @@ sealed trait PlayerAction {
       case Spawn(_,_) => false
       case ActivateTile(_) => false
       case ActivateAbility(_,_,_) => false
+      case Teleport(_,_,_) => false
       case PlaySpell(id,_) => spellId == id
       case DiscardSpell(id) => spellId == id
     }
@@ -110,6 +113,7 @@ case class Attack(attackerSpec: PieceSpec, targetSpec: PieceSpec) extends Player
 case class Spawn(spawnLoc: Loc, pieceName: PieceName) extends PlayerAction
 case class ActivateTile(loc: Loc) extends PlayerAction
 case class ActivateAbility(spec: PieceSpec, abilityName: AbilityName, targets: SpellOrAbilityTargets) extends PlayerAction
+case class Teleport(pieceSpec: PieceSpec, src: Loc, dest: Loc) extends PlayerAction
 case class PlaySpell(spellId: Int, targets: SpellOrAbilityTargets) extends PlayerAction
 case class DiscardSpell(spellId: Int) extends PlayerAction
 
@@ -523,7 +527,11 @@ case class BoardState private (
         case None => throw new Exception("Could not find StartHex")
         case Some(loc) => loc
       }
-      val (_: Try[Unit]) = spawnPieceInitial(side,necroNames(side),startLoc)
+      val necroSwarmMax = Units.pieceMap(necroNames(side)).swarmMax
+      for(i <- 0 until necroSwarmMax) {
+        val (_: Try[Unit]) = spawnPieceInitial(side,necroNames(side),startLoc)
+      }
+
       tiles.topology.forEachAdj(startLoc) { loc =>
         val (_: Try[Unit]) = spawnPieceInitial(side,Units.zombie.name,loc)
       }
@@ -630,6 +638,7 @@ case class BoardState private (
   }
 
   //Find the set of all legal locations that a piece can move to, along with the number of steps to reach the location
+  //Does not include teleports.
   def legalMoves(piece : Piece): Map[Loc, Int] = {
     val ans = scala.collection.mutable.HashMap[Loc, Int]()
     forEachLegalMoveHelper(piece,List()) { case (loc,revPath) =>
@@ -639,6 +648,7 @@ case class BoardState private (
   }
 
   //Similar to legalMoves but finds a shortest path whose destination satisfies the desired predicate.
+  //Does not include teleports.
   def findLegalMove(piece : Piece, pathBias: List[Loc])(f: Loc => Boolean): Option[List[Loc]] = {
     forEachLegalMoveHelper(piece,pathBias) { case (loc,revPath) =>
       if(f(loc)) {
@@ -955,6 +965,26 @@ case class BoardState private (
             }
         }
 
+      case Teleport(pieceSpec,src,dest) =>
+        failUnless(tiles.inBounds(src), "Teleport source out of bounds")
+        failUnless(tiles.inBounds(dest), "Teleport destination out of bounds")
+        failUnless(tiles(src).terrain == Teleporter, "Must be at a teleporter to teleport")
+
+        findPiece(pieceSpec) match {
+          case None => fail("Moving a nonexistent or dead piece")
+          case Some(piece) =>
+            failUnless(piece.side == side, "Piece controlled by other side")
+            failUnless(piece.loc == src, "Teleporting piece is not on the teleporter")
+            piece.actState match {
+              case Moving(stepsUsed) =>
+                failUnless(stepsUsed == 0, "Piece must start turn on teleporter without moving")
+              case Attacking(_) | DoneActing =>
+                fail("Piece cannot act before teleporting")
+            }
+            val pieceStats = piece.curStats(this)
+            tryCanEndOnLoc(piece.side, piece.spec, pieceStats, dest, List()).get
+        }
+
       case PlaySpell(spellId,targets) =>
         spellsInHand(side).contains(spellId) match {
           case false => fail("Spell not in hand or already played or discarded")
@@ -1066,6 +1096,13 @@ case class BoardState private (
             val target = findPiece(targets.target0).get
             applyEffect(ability.effect,target)
         }
+
+      case Teleport(pieceSpec,src,dest) =>
+        val piece = findPiece(pieceSpec).get
+        pieces(src) = pieces(src).filterNot { p => p.id == piece.id }
+        pieces(dest) = pieces(dest) :+ piece
+        piece.loc = dest
+        piece.actState = DoneActing
 
       case PlaySpell(spellId,targets) =>
         val spell = Spells.spellMap(spellsRevealed(side)(spellId))

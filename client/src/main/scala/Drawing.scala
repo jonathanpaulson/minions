@@ -175,8 +175,10 @@ object Drawing {
             case Some(Enchant(_)) => ""
             case Some(TransformInto(_)) => ""
           }
-          if(stats.isNecromancer) {
+          if(stats.isNecromancer && stats.swarmMax <= 1) {
             show("If your necromancer dies, you lose the board!")
+          } else if(stats.isNecromancer) {
+            show("If your necromancers die, you lose the board!")
           } else {
             val costStr = "Cost: " + stats.cost + " souls"
             stats.deathSpawn match {
@@ -190,13 +192,19 @@ object Drawing {
                 show(costStr + " (death: becomes " + Units.pieceMap(pieceName).displayName + ")")
             }
           }
+
           if(stats.numAttacks <= 1) {
             show(aStr)
           } else {
             show(aStr + " (" + stats.numAttacks + "x/turn)")
           }
 
-          show("Defense: " + stats.defense)
+          if(stats.defense >= 100000) {
+            show("Cannot be killed")
+          } else {
+            show("Defense: " + stats.defense)
+          }
+
           if(stats.moveRange == 0) {
             show("Cannot move")
           } else if(stats.moveRange == 1) {
@@ -225,8 +233,11 @@ object Drawing {
             show("Swarm (up to " + stats.swarmMax + "/hex)")
           }
           if(stats.spawnRange > 0) {
-            assert(stats.spawnRange == 1)
-            show("Summoner (friendly units can spawn adjacent)")
+            assert(stats.spawnRange <= 2)
+            if(stats.spawnRange == 1)
+              show("Summoner (friendly units can spawn adjacent)")
+            else
+              show("Greater Summoner (spawn units at range 2)")
           }
           if(stats.isPersistent) {
             show("Persistent (cannot be unsummoned)")
@@ -239,6 +250,9 @@ object Drawing {
           }
           if(!stats.canHurtNecromancer) {
             show("Cannot attack necromancers.")
+          }
+          if(stats.extraMana > 0) {
+            show("Produces " + stats.extraMana + " souls/turn.")
           }
           if(stats.extraSorceryPower > 0) {
             show("Produces " + stats.extraSorceryPower + " sorcery power/turn.")
@@ -274,6 +288,8 @@ object Drawing {
               show("Gain 1 sorcery power at start of turn if occupied.")
             case Teleporter =>
               show("Terrain: Teleporter")
+              show("A piece that begins the turn here may spend its")
+              show("entire turn to move to any hex on the board.")
             case Spawner(spawnName) =>
               val name = Units.pieceMap(spawnName).displayName
               show("Terrain: " + name + " Spawner")
@@ -332,7 +348,7 @@ object Drawing {
       val mana = boards.foldLeft(game.mana(side)) { case (sum,board) =>
         sum + board.curState.manaThisRound(side)
       }
-      val newMana = boards.foldLeft(0) { case (sum, board) =>
+      val newMana = boards.foldLeft(game.extraManaPerTurn) { case (sum, board) =>
         sum + board.curState.endOfTurnMana(side)
       }
 
@@ -357,14 +373,14 @@ object Drawing {
         }
       }
 
-      textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 240.0, -9.0)
+      textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 250.0, -9.0)
 
       textAtLoc(side.toColorName + " Team Souls: " + mana + " (+" + newMana + "/turn)", 0.0, 3.0)
 
-      textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 140.0, 3.0)
+      textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 150.0, 3.0)
 
       if(side == board.side)
-        textAtLoc("Sorcery Power: " + board.sorceryPower, 240.0, 3.0)
+        textAtLoc("Sorcery Power: " + board.sorceryPower, 250.0, 3.0)
     }
 
     //End turn hex
@@ -507,14 +523,17 @@ object Drawing {
     }
 
     def getDefenseStringAndColor(baseStats: PieceStats, curStats: PieceStats, damage: Int): (String,String) = {
-      val str = (if(curStats.isPersistent) "P" else "D") + (curStats.defense - damage)
-      val color = {
-        if(damage > 0 || curStats.defense < baseStats.defense) "magenta"
-        else if(curStats.isPersistent && !baseStats.isPersistent) "green"
-        else if(curStats.defense > baseStats.defense) "green"
-        else "black"
+      if(curStats.defense > 100000) ("","black")
+      else {
+        val str = (if(curStats.isPersistent) "P" else "D") + (curStats.defense - damage)
+        val color = {
+          if(damage > 0 || curStats.defense < baseStats.defense) "magenta"
+          else if(curStats.isPersistent && !baseStats.isPersistent) "green"
+          else if(curStats.defense > baseStats.defense) "green"
+          else "black"
+        }
+        (str,color)
       }
-      (str,color)
     }
 
     def getRangeStringAndColor(baseStats: PieceStats, curStats: PieceStats): (String,String) = {
@@ -674,6 +693,9 @@ object Drawing {
               strokeHex(hexLocOfLoc(loc), "black", tileScale)
             }
           }
+        case Teleport(_,src,dest) =>
+          strokeHex(hexLocOfLoc(src), "black", tileScale)
+          strokeHex(hexLocOfLoc(dest), "black", tileScale)
         case PlaySpell(_,targets) =>
           List(targets.target0,targets.target1).foreach { spec =>
             findLocOfPiece(spec).foreach { loc =>
@@ -825,9 +847,21 @@ object Drawing {
                     //Only stroke and no highlight since we're already getting a highlight from drawing paths.
                     strokeHex(loc, "black", scale, alpha=0.5)
 
-                    //Draw the movement path
-                    val path = mode.path
-                    drawPath(path.toVector,overrideStart = Some(loc))
+                    //Draw based on what would happen if we released the mouse
+                    mouseState.hoverLoc.foreach { hoverLoc =>
+                      mode.dragPieceMouseUpActions(mouseState.hovered, hoverLoc, piece, board).foreach {
+                        case (_ : Movements) =>
+                          //If moving, draw the movement path
+                          val path = mode.path
+                          drawPath(path.toVector,overrideStart = Some(loc))
+                        case (_ : Teleport) =>
+                          //If teleporting, highlight the teleport location
+                          strokeHex(hoverLoc, "cyan", scale, alpha=0.3, lineWidth=2)
+                          fillHex(hoverLoc, "cyan", scale, alpha=0.05)
+                        case (_ : Attack) | (_ : Spawn) | (_ : ActivateTile) | (_ : ActivateAbility) | (_ : PlaySpell) | (_ : DiscardSpell) =>
+                          ()
+                      }
+                    }
 
                     //Highlight the movement range
                     val moveLocsAndSteps = board.legalMoves(piece)
