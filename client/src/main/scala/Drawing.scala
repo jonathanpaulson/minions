@@ -274,6 +274,8 @@ object Drawing {
               show("Gain 1 sorcery power at start of turn if occupied.")
             case Teleporter =>
               show("Terrain: Teleporter")
+              show("A piece that begins the turn here may spend its")
+              show("entire turn to move to any hex on the board.")
             case Spawner(spawnName) =>
               val name = Units.pieceMap(spawnName).displayName
               show("Terrain: " + name + " Spawner")
