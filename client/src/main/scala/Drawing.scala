@@ -9,9 +9,10 @@ import RichImplicits._
 object Drawing {
   //The euclidean distance from the center of a hexagon to the corner in pixels.
   val gridSize = 30.0
-  val tileScale = 29.0 / gridSize
+  val tileScale = 29.5 / gridSize
   val pieceScale = 25.0 / gridSize
-  val techScale = 19.0 / gridSize
+  val techScale = 29.0 / gridSize
+  val techInteriorScale = 19.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
 
@@ -38,11 +39,11 @@ object Drawing {
 
     def move(hexLoc : HexLoc) : Unit = {
       val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
-      ctx.moveTo(Math.floor(pixel.x), Math.floor(pixel.y));
+      ctx.moveTo(pixel.x, pixel.y);
     }
     def line(hexLoc : HexLoc) : Unit = {
       val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
-      ctx.lineTo(Math.floor(pixel.x), Math.floor(pixel.y));
+      ctx.lineTo(pixel.x, pixel.y);
     }
     def text(
       text : String,
@@ -444,15 +445,15 @@ object Drawing {
           case (TechAcquired, TechAcquired) => Some("#ff00ff")
         }
 
-      fillHex(loc, fillColor, tileScale, alpha=1.0)
+      fillHex(loc, fillColor, techScale, alpha=1.0)
       strokeColor.foreach { color =>
-        strokeHex(loc, color, tileScale, lineWidth=2.0)
+        strokeHex(loc, color, techScale, lineWidth=2.0)
       }
 
       val hexLoc = hexLocOfLoc(loc)
       text(techState.shortDisplayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
-      text(techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techScale, gridSize), "blue")
-      text(techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techScale, gridSize), "red")
+      text(techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techInteriorScale, gridSize), "blue")
+      text(techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techInteriorScale, gridSize), "red")
     }
 
     //Terrain
