@@ -75,6 +75,8 @@ object ServerMain extends App {
   }
   var gameSequence: Int = 0
 
+  var specialNecrosRemaining: SideArray[List[String]] = SideArray.create(List())
+
   val (boards,boardNames): (Array[Board],Array[String]) = {
     val availableMaps = {
       if(config.getBoolean("app.includeAdvancedMaps"))
@@ -188,8 +190,13 @@ object ServerMain extends App {
     }
 
     private def doResetBoard(boardIdx: Int): Unit = {
-      //TODO necromancer randomization
-      val necroNames = SideArray.create(Units.necromancer.name)
+      Side.foreach { side =>
+        if(specialNecrosRemaining(side).isEmpty)
+          specialNecrosRemaining(side) = scala.util.Random.shuffle(Units.specialNecromancers.toList).map(_.name)
+      }
+      val necroNames = SideArray.ofArrayInplace(Array(specialNecrosRemaining(S0).head,specialNecrosRemaining(S1).head))
+      specialNecrosRemaining(S0) = specialNecrosRemaining(S0).tail
+      specialNecrosRemaining(S1) = specialNecrosRemaining(S1).tail
       boards(boardIdx).resetBoard(necroNames)
       broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames))
     }

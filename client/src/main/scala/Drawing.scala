@@ -175,8 +175,10 @@ object Drawing {
             case Some(Enchant(_)) => ""
             case Some(TransformInto(_)) => ""
           }
-          if(stats.isNecromancer) {
+          if(stats.isNecromancer && stats.swarmMax <= 1) {
             show("If your necromancer dies, you lose the board!")
+          } else if(stats.isNecromancer) {
+            show("If your necromancers die, you lose the board!")
           } else {
             val costStr = "Cost: " + stats.cost + " souls"
             stats.deathSpawn match {
@@ -190,13 +192,19 @@ object Drawing {
                 show(costStr + " (death: becomes " + Units.pieceMap(pieceName).displayName + ")")
             }
           }
+
           if(stats.numAttacks <= 1) {
             show(aStr)
           } else {
             show(aStr + " (" + stats.numAttacks + "x/turn)")
           }
 
-          show("Defense: " + stats.defense)
+          if(stats.defense >= 100000) {
+            show("Cannot be killed")
+          } else {
+            show("Defense: " + stats.defense)
+          }
+
           if(stats.moveRange == 0) {
             show("Cannot move")
           } else if(stats.moveRange == 1) {
@@ -225,8 +233,11 @@ object Drawing {
             show("Swarm (up to " + stats.swarmMax + "/hex)")
           }
           if(stats.spawnRange > 0) {
-            assert(stats.spawnRange == 1)
-            show("Summoner (friendly units can spawn adjacent)")
+            assert(stats.spawnRange <= 2)
+            if(stats.spawnRange == 1)
+              show("Summoner (friendly units can spawn adjacent)")
+            else
+              show("Greater Summoner (spawn units at range 2)")
           }
           if(stats.isPersistent) {
             show("Persistent (cannot be unsummoned)")
@@ -239,6 +250,9 @@ object Drawing {
           }
           if(!stats.canHurtNecromancer) {
             show("Cannot attack necromancers.")
+          }
+          if(stats.extraMana > 0) {
+            show("Produces " + stats.extraMana + " souls/turn.")
           }
           if(stats.extraSorceryPower > 0) {
             show("Produces " + stats.extraSorceryPower + " sorcery power/turn.")
@@ -334,7 +348,7 @@ object Drawing {
       val mana = boards.foldLeft(game.mana(side)) { case (sum,board) =>
         sum + board.curState.manaThisRound(side)
       }
-      val newMana = boards.foldLeft(0) { case (sum, board) =>
+      val newMana = boards.foldLeft(game.extraManaPerTurn) { case (sum, board) =>
         sum + board.curState.endOfTurnMana(side)
       }
 
@@ -509,14 +523,17 @@ object Drawing {
     }
 
     def getDefenseStringAndColor(baseStats: PieceStats, curStats: PieceStats, damage: Int): (String,String) = {
-      val str = (if(curStats.isPersistent) "P" else "D") + (curStats.defense - damage)
-      val color = {
-        if(damage > 0 || curStats.defense < baseStats.defense) "magenta"
-        else if(curStats.isPersistent && !baseStats.isPersistent) "green"
-        else if(curStats.defense > baseStats.defense) "green"
-        else "black"
+      if(curStats.defense > 100000) ("","black")
+      else {
+        val str = (if(curStats.isPersistent) "P" else "D") + (curStats.defense - damage)
+        val color = {
+          if(damage > 0 || curStats.defense < baseStats.defense) "magenta"
+          else if(curStats.isPersistent && !baseStats.isPersistent) "green"
+          else if(curStats.defense > baseStats.defense) "green"
+          else "black"
+        }
+        (str,color)
       }
-      (str,color)
     }
 
     def getRangeStringAndColor(baseStats: PieceStats, curStats: PieceStats): (String,String) = {

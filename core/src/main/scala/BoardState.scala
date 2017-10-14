@@ -527,7 +527,11 @@ case class BoardState private (
         case None => throw new Exception("Could not find StartHex")
         case Some(loc) => loc
       }
-      val (_: Try[Unit]) = spawnPieceInitial(side,necroNames(side),startLoc)
+      val necroSwarmMax = Units.pieceMap(necroNames(side)).swarmMax
+      for(i <- 0 until necroSwarmMax) {
+        val (_: Try[Unit]) = spawnPieceInitial(side,necroNames(side),startLoc)
+      }
+
       tiles.topology.forEachAdj(startLoc) { loc =>
         val (_: Try[Unit]) = spawnPieceInitial(side,Units.zombie.name,loc)
       }

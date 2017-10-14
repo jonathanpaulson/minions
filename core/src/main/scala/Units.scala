@@ -74,6 +74,120 @@ object Units {
     //TODO while there are no spells, we'll just have necromancers power unit ability sorceries
     extraSorceryPower = 2
   )
+  val arcane_necromancer = createPieceStats(
+    name = "arcane_necromancer",
+    shortDisplayName = "ArcNec",
+    displayName = "Arcane Necromancer",
+    cost = 0,
+    rebate = 0,
+    attackEffect = None,
+    defense = 7,
+    moveRange = 1,
+    attackRange = 1,
+    isPersistent = true,
+    isNecromancer = true,
+    spawnRange = 1,
+    extraMana = 5,
+    extraSorceryPower = 2
+  )
+  val ranged_necromancer = createPieceStats(
+    name = "ranged_necromancer",
+    shortDisplayName = "RngNec",
+    displayName = "Ranged Necromancer",
+    cost = 0,
+    rebate = 0,
+    attackEffect = Some(Unsummon),
+    defense = 7,
+    moveRange = 1,
+    attackRange = 3,
+    isPersistent = true,
+    isNecromancer = true,
+    spawnRange = 1,
+    extraMana = 3,
+    extraSorceryPower = 2
+  )
+  val mounted_necromancer = createPieceStats(
+    name = "mounted_necromancer",
+    shortDisplayName = "MntNec",
+    displayName = "Mounted Necromancer",
+    cost = 0,
+    rebate = 0,
+    attackEffect = Some(Unsummon),
+    defense = 9,
+    moveRange = 2,
+    attackRange = 1,
+    isPersistent = true,
+    isNecromancer = true,
+    spawnRange = 1,
+    extraMana = 3,
+    extraSorceryPower = 2
+  )
+  val immortal_necromancer = createPieceStats(
+    name = "immortal_necromancer",
+    shortDisplayName = "ImmNec",
+    displayName = "Immortal Necromancer",
+    cost = 0,
+    rebate = 0,
+    attackEffect = Some(Unsummon),
+    defense = 1000000,
+    moveRange = 1,
+    attackRange = 1,
+    isPersistent = true,
+    isNecromancer = true,
+    spawnRange = 1,
+    extraMana = 3,
+    extraSorceryPower = 2
+  )
+  val deadly_necromancer = createPieceStats(
+    name = "deadly_necromancer",
+    shortDisplayName = "DedNec",
+    displayName = "Deadly Necromancer",
+    cost = 0,
+    rebate = 0,
+    attackEffect = Some(Kill),
+    defense = 10,
+    moveRange = 1,
+    attackRange = 1,
+    isPersistent = true,
+    isNecromancer = true,
+    spawnRange = 1,
+    extraMana = 3,
+    extraSorceryPower = 2
+  )
+  val swarm_necromancer = createPieceStats(
+    name = "swarm_necromancer",
+    shortDisplayName = "SNec",
+    displayName = "Swarm Necromancer",
+    cost = 0,
+    rebate = 0,
+    attackEffect = Some(Unsummon),
+    defense = 7,
+    moveRange = 1,
+    attackRange = 1,
+    isPersistent = true,
+    isNecromancer = true,
+    swarmMax = 3,
+    spawnRange = 1,
+    extraMana = 1,
+    extraSorceryPower = 1
+  )
+  val summoner_necromancer = createPieceStats(
+    name = "summoner_necromancer",
+    shortDisplayName = "SumNec",
+    displayName = "Summoner Necromancer",
+    cost = 0,
+    rebate = 0,
+    attackEffect = Some(Unsummon),
+    defense = 7,
+    moveRange = 1,
+    attackRange = 1,
+    isPersistent = true,
+    isNecromancer = true,
+    spawnRange = 2,
+    extraMana = 3,
+    extraSorceryPower = 2
+  )
+
 
   val zombie = createPieceStats(
     name = "zombie",
@@ -421,10 +535,28 @@ object Units {
   //All pieces
   val pieces: Array[PieceStats] = Array(
     necromancer,
+    arcane_necromancer,
+    ranged_necromancer,
+    mounted_necromancer,
+    immortal_necromancer,
+    deadly_necromancer,
+    swarm_necromancer,
+    summoner_necromancer,
     zombie, acolyte, spire,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
     warg, dark_tower, witch, vampire, mummy, lich, bone_rat, void, hell_hound,
     wraith, fiend, banshee, elemental, fallen_angel, shadowlord
+  )
+
+  //Necromancers awarded after a board resets
+  val specialNecromancers: Array[PieceStats] = Array(
+    arcane_necromancer,
+    ranged_necromancer,
+    mounted_necromancer,
+    immortal_necromancer,
+    deadly_necromancer,
+    swarm_necromancer,
+    summoner_necromancer,
   )
 
   //Pieces that start off buyable
