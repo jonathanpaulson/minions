@@ -19,14 +19,16 @@ import RichImplicits._
 object Connection {
   def apply(
     username: String,
+    password: Option[String],
     side: Option[Side]
   ): Connection = {
-    new Connection(username,side)
+    new Connection(username,password,side)
   }
 }
 
 class Connection private (
   username: String,
+  password: Option[String],
   side: Option[Side]
 ) {
   private var socketId: Int = 0
@@ -40,6 +42,7 @@ class Connection private (
     "/playGame" +
     "?" +
     "username=" + encode(username) +
+    (password match { case None => "" case Some(password) => "&password=" + encode(password)}) +
     (side match { case None => "" case Some(side) => "&side=" + side.int })
 
   def run(f:Try[Protocol.Response] => Unit): Future[Unit] = {
@@ -51,10 +54,19 @@ class Connection private (
     val socket = new WebSocket(uri)
 
     var heartbeatIdx = 0
-    val heartbeatLoop = scala.scalajs.js.timers.setInterval(5000) {
-      val query: Protocol.Query = Protocol.Heartbeat(heartbeatIdx)
-      socket.send(Json.stringify(Json.toJson(query)))
-      heartbeatIdx += 1
+    var heartbeatLoop: Option[scala.scalajs.js.timers.SetIntervalHandle] = None
+
+    def beginHeartbeatLoop(periodInSeconds: Double) = {
+      println("Beginning heartbeat loop with period: " + periodInSeconds)
+      heartbeatLoop = Some(scala.scalajs.js.timers.setInterval(1000.0 * periodInSeconds) {
+        val query: Protocol.Query = Protocol.Heartbeat(heartbeatIdx)
+        socket.send(Json.stringify(Json.toJson(query)))
+        heartbeatIdx += 1
+      })
+    }
+    def endHeartbeatLoop() = {
+      heartbeatLoop.foreach { handle => scala.scalajs.js.timers.clearInterval(handle) }
+      heartbeatLoop = None
     }
 
     socket.onopen = { (_: Event) => () }
@@ -64,13 +76,19 @@ class Connection private (
       message match {
         case Failure(exn) => f(Failure(exn))
         case Success(e:JsError) => f(Failure(new Exception("Error parsing message: " + e)))
-        case Success(s:JsSuccess[Protocol.Response]) => f(Success(s.get))
+        case Success(s:JsSuccess[Protocol.Response]) =>
+          s.get match {
+            case Protocol.ClientHeartbeatRate(periodInSeconds) =>
+              beginHeartbeatLoop(periodInSeconds)
+            case other =>
+              f(Success(other))
+          }
       }
     }
     socket.onclose = { (_: Event) =>
       if(socketId == id)
         openSocket = None
-      scala.scalajs.js.timers.clearInterval(heartbeatLoop)
+      endHeartbeatLoop()
       done.success(())
     }
 

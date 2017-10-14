@@ -10,6 +10,7 @@ object Protocol {
   sealed trait Response
   case class Version(version: String) extends Response
   case class QueryError(err: String) extends Response
+  case class ClientHeartbeatRate(periodInSeconds: Double) extends Response
   case class OkHeartbeat(i: Int) extends Response
   case class Initialize(game: Game, summaries: Array[BoardSummary], boardNames: Array[String], boardSequences: Array[Int]) extends Response
   case class UserJoined(username: String, side: Option[Side]) extends Response
@@ -433,6 +434,7 @@ object Protocol {
   //Protocol.scala--------------------------------------------------------------------------------
   implicit val versionFormat = Json.format[Version]
   implicit val queryErrorFormat = Json.format[QueryError]
+  implicit val clientHeartbeatRateFormat = Json.format[ClientHeartbeatRate]
   implicit val okHeartbeatFormat = Json.format[OkHeartbeat]
   implicit val initializeFormat = Json.format[Initialize]
   implicit val userJoinedFormat = Json.format[UserJoined]
@@ -449,6 +451,7 @@ object Protocol {
     val reads: Reads[Response] = readsFromPair[Response]("Response",Map(
       "Version" -> ((json:JsValue) => versionFormat.reads(json)),
       "QueryError" -> ((json:JsValue) => queryErrorFormat.reads(json)),
+      "ClientHeartbeatRate" -> ((json:JsValue) => clientHeartbeatRateFormat.reads(json)),
       "OkHeartbeat" -> ((json:JsValue) => okHeartbeatFormat.reads(json)),
       "Initialize" -> ((json:JsValue) => initializeFormat.reads(json)),
       "UserJoined" -> ((json:JsValue) => userJoinedFormat.reads(json)),
@@ -466,6 +469,7 @@ object Protocol {
       def writes(t: Response): JsValue = t match {
         case (t:Version) => jsPair("Version",versionFormat.writes(t))
         case (t:QueryError) => jsPair("QueryError",queryErrorFormat.writes(t))
+        case (t:ClientHeartbeatRate) => jsPair("ClientHeartbeatRate",clientHeartbeatRateFormat.writes(t))
         case (t:OkHeartbeat) => jsPair("OkHeartbeat",okHeartbeatFormat.writes(t))
         case (t:Initialize) => jsPair("Initialize",initializeFormat.writes(t))
         case (t:UserJoined) => jsPair("UserJoined",userJoinedFormat.writes(t))

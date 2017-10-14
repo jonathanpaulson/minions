@@ -31,7 +31,7 @@ trait Offset extends scala.scalajs.js.Object {
 }
 
 class Client() {
-  val (username: String, ourSide: Option[Side]) = {
+  val (username: String, password: Option[String], ourSide: Option[Side]) = {
     val params = (new java.net.URI(window.location.href)).getQuery()
     val fields = params.split("&").flatMap { piece =>
       piece.split("=").toList match {
@@ -42,8 +42,9 @@ class Client() {
       }
     }.toMap
     val username = fields("username")
+    val password = fields.get("password")
     val ourSide = fields.get("side").map(Side.ofString)
-    (username,ourSide)
+    (username,password,ourSide)
   }
   def init(): Unit = {
     val jcanvas = jQuery(canvas)
@@ -137,7 +138,7 @@ class Client() {
   val mouseState = MouseState(ourSide,flipDisplay,this)
 
   //Websocket connection!
-  val connection = Connection(username,ourSide)
+  val connection = Connection(username,password,ourSide)
 
   def sendWebsocketQuery(query: Protocol.Query): Unit = {
     connection.sendIfOpen(query)
@@ -228,6 +229,9 @@ class Client() {
           reportFatalError("Minions client version " + CurrentVersion.version + " does not match server version " + version)
         else
           println("Running minions version " + version)
+      case Protocol.ClientHeartbeatRate(_) =>
+        //Handled in connection.scala
+        ()
       case Protocol.QueryError(err) =>
         reportError("Error from server: " + err)
       case Protocol.OkHeartbeat(_) =>
