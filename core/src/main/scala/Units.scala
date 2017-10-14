@@ -489,7 +489,7 @@ object Units {
     defense = 2,
     isWailing = true,
     canHurtNecromancer = false,
-    // TODO: sorcery kill all adjacent enemies (=flurry?)
+    abilities = Map("scream" -> KillAdjacentAbility)
   )
 
   val elemental = createPieceStats(
