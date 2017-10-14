@@ -44,6 +44,7 @@ object ServerMain extends App {
 
   val interface = config.getString("app.interface")
   val port = config.getInt("app.port")
+  val password = if(config.hasPath("app.password")) Some(config.getString("app.password")) else None
 
   //----------------------------------------------------------------------------------
   //GAME AND BOARD SETUP
@@ -496,13 +497,20 @@ object ServerMain extends App {
 
   val route = get {
     pathEndOrSingleSlash {
-      parameter("username") { username =>
-        //Ignore username, just make sure the user provided it
-        val _ = username
-        getFromFile(Paths.mainPage)
-      } ~
-      pass {
-        complete("Please provide 'username=' in URL")
+      parameter("password".?) { user_password =>
+        parameter("username".?) { username =>
+          username match {
+            case None => complete("Please provide 'username=' in URL")
+            case Some(_) =>
+              (user_password, password) match {
+                case (None, Some(_)) => complete("Please provide 'password=' in URL")
+                case (Some(_), None) | (None, None) => getFromFile(Paths.mainPage)
+                case (Some(x), Some(y)) =>
+                  if(x==y) getFromFile(Paths.mainPage)
+                  else complete("Wrong password")
+              }
+          }
+        }
       }
     } ~
     pathPrefix("js") {
@@ -511,14 +519,8 @@ object ServerMain extends App {
   } ~
   path("playGame") {
     parameter("username") { username =>
-      parameter("side") { side =>
-        Try(websocketMessageFlow(username,Some(side))) match {
-          case Failure(exn) => complete(exn.getLocalizedMessage)
-          case Success(flow) => handleWebSocketMessages(flow)
-        }
-      } ~
-      pass {
-        Try(websocketMessageFlow(username,None)) match {
+      parameter("side".?) { side =>
+        Try(websocketMessageFlow(username,side)) match {
           case Failure(exn) => complete(exn.getLocalizedMessage)
           case Success(flow) => handleWebSocketMessages(flow)
         }
