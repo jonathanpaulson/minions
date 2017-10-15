@@ -65,6 +65,7 @@ case class TechState(
   val shortDisplayName: String,
   val displayName: String,
   val tech: Tech,
+  val techNumber: Option[Int],
   val level: SideArray[TechLevel],
   val startingLevelThisTurn: SideArray[TechLevel]
 )
@@ -88,22 +89,24 @@ case object Game {
     extraTechCost: Int,
     extraManaPerTurn: Int,
     techsAlwaysAcquired: Array[Tech],
-    lockedTechs: Array[Tech]
+    lockedTechs: Array[(Tech,Int)]
   ) = {
     val techStatesAlwaysAcquired = techsAlwaysAcquired.map { tech =>
       TechState(
         shortDisplayName = tech.shortDisplayName,
         displayName = tech.displayName,
         tech = tech,
+        techNumber = None,
         level = SideArray.ofArrayInplace(Array(TechAcquired,TechAcquired)),
         startingLevelThisTurn = SideArray.ofArrayInplace(Array(TechAcquired,TechAcquired))
       )
     }
-    val techStatesLocked = lockedTechs.map { tech =>
+    val techStatesLocked = lockedTechs.map { case (tech,techNumber) =>
       TechState(
         shortDisplayName = tech.shortDisplayName,
         displayName = tech.displayName,
         tech = tech,
+        techNumber = Some(techNumber),
         level = SideArray.ofArrayInplace(Array(TechLocked,TechLocked)),
         startingLevelThisTurn = SideArray.ofArrayInplace(Array(TechLocked,TechLocked))
       )
