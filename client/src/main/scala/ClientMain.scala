@@ -417,7 +417,8 @@ class Client() {
   def mouseup(e : MouseEvent) : Unit = {
     withBoardForMouse { board =>
       val pixelLoc = mousePixel(e)
-      mouseState.handleMouseUp(pixelLoc,game.get,board.curState,curBoardIdx,e.altKey)
+      val undo = e.altKey || e.button==2; // alt or right-click
+      mouseState.handleMouseUp(pixelLoc,game.get,board.curState,curBoardIdx, undo)
     }
     draw()
   }

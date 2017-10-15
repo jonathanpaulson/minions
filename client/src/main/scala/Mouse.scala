@@ -38,7 +38,7 @@ sealed trait MouseMode {
   //Handlers in this mouse mode
   def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit
   def handleMouseMove(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit
-  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, altPressed: Boolean): Unit
+  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, undo: Boolean): Unit
 }
 
 //---------------------------------------------------------------------------------------
@@ -156,7 +156,7 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
     }
   }
 
-  def handleMouseUp(pixelLoc: PixelLoc, game: Game, board: BoardState, boardIdx: Int, altPressed: Boolean): Unit = {
+  def handleMouseUp(pixelLoc: PixelLoc, game: Game, board: BoardState, boardIdx: Int, undo: Boolean): Unit = {
     lastPixelLoc = Some(pixelLoc)
     ourSide match {
       case None => ()
@@ -164,7 +164,7 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
         if(ourSide == board.side && !client.gotFatalError) {
           val curTarget = getTarget(pixelLoc,game,board)
           val (curLoc,_) = getLocAndDelta(pixelLoc,board)
-          mode.handleMouseUp(dragTarget,curTarget,curLoc,game,board,boardIdx,altPressed)
+          mode.handleMouseUp(dragTarget,curTarget,curLoc,game,board,boardIdx,undo)
           dragTarget = MouseNone
         }
     }
@@ -329,7 +329,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     List(movement,attack).flatten
   }
 
-  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, altPressed: Boolean): Unit = {
+  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, undo: Boolean): Unit = {
     val didDoubleClick = {
       doubleClickState match {
         case None => false
@@ -378,7 +378,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
         //Require mouse down and up on the same target
         if(curTarget == dragTarget) {
           val techState = game.techLine(techIdx)
-          if(altPressed) {
+          if(undo) {
             (techState.level(game.curSide), techState.startingLevelThisTurn(game.curSide)) match {
               case (TechAcquired,TechAcquired) =>
                 techState.tech match {
@@ -403,7 +403,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
         }
 
       case MouseDeadPiece(pieceSpec) =>
-        if(altPressed) {
+        if(undo) {
           //Require mouse down and up on the same target
           if(curTarget == dragTarget) {
             mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
@@ -411,7 +411,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
         }
 
       case MouseReinforcement(pieceName,_) =>
-        if(altPressed) {
+        if(undo) {
           //Require mouse down and up on the same target
           if(curTarget == dragTarget) {
             val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
@@ -427,18 +427,17 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
         }
 
       case MouseTile(loc) =>
-        if(altPressed) ()
+        if(undo) ()
         else {
           board.tiles(loc).terrain match {
-            case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) =>
-              assertUnreachable()
+            case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) => ()
             case Spawner(_) =>
               mouseState.client.doActionOnCurBoard(PlayerActions(List(ActivateTile(loc)),makeActionId()))
           }
         }
 
       case MousePiece(dragSpec) =>
-        if(altPressed) {
+        if(undo) {
           //Require mouse down and up on the same target
           if(curTarget == dragTarget) {
             mouseState.client.doActionOnCurBoard(LocalPieceUndo(dragSpec,makeActionId()))
@@ -506,8 +505,8 @@ case class SelectTargetMouseMode(mouseState: MouseState)(f:MouseTarget => Unit) 
     val _ = (dragTarget,curTarget,curLoc,game,board)
   }
 
-  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, altPressed: Boolean): Unit = {
-    val _ = (curLoc,game,board,boardIdx,altPressed)
+  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, undo: Boolean): Unit = {
+    val _ = (curLoc,game,board,boardIdx,undo)
 
     //Restore normal mode
     mouseState.mode = NormalMouseMode(mouseState)
