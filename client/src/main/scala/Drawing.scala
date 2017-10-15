@@ -129,15 +129,11 @@ object Drawing {
     def fillHexWithTexture(hexLoc : HexLoc, texture: String, scale : Double, alpha: Double = 1.0) : Unit = {
       drawHex(hexLoc,None,Some((texture,"repeat")),scale,false,true,alpha,1.0);
     }
-    def fillHexWithImage(hexLoc : HexLoc, texture: String, scale : Double, alpha: Double = 1.0) : Unit = {
+    def fillHexWithImage(hexLoc : HexLoc, texture: String, scale : Double) : Unit = {
       //Adjust so that the image is centered
       val img = textures(texture)
-      ctx.save()
       val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
-      ctx.translate(pixel.x,pixel.y)
-      ctx.translate(-img.width*0.5,-img.height*0.5)
-      drawHex(HexLoc.ofPixel(PixelLoc(img.width*0.5,img.height*0.5),gridSize),None,Some((texture,"no-repeat")),scale,false,true,alpha,1.0);
-      ctx.restore()
+      ctx.drawImage(img, pixel.x - img.width*scale*0.5, pixel.y - img.height*scale*0.5, img.width*scale, img.height*scale)
     }
 
     //Based on murmurhash's avalanche mixer
@@ -164,6 +160,8 @@ object Drawing {
           val texture = BoardMaps.waterImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale)
         case Graveyard =>
+          val texture = BoardMaps.groundImage(boardNames(boardIdx))
+          fillHexWithTexture(hexLoc, texture, scale)
           val img = "img_terrain_graveyard" + deterministicRandom(loc.x,loc.y,4)
           fillHexWithImage(hexLoc, img, scale)
           //fillHex(hexLoc, "#aa8899", scale)
