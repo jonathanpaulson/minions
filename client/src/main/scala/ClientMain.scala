@@ -129,7 +129,6 @@ class Client() {
   //TODO Shift-click should allow performing swaps and triangle rotations of pieces?
   //Keyboard controls
   var shiftPressed: Boolean = false
-  var altPressed: Boolean = false
   var showCoords: Boolean = false
 
   val flipDisplay: Boolean = ourSide == Some(S1) //Flip so that 0,0 is in the lower right
@@ -391,7 +390,7 @@ class Client() {
     curLocalBoard().foreach { _ =>
       val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
       Drawing.drawEverything(canvas, ctx, game.get, localBoards, serverBoardNames, curBoardIdx, mouseState,
-        flipDisplay, altPressed, showCoords, timeLeft)
+        flipDisplay, mouseState.undoing, showCoords, timeLeft)
     }
   }
 
@@ -410,7 +409,8 @@ class Client() {
   def mousedown(e: MouseEvent) : Unit = {
     withBoardForMouse { board =>
       val pixelLoc = mousePixel(e)
-      mouseState.handleMouseDown(pixelLoc,game.get,board.curState)
+      val undo = e.altKey || e.button==2;
+      mouseState.handleMouseDown(pixelLoc,game.get,board.curState, undo)
     }
     draw()
   }
@@ -465,11 +465,6 @@ class Client() {
         draw()
       }
     }
-    else if(e.keyCode == 18) {
-      e.preventDefault()
-      altPressed = true
-      draw()
-    }
     else if(e.keyCode == 16) {
       shiftPressed = true
       draw()
@@ -481,12 +476,7 @@ class Client() {
     }
   }
   def keyup(e : KeyboardEvent) : Unit = {
-    if(e.keyCode == 18) {
-      e.preventDefault()
-      altPressed = false
-      draw()
-    }
-    else if(e.keyCode == 16) {
+    if(e.keyCode == 16) {
       shiftPressed = false
       draw()
     }
@@ -495,7 +485,6 @@ class Client() {
   def onBlur(e : Any) : Unit = {
     val _ = e
     shiftPressed = false
-    altPressed = false
   }
 
   def showResignConfirm(): Unit = {

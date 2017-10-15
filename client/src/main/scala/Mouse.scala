@@ -36,7 +36,7 @@ case object MouseResignBoard extends MouseTarget
 //Different modes the mouse can be in for selecting different things
 sealed trait MouseMode {
   //Handlers in this mouse mode
-  def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit
+  def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, undo: Boolean): Unit
   def handleMouseMove(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit
   def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, boardIdx: Int, undo: Boolean): Unit
 }
@@ -55,6 +55,9 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
 
   //Last pixel location of the mouse, for refreshing the state in case the board changed
   var lastPixelLoc: Option[PixelLoc] = None
+
+  // Are we in the middle of undoing something?
+  var undoing: Boolean = false
 
   //Current mode that the mouse is operating in.
   var mode: MouseMode = NormalMouseMode(this)
@@ -141,7 +144,8 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
     }
   }
 
-  def handleMouseDown(pixelLoc: PixelLoc, game: Game, board: BoardState) : Unit = {
+  def handleMouseDown(pixelLoc: PixelLoc, game: Game, board: BoardState, undo: Boolean) : Unit = {
+    undoing = undo
     lastPixelLoc = Some(pixelLoc)
     ourSide match {
       case None => ()
@@ -151,12 +155,13 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
           val (curLoc,_) = getLocAndDelta(pixelLoc,board)
           dragTarget = curTarget
 
-          mode.handleMouseDown(curTarget,curLoc,game,board)
+          mode.handleMouseDown(curTarget,curLoc,game,board, undo)
         }
     }
   }
 
   def handleMouseUp(pixelLoc: PixelLoc, game: Game, board: BoardState, boardIdx: Int, undo: Boolean): Unit = {
+    undoing = false
     lastPixelLoc = Some(pixelLoc)
     ourSide match {
       case None => ()
@@ -229,8 +234,8 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     mouseState.client.makeActionId()
   }
 
-  def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit = {
-    val _ = (curLoc,game,board)
+  def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, undo: Boolean): Unit = {
+    val _ = (curLoc,game,board,undo)
     doubleClickState = doubleClickState match {
       case None => Some((curTarget,getNow(),false))
       case Some((prevTarget,prevTime,_)) =>
@@ -417,8 +422,11 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
             val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
               if(pieceName == name) Some(pieceSpec) else None
             }
-            pieceSpec.foreach { pieceSpec =>
-              mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
+            pieceSpec match {
+              case Some(pieceSpec) =>
+                mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
+              case None =>
+                mouseState.client.doActionOnCurBoard(BuyReinforcementUndo(pieceName,makeActionId()))
             }
           }
         }
@@ -497,8 +505,8 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
 
 case class SelectTargetMouseMode(mouseState: MouseState)(f:MouseTarget => Unit) extends MouseMode {
 
-  def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit = {
-    val _ = (curTarget,curLoc,game,board)
+  def handleMouseDown(curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState, undo: Boolean): Unit = {
+    val _ = (curTarget,curLoc,game,board, undo)
   }
 
   def handleMouseMove(dragTarget: MouseTarget, curTarget: MouseTarget, curLoc: Loc, game: Game, board: BoardState): Unit = {

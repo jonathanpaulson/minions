@@ -50,7 +50,7 @@ object Drawing {
     boardIdx: Int,
     mouseState: MouseState,
     flipDisplay: Boolean,
-    altPressed: Boolean,
+    undoing: Boolean,
     showCoords: Boolean,
     timeLeft: Option[Double]
   ) : Unit = {
@@ -838,7 +838,7 @@ object Drawing {
               case Some((loc,_)) =>
                 strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
             }
-            if(altPressed) {
+            if(undoing) {
               val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
                 if(pieceName == name) Some(pieceSpec) else None
               }
@@ -851,7 +851,7 @@ object Drawing {
               case Some(loc) =>
                 strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
             }
-            if(altPressed)
+            if(undoing)
               highlightUndoneActionsForPieceSpec(pieceSpec)
             UI.DeadPieces.getSelectedPiece(board, pieceSpec) match {
               case None => ()
@@ -867,7 +867,7 @@ object Drawing {
                 drawSidebar(Some(piece.curStats(board)), Some(piece.side), Some(board.tiles(piece.loc)))
             }
 
-            if(altPressed)
+            if(undoing)
               highlightUndoneActionsForPieceSpec(spec)
         }
 
@@ -898,13 +898,15 @@ object Drawing {
               case Some((loc,_)) =>
                 highlightHex(loc,scale=pieceScale)
             }
-            val locs = board.legalSpawnLocs(pieceName)
-            for(loc <- locs) {
-              highlightHex(loc)
+            if(!undoing) {
+              val locs = board.legalSpawnLocs(pieceName)
+              for(loc <- locs) {
+                highlightHex(loc)
+              }
             }
 
           case MouseDeadPiece(pieceSpec) =>
-            if(altPressed) {
+            if(undoing) {
               UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
                 case None => ()
                 case Some(loc) =>
@@ -917,7 +919,7 @@ object Drawing {
               case Some(piece) =>
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
 
-                if(altPressed) {
+                if(undoing) {
                   highlightHex(loc)
                 }
                 else {
