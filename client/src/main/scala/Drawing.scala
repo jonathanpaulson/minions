@@ -1010,6 +1010,18 @@ object Drawing {
                           strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
                         }
                     }
+                  } else {
+                    val stats = piece.curStats(board)
+                    val threatRange = if(stats.isLumbering) stats.attackRange else stats.attackRange + stats.moveRange
+                    val move_range = board.withinTerrainRange(piece, stats.moveRange)
+                    board.withinTerrainRange(piece, threatRange).foreach { loc =>
+                      if(move_range.contains(loc)) {
+                        highlightHex(loc)
+                      } else {
+                        fillHex(loc, "magenta", tileScale, alpha=0.15)
+                        strokeHex(loc, "magenta", tileScale, alpha=0.5, lineWidth=1.5)
+                      }
+                    }
                   }
                 }
             }

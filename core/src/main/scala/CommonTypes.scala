@@ -452,7 +452,7 @@ sealed trait PlaneTopology {
     var thisQueue = scala.collection.mutable.Queue[Loc]()
     thisQueue += loc
 
-    for(i <- 1 to steps) {
+    for(i <- 0 to steps) {
       val nextQueue = scala.collection.mutable.Queue[Loc]()
       thisQueue.foreach { loc =>
         if(!reached.contains(loc)) {
