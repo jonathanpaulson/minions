@@ -73,7 +73,7 @@ class Client() {
     scrollMessagesIfAtEnd()
   }
   def reportError(err: String) = {
-    reportMessage("Error: " + err)
+    reportMessage(err)
     scrollMessages()
   }
   def reportFatalError(err: String) = {
@@ -233,7 +233,7 @@ class Client() {
         //Handled in connection.scala
         ()
       case Protocol.QueryError(err) =>
-        reportError("Error from server: " + err)
+        reportError(err)
       case Protocol.OkHeartbeat(_) =>
         ()
       case Protocol.UserJoined(username,side) =>
