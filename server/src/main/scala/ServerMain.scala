@@ -97,10 +97,15 @@ object ServerMain extends App {
     val boardsAndNames = chosenMaps.toArray.map { case (boardName,map) =>
       val state = map()
       val necroNames = SideArray.create(Units.necromancer.name)
-      state.resetBoard(necroNames)
+      state.resetBoard(necroNames, true)
 
       //Testing
       {
+        /*state.tiles.foreachi { (loc, tile) =>
+          if (tile.terrain == Graveyard) {
+            val _ = state.spawnPieceInitial(S0, Units.fallen_angel.name, loc)
+          }
+        }*/
         /*
         state.spawnPieceInitial(S0, Units.shrieker.name, Loc(5,4))
         state.spawnPieceInitial(S0, Units.witch.name, Loc(6,4))
@@ -194,7 +199,7 @@ object ServerMain extends App {
       }
     }
 
-    private def doResetBoard(boardIdx: Int): Unit = {
+    private def doResetBoard(boardIdx: Int, canMove: Boolean): Unit = {
       Side.foreach { side =>
         if(specialNecrosRemaining(side).isEmpty)
           specialNecrosRemaining(side) = scala.util.Random.shuffle(Units.specialNecromancers.toList).map(_.name)
@@ -202,8 +207,8 @@ object ServerMain extends App {
       val necroNames = SideArray.ofArrayInplace(Array(specialNecrosRemaining(S0).head,specialNecrosRemaining(S1).head))
       specialNecrosRemaining(S0) = specialNecrosRemaining(S0).tail
       specialNecrosRemaining(S1) = specialNecrosRemaining(S1).tail
-      boards(boardIdx).resetBoard(necroNames)
-      broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames))
+      boards(boardIdx).resetBoard(necroNames, canMove)
+      broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMove))
     }
 
     private def maybeDoEndOfTurn(): Unit = {
@@ -225,11 +230,9 @@ object ServerMain extends App {
         val board = boards(boardIdx)
         if(board.curState.hasWon) {
           doAddWin(oldSide,boardIdx)
-          board.curState.hasWon = false
-        }
-        if(board.curState.doReset && game.winner.isEmpty) {
-          doResetBoard(boardIdx)
-          board.curState.doReset = false
+          if(game.winner.isEmpty) {
+            doResetBoard(boardIdx, true)
+          }
         }
       }
 
@@ -255,7 +258,9 @@ object ServerMain extends App {
         val board = boards(boardIdx)
         if(board.curState.hasWon) {
           doAddWin(newSide,boardIdx)
-          board.curState.hasWon = false
+          if(game.winner.isEmpty) {
+            doResetBoard(boardIdx, false)
+          }
         }
       }
 
@@ -378,7 +383,7 @@ object ServerMain extends App {
                     //Check ahead of time if it's legal
                     game.tryIsLegal(gameAction).map { case () =>
                       //And if so, reset the board
-                      doResetBoard(boardIdx)
+                      doResetBoard(boardIdx, true)
                     }
                   case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) =>
                     Failure(new Exception("Only server allowed to send this action"))

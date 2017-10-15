@@ -21,7 +21,7 @@ object Protocol {
   case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction, newBoardSequence: Int) extends Response
   case class ReportGameAction(gameAction: GameAction, newGameSequence: Int) extends Response
   case class ReportNewTurn(newSide: Side) extends Response
-  case class ReportResetBoard(boardIdx: Int, necroNames:SideArray[PieceName]) extends Response
+  case class ReportResetBoard(boardIdx: Int, necroNames:SideArray[PieceName], canMove: Boolean) extends Response
   case class ReportTimeLeft(timeLeft: Option[Double]) extends Response
 
   sealed trait Query

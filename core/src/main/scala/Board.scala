@@ -382,9 +382,9 @@ class Board private (
   }
 
   //Reset the board to the starting position
-  def resetBoard(necroNames: SideArray[PieceName]): Unit = {
+  def resetBoard(necroNames: SideArray[PieceName], canMove: Boolean): Unit = {
     initialStateThisTurn = history.spawnState.copy()
-    initialStateThisTurn.resetBoard(necroNames)
+    initialStateThisTurn.resetBoard(necroNames, canMove)
     //TODO loses history information for recording purposes into playerGeneralBoardActionsPrevTurns
     //on endTurn()
     history = BoardHistory.initial(initialStateThisTurn)
