@@ -49,6 +49,8 @@ object ServerMain extends App {
   val password = if(config.hasPath("app.password")) Some(config.getString("app.password")) else None
   val clientHeartbeatPeriodInSeconds = config.getDouble("akka.http.server.clientHeartbeatRate")
 
+  val rand = Rand()
+
   //----------------------------------------------------------------------------------
   //GAME AND BOARD SETUP
 
@@ -68,7 +70,7 @@ object ServerMain extends App {
         val numFixedTechs = config.getInt("app.numFixedTechs")
         val fixedTechs = Units.techPieces.zipWithIndex.take(numFixedTechs).toArray
         //Partition remaining ones randomly into two sets of the appropriate size, the first one getting the rounding up
-        val randomized = scala.util.Random.shuffle(Units.techPieces.zipWithIndex.drop(numFixedTechs).toList)
+        val randomized = rand.shuffle(Units.techPieces.zipWithIndex.drop(numFixedTechs).toList)
         var set1 = randomized.take((randomized.length+1) / 2)
         var set2 = randomized.drop((randomized.length+1) / 2)
         //Sort each set independently
@@ -111,7 +113,7 @@ object ServerMain extends App {
     if(numBoards > availableMaps.length)
       throw new Exception("Configured for " + numBoards + " boards but only " + availableMaps.length + " available")
 
-    val chosenMaps = scala.util.Random.shuffle(availableMaps).take(numBoards)
+    val chosenMaps = rand.shuffle(availableMaps).take(numBoards)
 
     val boardsAndNames = chosenMaps.toArray.map { case (boardName,map) =>
       val state = map()
@@ -221,7 +223,7 @@ object ServerMain extends App {
     private def doResetBoard(boardIdx: Int, canMove: Boolean): Unit = {
       Side.foreach { side =>
         if(specialNecrosRemaining(side).isEmpty)
-          specialNecrosRemaining(side) = scala.util.Random.shuffle(Units.specialNecromancers.toList).map(_.name)
+          specialNecrosRemaining(side) = rand.shuffle(Units.specialNecromancers.toList).map(_.name)
       }
       val necroNames = SideArray.ofArrayInplace(Array(specialNecrosRemaining(S0).head,specialNecrosRemaining(S1).head))
       specialNecrosRemaining(S0) = specialNecrosRemaining(S0).tail
