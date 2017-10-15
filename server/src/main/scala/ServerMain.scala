@@ -225,8 +225,11 @@ object ServerMain extends App {
         val board = boards(boardIdx)
         if(board.curState.hasWon) {
           doAddWin(oldSide,boardIdx)
-          if(game.winner.isEmpty)
-            doResetBoard(boardIdx)
+          board.curState.hasWon = false
+        }
+        if(board.curState.doReset && game.winner.isEmpty) {
+          doResetBoard(boardIdx)
+          board.curState.doReset = false
         }
       }
 
@@ -247,6 +250,14 @@ object ServerMain extends App {
       game.endTurn()
       boards.foreach { board => board.endTurn() }
       broadcastAll(Protocol.ReportNewTurn(newSide))
+
+      for(boardIdx <- 0 until boards.length) {
+        val board = boards(boardIdx)
+        if(board.curState.hasWon) {
+          doAddWin(newSide,boardIdx)
+          board.curState.hasWon = false
+        }
+      }
 
       //Schedule the next end of turn
       scheduleEndOfTurn(game.turnNumber)

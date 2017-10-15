@@ -261,6 +261,7 @@ object BoardState {
       hasUsedSpawnerTile = false,
       side = S0,
       hasWon = false,
+      doReset = false,
       manaThisRound = SideArray.create(0),
       totalMana = SideArray.create(0),
       totalCosts = SideArray.create(0)
@@ -325,6 +326,8 @@ case class BoardState private (
   var side: Side,
   //Has the current side won the board?
   var hasWon: Boolean,
+  // Reset at end of this turn?
+  var doReset: Boolean,
 
   //Accumulated mana from spires and rebate for costs for units that died, this turn.
   //(Only clears at the beginning of a side's turn)
@@ -356,6 +359,7 @@ case class BoardState private (
       hasUsedSpawnerTile = hasUsedSpawnerTile,
       side = side,
       hasWon = hasWon,
+      doReset = doReset,
       manaThisRound = manaThisRound.copy(),
       totalMana = totalMana.copy(),
       totalCosts = totalCosts.copy()
@@ -498,8 +502,10 @@ case class BoardState private (
       if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
         startNumGraveyards += 1
     }
-    if(startNumGraveyards >= 8)
+    if(startNumGraveyards >= 8) {
       hasWon = true
+      doReset = true
+    }
   }
 
   //Reset the board to the starting position
@@ -520,6 +526,7 @@ case class BoardState private (
 
     //Unset win flag
     hasWon = false
+    doReset = false
 
     //Set up initial pieces
     Side.foreach { side =>
@@ -1194,8 +1201,10 @@ case class BoardState private (
 
     //Check for necromancers win condition
     val opp = side.opp
-    if(!pieceById.values.exists { piece => piece.side == opp && piece.baseStats.isNecromancer })
+    if(!pieceById.values.exists { piece => piece.side == opp && piece.baseStats.isNecromancer }) {
       hasWon = true
+      doReset = true
+    }
   }
 
   //Kill a piece, for any reason
