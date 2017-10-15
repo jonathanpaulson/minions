@@ -162,6 +162,7 @@ object Drawing {
         case Graveyard =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale)
+          strokeHex(hexLoc, "#000000", scale, alpha=0.5, lineWidth=2.0)
           val img = "img_terrain_graveyard" + deterministicRandom(loc.x,loc.y,4)
           fillHexWithImage(hexLoc, img, scale)
           //fillHex(hexLoc, "#aa8899", scale)
