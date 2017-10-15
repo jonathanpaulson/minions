@@ -538,6 +538,9 @@ object Drawing {
 
       val hexLoc = hexLocOfLoc(loc)
       text(techState.shortDisplayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
+      techState.techNumber.foreach { techNumber =>
+        text("#" + techNumber, PixelLoc.ofHexLoc(hexLoc, gridSize) + PixelVec(0,10), "black")
+      }
       text(techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techInteriorScale, gridSize), "blue")
       text(techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techInteriorScale, gridSize), "red")
     }

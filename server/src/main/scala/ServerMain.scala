@@ -60,8 +60,27 @@ object ServerMain extends App {
     startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
     val techsAlwaysAcquired: Array[Tech] =
       Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
-    val lockedTechs: Array[Tech] =
-      Units.techPieces.map { piece => PieceTech(piece.name) }
+    val lockedTechs: Array[(Tech,Int)] = {
+      if(!config.getBoolean("app.randomizeTechLine"))
+        Units.techPieces.zipWithIndex.map { case (piece,i) => (PieceTech(piece.name),i+1) }.toArray
+      else {
+        //First few techs are always the same
+        val numFixedTechs = config.getInt("app.numFixedTechs")
+        val fixedTechs = Units.techPieces.zipWithIndex.take(numFixedTechs).toArray
+        //Partition remaining ones randomly into two sets of the appropriate size, the first one getting the rounding up
+        val randomized = scala.util.Random.shuffle(Units.techPieces.zipWithIndex.drop(numFixedTechs).toList)
+        var set1 = randomized.take((randomized.length+1) / 2)
+        var set2 = randomized.drop((randomized.length+1) / 2)
+        //Sort each set independently
+        set1 = set1.sortBy { case (_,origIdx) => origIdx }
+        set2 = set2.sortBy { case (_,origIdx) => origIdx }
+        //Interleave them
+        val set1Opt = set1.map { case (piece,origIdx) => Some((piece,origIdx)) }
+        val set2Opt = set2.map { case (piece,origIdx) => Some((piece,origIdx)) }
+        val interleaved = set1Opt.zipAll(set2Opt,None,None).flatMap { case (s1,s2) => List(s1,s2) }.flatten.toArray
+        (fixedTechs ++ interleaved).map { case (piece,origIdx) => (PieceTech(piece.name),origIdx+1) }
+      }
+    }
     val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
     val extraManaPerTurn = config.getInt("app.extraManaPerTurn")
 
