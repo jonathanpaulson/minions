@@ -38,7 +38,10 @@ object PieceMods {
       pieceStats.copy(
         isBaseStats = false,
         isPersistent = true,
-        defense = pieceStats.defense * 2
+        defense = pieceStats.defense match {
+          case None => None
+          case Some(d) => Some(d*2)
+        }
       )
     }
   }

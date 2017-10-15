@@ -151,43 +151,44 @@ object Drawing {
       ((h % n) + n) % n
     }
 
-    def drawTile(loc : Loc, tile: Tile) : Unit = {
+    def drawTile(loc : Loc, tile: Tile, scaleBy: Double) : Unit = {
       val hexLoc = hexLocOfLoc(loc)
+      val scale = scaleBy*tileScale
       tile.terrain match {
-        case Wall => fillHex(hexLoc, "white", tileScale)
+        case Wall => fillHex(hexLoc, "white", scale)
         case Ground | StartHex(_) =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, tileScale)
-          //fillHex(hexLoc, "green", tileScale)
+          fillHexWithTexture(hexLoc, texture, scale)
+          //fillHex(hexLoc, "green", scale)
         case Water =>
           val texture = BoardMaps.waterImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, tileScale)
+          fillHexWithTexture(hexLoc, texture, scale)
         case Graveyard =>
           val img = "img_terrain_graveyard" + deterministicRandom(loc.x,loc.y,4)
-          fillHexWithImage(hexLoc, img, tileScale)
-          //fillHex(hexLoc, "#aa8899", tileScale)
-          strokeHex(hexLoc, "#776677", tileScale, alpha=0.4, lineWidth=1.5)
+          fillHexWithImage(hexLoc, img, scale)
+          //fillHex(hexLoc, "#aa8899", scale)
+          strokeHex(hexLoc, "#776677", scale, alpha=0.4, lineWidth=1.5)
         case SorceryNode =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, tileScale)
-          fillHex(hexLoc, "#ffcc88", tileScale, alpha=0.15)
-          strokeHex(hexLoc, "#ffcc88", tileScale, alpha=0.5, lineWidth=2.0)
+          fillHexWithTexture(hexLoc, texture, scale)
+          fillHex(hexLoc, "#ffcc88", scale, alpha=0.15)
+          strokeHex(hexLoc, "#ffcc88", scale, alpha=0.5, lineWidth=2.0)
           val img = "img_terrain_leyline"
-          fillHexWithImage(hexLoc, img, tileScale)
+          fillHexWithImage(hexLoc, img, scale)
         case Teleporter =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, tileScale)
-          fillHex(hexLoc, "#ccff88", tileScale, alpha=0.15)
-          strokeHex(hexLoc, "#ccff88", tileScale, alpha=0.5, lineWidth=2.0)
+          fillHexWithTexture(hexLoc, texture, scale)
+          fillHex(hexLoc, "#ccff88", scale, alpha=0.15)
+          strokeHex(hexLoc, "#ccff88", scale, alpha=0.5, lineWidth=2.0)
           val img = "img_terrain_teleporter"
-          fillHexWithImage(hexLoc, img, tileScale)
+          fillHexWithImage(hexLoc, img, scale)
         case Spawner(_) =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, tileScale)
-          fillHex(hexLoc, "#ff55ff", tileScale, alpha=0.15)
-          strokeHex(hexLoc, "#ff55ff", tileScale, alpha=0.5, lineWidth=2.0)
+          fillHexWithTexture(hexLoc, texture, scale)
+          fillHex(hexLoc, "#ff55ff", scale, alpha=0.15)
+          strokeHex(hexLoc, "#ff55ff", scale, alpha=0.5, lineWidth=2.0)
           val img = "img_terrain_spawner"
-          fillHexWithImage(hexLoc, img, tileScale)
+          fillHexWithImage(hexLoc, img, scale)
       }
       if(showCoords) {
         val (loc,_) = hexLoc.round(flipDisplay,board)
@@ -232,7 +233,14 @@ object Drawing {
 
     def drawSidebar(stats: Option[PieceStats], side: Option[Side], tile : Option[Tile]) = {
       val loc = UI.Sidebar.loc
-      drawPiece(loc, 5.0, side, "")
+      tile match {
+        case None => ()
+        case Some(tile) => drawTile(loc, tile, 5.0)
+      }
+      stats match {
+        case None => ()
+        case Some(_) => drawPiece(loc, pieceScale*5.0, side, "")
+      }
       var row_idx = 0
       def row(n:Int) : PixelLoc = {
         return PixelLoc.ofHexLoc(loc, gridSize) + PixelVec(0, 15.0*(n-6))
@@ -253,10 +261,12 @@ object Drawing {
             case Some(Enchant(_)) => ""
             case Some(TransformInto(_)) => ""
           }
-          if(stats.isNecromancer && stats.swarmMax <= 1) {
-            show("If your necromancer dies, you lose the board!")
+          if(stats.isNecromancer && stats.defense.isEmpty) {
+            // Immortal necromancer cannot be killed
+          } else if(stats.isNecromancer && stats.swarmMax > 1) {
+            show("If they all die, you lose the board!")
           } else if(stats.isNecromancer) {
-            show("If your necromancers die, you lose the board!")
+            show("If it dies, you lose the board!")
           } else {
             val costStr = "Cost: " + stats.cost + " souls"
             stats.deathSpawn match {
@@ -277,10 +287,9 @@ object Drawing {
             show(aStr + " (" + stats.numAttacks + "x/turn)")
           }
 
-          if(stats.defense >= 100000) {
-            show("Cannot be killed")
-          } else {
-            show("Defense: " + stats.defense)
+          stats.defense match {
+            case None => show("Cannot be killed")
+            case Some(d) => show("Defense: " + d)
           }
 
           if(stats.moveRange == 0) {
@@ -535,7 +544,7 @@ object Drawing {
 
     //Terrain
     board.tiles.foreachi {case (loc, tile) =>
-      drawTile(loc,tile)
+      drawTile(loc,tile, 1.0)
     }
 
     def pieceCanStillDoThings(piece: Piece): Boolean = {
@@ -601,16 +610,18 @@ object Drawing {
     }
 
     def getDefenseStringAndColor(baseStats: PieceStats, curStats: PieceStats, damage: Int): (String,String) = {
-      if(curStats.defense > 100000) ("","black")
-      else {
-        val str = (if(curStats.isPersistent) "P" else "D") + (curStats.defense - damage)
-        val color = {
-          if(damage > 0 || curStats.defense < baseStats.defense) "magenta"
-          else if(curStats.isPersistent && !baseStats.isPersistent) "green"
-          else if(curStats.defense > baseStats.defense) "green"
-          else "black"
-        }
-        (str,color)
+      (curStats.defense, baseStats.defense) match {
+        case (None, None) => ("", "black")
+        case (Some(_), None) | (None, Some(_)) => assertUnreachable()
+        case (Some(dcur), Some(dbase)) =>
+          val str = (if(curStats.isPersistent) "P" else "D") + (dcur - damage)
+          val color = {
+            if(damage > 0 || dcur < dbase) "magenta"
+            else if(curStats.isPersistent && !baseStats.isPersistent) "green"
+            else if(dcur > dbase) "green"
+            else "black"
+          }
+          (str,color)
       }
     }
 

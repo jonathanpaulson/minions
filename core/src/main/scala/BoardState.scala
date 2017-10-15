@@ -1181,8 +1181,12 @@ case class BoardState private (
   //Kill a piece if it has enough accumulated damage
   private def killIfEnoughDamage(piece: Piece): Unit = {
     val stats = piece.curStats(this)
-    if(piece.damage >= stats.defense)
-      killPiece(piece)
+    stats.defense match {
+      case None => ()
+      case Some(defense) =>
+        if(piece.damage >= defense)
+          killPiece(piece)
+    }
   }
 
   //Perform the rebase and death spawn updates happening after a piece kill

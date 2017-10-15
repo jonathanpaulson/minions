@@ -90,7 +90,7 @@ case class PieceStats(
   val isBaseStats: Boolean,
 
   val attackEffect: Option[TargetEffect],
-  val defense: Int,
+  val defense: Option[Int],
   val moveRange: Int,
   val attackRange: Int,
   val attackRangeVsFlying: Int,
