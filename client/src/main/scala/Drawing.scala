@@ -679,7 +679,7 @@ object Drawing {
         case (None, None) => ("", "black")
         case (Some(_), None) | (None, Some(_)) => assertUnreachable()
         case (Some(dcur), Some(dbase)) =>
-          val str = (if(curStats.isPersistent) "P" else "D") + (dcur - damage)
+          val str = (if(curStats.isPersistent) "P" else "H") + (dcur - damage)
           val color = {
             if(damage > 0 || dcur < dbase) "magenta"
             else if(curStats.isPersistent && !baseStats.isPersistent) "green"
@@ -1076,10 +1076,17 @@ object Drawing {
                     }
                   } else {
                     val stats = piece.curStats(board)
-                    val threatRange = if(stats.isLumbering) stats.attackRange else stats.attackRange + stats.moveRange
-                    val move_range = board.withinTerrainRange(piece, stats.moveRange)
-                    board.withinTerrainRange(piece, threatRange).foreach { loc =>
-                      if(move_range.contains(loc)) {
+                    val moveLocs = board.withinTerrainRange(piece, stats.moveRange)
+                    var attackLocs = Set[Loc]()
+                    def f(loc : Loc) : Boolean = {
+                      attackLocs += loc
+                      return true
+                    }
+                    (if(stats.isLumbering) Set[Loc](piece.loc) else moveLocs).foreach { loc =>
+                      board.tiles.topology.forEachReachable(loc, stats.attackRange)(f)
+                    }
+                    (attackLocs ++ moveLocs).foreach { loc =>
+                      if(moveLocs.contains(loc)) {
                         highlightHex(loc)
                       } else {
                         fillHex(loc, "magenta", tileScale, alpha=0.15)
