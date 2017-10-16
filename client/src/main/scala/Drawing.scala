@@ -896,11 +896,9 @@ object Drawing {
           case MouseNone => ()
           case MouseTile(loc) =>
             drawSidebar(None, None, None, Some(board.tiles(loc)))
-          case MouseEndTurn =>
-            val loc = UI.EndTurn.loc
+          case MouseEndTurn(loc) =>
             strokeHex(loc, "black", tileScale, alpha=0.5)
-          case MouseResignBoard =>
-            val loc = UI.ResignBoard.loc
+          case MouseResignBoard(loc) =>
             strokeHex(loc, "black", tileScale, alpha=0.5)
           case MousePrevBoard =>
             if(boardIdx > 0)
@@ -909,18 +907,13 @@ object Drawing {
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", PixelLoc.ofLoc(UI.NextBoard.locs(board)(0), gridSize), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
 
-          case MouseTech(techIdx) =>
+          case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
-              val loc = UI.Tech.getLoc(techIdx)
               strokeHex(loc, "black", tileScale, alpha=0.5)
             }
             drawSidebar(None, Some(game.techLine(techIdx).tech.pieceStats), None, None)
-          case MouseReinforcement(pieceName,side) =>
-            UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
-              case None => ()
-              case Some((loc,_)) =>
-                strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
-            }
+          case MouseReinforcement(pieceName,side,loc) =>
+            strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing) {
               val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
                 if(pieceName == name) Some(pieceSpec) else None
@@ -928,12 +921,8 @@ object Drawing {
               pieceSpec.foreach { pieceSpec => highlightUndoneActionsForPieceSpec(pieceSpec) }
             }
             drawSidebar(None, Some(Units.pieceMap(pieceName)), Some(side), None)
-          case MouseDeadPiece(pieceSpec) =>
-            UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
-              case None => ()
-              case Some(loc) =>
-                strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
-            }
+          case MouseDeadPiece(pieceSpec,loc) =>
+            strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing)
               highlightUndoneActionsForPieceSpec(pieceSpec)
             UI.DeadPieces.getSelectedPiece(board, pieceSpec) match {
@@ -941,7 +930,7 @@ object Drawing {
               case Some((stats, side)) =>
                 drawSidebar(None, Some(stats), Some(side), None)
             }
-          case MousePiece(spec) =>
+          case MousePiece(spec,_) =>
             board.findPiece(spec) match {
               case None => ()
               case Some(piece) =>
@@ -958,11 +947,9 @@ object Drawing {
         mouseState.dragTarget match {
           case MouseNone => ()
           case MouseTile(_) => ()
-          case MouseEndTurn =>
-            val loc = UI.EndTurn.loc
+          case MouseEndTurn(loc) =>
             highlightHex(loc)
-          case MouseResignBoard =>
-            val loc = UI.ResignBoard.loc
+          case MouseResignBoard(loc) =>
             highlightHex(loc)
           case MousePrevBoard =>
             if(boardIdx > 0)
@@ -970,17 +957,12 @@ object Drawing {
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", PixelLoc.ofLoc(UI.NextBoard.locs(board)(0), gridSize), "cyan", textAlign="left", textBaseline="top", fontSize=12)
-          case MouseTech(techIdx) =>
+          case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
-              val loc = UI.Tech.getLoc(techIdx)
               highlightHex(loc)
             }
-          case MouseReinforcement(pieceName,side) =>
-            UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
-              case None => ()
-              case Some((loc,_)) =>
-                highlightHex(loc,scale=pieceScale)
-            }
+          case MouseReinforcement(pieceName,_,loc) =>
+            highlightHex(loc,scale=pieceScale)
             if(!undoing) {
               val locs = board.legalSpawnLocs(pieceName)
               for(loc <- locs) {
@@ -988,15 +970,11 @@ object Drawing {
               }
             }
 
-          case MouseDeadPiece(pieceSpec) =>
+          case MouseDeadPiece(_,loc) =>
             if(undoing) {
-              UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
-                case None => ()
-                case Some(loc) =>
-                  highlightHex(loc)
-              }
+              highlightHex(loc)
             }
-          case MousePiece(spec) =>
+          case MousePiece(spec,_) =>
             board.findPiece(spec) match {
               case None => ()
               case Some(piece) =>
@@ -1011,7 +989,7 @@ object Drawing {
                     strokeHex(loc, "black", scale, alpha=0.5)
 
                     //Draw based on what would happen if we released the mouse
-                    mouseState.hoverLoc.foreach { hoverLoc =>
+                    mouseState.hovered.getLoc().foreach { hoverLoc =>
                       mode.dragPieceMouseUpActions(mouseState.hovered, hoverLoc, piece, board).foreach {
                         case (_ : Movements) =>
                           //If moving, draw the movement path
@@ -1107,14 +1085,8 @@ object Drawing {
     }
 
     //Highlight hex tile on mouse hover
-    mouseState.hovered match {
-      case MouseNone => ()
-      case MousePrevBoard => ()
-      case MouseNextBoard => ()
-      case _ =>
-        mouseState.hoverLoc.foreach { hoverLoc =>
-          strokeHex(hoverLoc, "black", tileScale, alpha=0.3)
-        }
+    mouseState.hovered.getLoc().foreach { hoverLoc =>
+      strokeHex(hoverLoc, "black", tileScale, alpha=0.3)
     }
   }
 }
