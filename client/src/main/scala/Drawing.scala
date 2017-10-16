@@ -464,8 +464,8 @@ object Drawing {
 
     //Background fill based on whose turn it is
     val backgroundColor = board.side match {
-      case S0 => "#f3f3ff"
-      case S1 => "#fff3f3"
+      case S0 => "#eeeeff"
+      case S1 => "#ffeeee"
     }
     ctx.fillStyle = backgroundColor
     ctx.globalAlpha = 1.0
@@ -504,6 +504,15 @@ object Drawing {
       def textAtLoc(s: String, dpx: Double, dpy: Double) =
         text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left")
 
+      if(side == board.side) {
+        val rectColor = board.side match {
+          case S0 => "#e0e0ff"
+          case S1 => "#ffe0e0"
+        }
+        ctx.fillStyle = rectColor
+        ctx.fillRect(pixelLoc.x - 6.0, pixelLoc.y - 20.0, 380.0, 30.0)
+      }
+
       if(game.winner.nonEmpty) {
         if(game.winner == Some(side))
           textAtLoc(side.toColorName + " Team wins the game!", 0.0, -9.0)
@@ -523,9 +532,7 @@ object Drawing {
       }
 
       textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 250.0, -9.0)
-
       textAtLoc(side.toColorName + " Team Souls: " + mana + " (+" + newMana + "/turn)", 0.0, 3.0)
-
       textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 150.0, 3.0)
 
       if(side == board.side)
