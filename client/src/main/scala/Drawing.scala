@@ -229,7 +229,7 @@ object Drawing {
       }
     }
 
-    def drawSidebar(stats: Option[PieceStats], side: Option[Side], tile : Option[Tile]) = {
+    def drawSidebar(piece: Option[Piece], stats: Option[PieceStats], side: Option[Side], tile : Option[Tile]) = {
       val loc = UI.Sidebar.loc
       tile match {
         case None => ()
@@ -243,22 +243,14 @@ object Drawing {
       def row(n:Int) : PixelLoc = {
         return PixelLoc.ofHexLoc(loc, gridSize) + PixelVec(0, 15.0*(n-6))
       }
-      def show(s:String) : Unit = {
-        text(s, row(row_idx), "black")
+      def show(s:String, color:String = "black") : Unit = {
+        text(s, row(row_idx), color)
         row_idx = row_idx + 1
       }
       stats match {
         case None => ()
         case Some(stats) =>
           show(stats.displayName)
-          val aStr = stats.attackEffect match {
-            case None => "Can't attack"
-            case Some(Damage(n)) => "Attack: " + n + " damage"
-            case Some(Unsummon) => "Attack: Unsummon"
-            case Some(Kill) => "Attack: Instant kill"
-            case Some(Enchant(_)) => ""
-            case Some(TransformInto(_)) => ""
-          }
           if(stats.isNecromancer && stats.defense.isEmpty) {
             // Immortal necromancer cannot be killed
           } else if(stats.isNecromancer && stats.swarmMax > 1) {
@@ -279,23 +271,95 @@ object Drawing {
             }
           }
 
+          val aStr = stats.attackEffect match {
+            case None => "Can't attack"
+            case Some(Damage(n)) => "Attack: " + n + " damage"
+            case Some(Unsummon) => "Attack: Unsummon"
+            case Some(Kill) => "Attack: Instant kill"
+            case Some(Enchant(_)) => ""
+            case Some(TransformInto(_)) => ""
+          }
           if(stats.numAttacks <= 1) {
-            show(aStr)
+            val cantAttack =
+              piece match {
+                case None => false
+                case Some(p) =>
+                  if(stats.isLumbering && p.hasMoved) {
+                    true
+                  } else {
+                    p.actState match {
+                      case Moving(_) => false
+                      case Attacking(attacks) =>
+                        assert(attacks <= 1)
+                        attacks == 1
+                      case DoneActing => true
+                    }
+                  }
+              }
+            show(aStr, if(cantAttack) "grey" else "black")
           } else {
-            show(aStr + " (" + stats.numAttacks + "x/turn)")
+            val (alreadyAttackedStr, attackColor) =
+              piece match {
+                case None => ("", "black")
+                case Some(p) =>
+                  if(stats.isLumbering && p.hasMoved) {
+                    ("", "grey")
+                  } else {
+                    p.actState match {
+                      case Moving(_) => ("", "black")
+                      case Attacking(attacks) =>
+                        if(attacks == stats.numAttacks) {
+                          ("", "grey")
+                        } else if(attacks > 0) {
+                          (" (" + (stats.numAttacks - attacks) + " left)", "red")
+                        } else {
+                          ("", "black")
+                        }
+                      case DoneActing => ("", "grey")
+                    }
+                  }
+              }
+            show(aStr + " (" + stats.numAttacks + "x/turn)" + alreadyAttackedStr, attackColor)
           }
 
           stats.defense match {
             case None => show("Cannot be killed")
-            case Some(d) => show("Defense: " + d)
+            case Some(d) =>
+              val (dmgStr, healthColor) =
+                piece match {
+                  case None => ("", "black")
+                  case Some(p) =>
+                    if(p.damage > 0) {
+                      ((d-p.damage) + " / ", "red")
+                    } else {
+                      ("", "black")
+                  }
+                }
+              show("Health: " + dmgStr + d, healthColor)
           }
 
           if(stats.moveRange == 0) {
             show("Cannot move")
-          } else if(stats.moveRange == 1) {
-            show("Speed: 1 hex/turn")
           } else {
-            show("Speed: " + stats.moveRange + " hexes/turn")
+            val hexStr = if(stats.moveRange == 1) "hex" else "hexes"
+            val (usedStr, speedColor) =
+              piece match {
+                case None => ("", "black")
+                case Some(p) =>
+                    p.actState match {
+                      case Moving(stepsUsed) =>
+                        if(stepsUsed == stats.moveRange) {
+                          ("", "grey")
+                        } else if(stepsUsed > 0) {
+                          (" (" + (stats.moveRange - stepsUsed) + " left)", "red")
+                        } else {
+                          ("", "black")
+                        }
+                      case Attacking(_) => ("", "grey")
+                      case DoneActing => ("", "grey")
+                    }
+              }
+            show("Speed: " + stats.moveRange + " " + hexStr + "/turn" + usedStr, speedColor)
           }
           if(stats.attackEffect.isDefined) {
             val vsFlyingStr = {
@@ -824,7 +888,7 @@ object Drawing {
         mouseState.hovered match {
           case MouseNone => ()
           case MouseTile(loc) =>
-            drawSidebar(None, None, Some(board.tiles(loc)))
+            drawSidebar(None, None, None, Some(board.tiles(loc)))
           case MouseEndTurn =>
             val loc = UI.EndTurn.loc
             strokeHex(loc, "black", tileScale, alpha=0.5)
@@ -843,7 +907,7 @@ object Drawing {
               val loc = UI.Tech.getLoc(techIdx)
               strokeHex(loc, "black", tileScale, alpha=0.5)
             }
-            drawSidebar(Some(game.techLine(techIdx).tech.pieceStats), None, None)
+            drawSidebar(None, Some(game.techLine(techIdx).tech.pieceStats), None, None)
           case MouseReinforcement(pieceName,side) =>
             UI.Reinforcements.getSelectedLocAndCount(side, flipDisplay, board, pieceName) match {
               case None => ()
@@ -856,7 +920,7 @@ object Drawing {
               }
               pieceSpec.foreach { pieceSpec => highlightUndoneActionsForPieceSpec(pieceSpec) }
             }
-            drawSidebar(Some(Units.pieceMap(pieceName)), Some(side), None)
+            drawSidebar(None, Some(Units.pieceMap(pieceName)), Some(side), None)
           case MouseDeadPiece(pieceSpec) =>
             UI.DeadPieces.getSelectedLoc(board, pieceSpec) match {
               case None => ()
@@ -868,7 +932,7 @@ object Drawing {
             UI.DeadPieces.getSelectedPiece(board, pieceSpec) match {
               case None => ()
               case Some((stats, side)) =>
-                drawSidebar(Some(stats), Some(side), None)
+                drawSidebar(None, Some(stats), Some(side), None)
             }
           case MousePiece(spec) =>
             board.findPiece(spec) match {
@@ -876,7 +940,7 @@ object Drawing {
               case Some(piece) =>
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
                 strokeHex(loc, "black", scale, alpha=0.5)
-                drawSidebar(Some(piece.curStats(board)), Some(piece.side), Some(board.tiles(piece.loc)))
+                drawSidebar(Some(piece), Some(piece.curStats(board)), Some(piece.side), Some(board.tiles(piece.loc)))
             }
 
             if(undoing)
