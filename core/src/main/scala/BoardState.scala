@@ -657,16 +657,15 @@ case class BoardState private (
 
   def withinTerrainRange(piece : Piece, steps : Int) : Set[Loc] = {
     var ans = Set[Loc]()
-    def f(loc : Loc) : Boolean = {
+    tiles.topology.forEachReachable(piece.loc, steps) { loc =>
       if(inBounds(loc) && canWalkOnTile(piece.curStats(this), tiles(loc))) {
         ans = ans + loc
-        return true
+        true //Can continue moving from this location
       } else {
-        return false
+        false //Can't keep moving from this location
       }
     }
-    tiles.topology.forEachReachable(piece.loc, steps)(f)
-    return ans
+    ans
   }
 
   //Similar to legalMoves but finds a shortest path whose destination satisfies the desired predicate.

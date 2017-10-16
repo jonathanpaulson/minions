@@ -241,7 +241,7 @@ object Drawing {
       }
       var row_idx = 0
       def row(n:Int) : PixelLoc = {
-        return PixelLoc.ofHexLoc(loc, gridSize) + PixelVec(0, 15.0*(n-6))
+        PixelLoc.ofHexLoc(loc, gridSize) + PixelVec(0, 15.0*(n-6))
       }
       def show(s:String, color:String = "black") : Unit = {
         text(s, row(row_idx), color)
@@ -1077,13 +1077,13 @@ object Drawing {
                   } else {
                     val stats = piece.curStats(board)
                     val moveLocs = board.withinTerrainRange(piece, stats.moveRange)
+                    val moveLocsPieceCouldAttackFrom = { if(stats.isLumbering) Set(piece.loc) else moveLocs }
                     var attackLocs = Set[Loc]()
-                    def f(loc : Loc) : Boolean = {
-                      attackLocs += loc
-                      return true
-                    }
-                    (if(stats.isLumbering) Set[Loc](piece.loc) else moveLocs).foreach { loc =>
-                      board.tiles.topology.forEachReachable(loc, stats.attackRange)(f)
+                    moveLocsPieceCouldAttackFrom.foreach { fromLoc =>
+                      board.tiles.topology.forEachReachable(fromLoc, stats.attackRange) { loc =>
+                        attackLocs += loc
+                        true //Always continue floodfilling from location, attack range isn't blocked by terrain
+                      }
                     }
                     (attackLocs ++ moveLocs).foreach { loc =>
                       if(moveLocs.contains(loc)) {
