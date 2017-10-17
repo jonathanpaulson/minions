@@ -5,7 +5,7 @@ import RichImplicits._
 
 object UI {
   //How much to translate the canvas origin inward from the upper left corner.
-  val translateOrigin = PixelVec(2.65 * Drawing.gridSize, 8.0 * Drawing.gridSize)
+  val translateOrigin = PixelVec(4.25 * Drawing.gridSize, 9.75 * Drawing.gridSize)
 
   //One component or panel or set of controls of the UI.
   sealed trait Component {
@@ -28,12 +28,6 @@ object UI {
 
 case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int)
 {
-  //Positioning for text about game stats and mana
-  object TitleInfo extends UI.Component {
-    val origin = HexLoc(boardXSize.toDouble * 0.5 + 2, -5.0)
-    val gridSizeScale = 1
-  }
-
   object TopInfo extends UI.Component {
     val origin = HexLoc(0,0)
     val gridSizeScale = 1
@@ -41,15 +35,20 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     def getHexLoc(side: Side): HexLoc = {
       (side,flipDisplay) match {
         case (S0,false) | (S1,true) =>
-          hexLoc(Loc(1,-4))
+          HexLoc(1.5,-5.75)
         case (S1,false) | (S0,true) =>
-          hexLoc(Loc(boardXSize/2 + 4, -4))
+          HexLoc(boardXSize.toDouble/2 + 5, -5.75)
       }
     }
   }
 
+  object TitleInfo extends UI.Component {
+    val origin = HexLoc(boardXSize.toDouble * 0.5 + 1.0, -1.35)
+    val gridSizeScale = 1
+  }
+
   object PrevBoard extends UI.Component with UI.Clickable {
-    val origin = HexLoc(2,-5)
+    val origin = HexLoc(1.0,-1.3)
     val gridSizeScale = 1
     val locs: Array[Loc] = Array(Loc(0,0),Loc(1,0))
     val hexLocs = locs.map(hexLoc(_))
@@ -63,7 +62,7 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
   }
 
   object NextBoard extends UI.Component with UI.Clickable {
-    val origin = HexLoc(boardXSize.toDouble + 4, -5)
+    val origin = HexLoc(boardXSize.toDouble + 1.0, -1.3)
     val gridSizeScale = 1
     val locs: Array[Loc] = Array(Loc(0,0),Loc(1,0))
     val hexLocs = locs.map(hexLoc(_))
@@ -79,7 +78,7 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
 
   //Positioning for end turn hex button
   object EndTurn extends UI.Component with UI.Clickable {
-    val origin = HexLoc(17,-4)
+    val origin = HexLoc(14.5,-1)
     val gridSizeScale = 1
 
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
@@ -90,7 +89,7 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     }
   }
   object ResignBoard extends UI.Component with UI.Clickable {
-    val origin = HexLoc(18,-4)
+    val origin = HexLoc(15.5,-1)
     val gridSizeScale = 1
 
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
@@ -102,12 +101,12 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
   }
 
   object Sidebar extends UI.Component {
-    val origin = HexLoc(20,-1)
+    val origin = HexLoc(21,-2.5)
     val gridSizeScale = 1
   }
 
   object Tech extends UI.Component with UI.Clickable {
-    val origin = HexLoc(1,-3)
+    val origin = HexLoc(1,-5) + HexVec(-0.20,0.4)
     val gridSizeScale = 1
 
     def getLoc(techIdx: Int): Loc = {
@@ -134,8 +133,17 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     }
   }
 
+  object SpellChoice extends UI.Component {
+    val origin = HexLoc(1.5,-2) + HexVec(0.15,-0.3)
+    val gridSizeScale = 1
+
+    def getLoc(spellChoiceIdx: Int): Loc = {
+      Loc(spellChoiceIdx,0)
+    }
+  }
+
   object DeadPieces extends UI.Component with UI.Clickable {
-    val origin = HexLoc(-boardYSize.toDouble / 2, boardYSize.toDouble + 1)
+    val origin = HexLoc(-boardYSize.toDouble / 2, boardYSize.toDouble + 1) + HexVec(-0.3,-0.6)
     val gridSizeScale = 1
 
     val descLoc: HexLoc = hexLoc(Loc(-1,0))
@@ -155,7 +163,7 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
       val _ = (game)
       val (loc,_) = getLocAndDelta(hexLoc)
       val idx = loc.x
-      if(idx >= 0 && idx < board.killedThisTurn.length) {
+      if(loc.y == 0 && idx >= 0 && idx < board.killedThisTurn.length) {
         val reversed = board.killedThisTurn.reverse
         val (spec,_,_) = reversed(idx)
         MouseDeadPiece(spec, loc)
@@ -171,14 +179,15 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     val gridSizeScale = 1
 
     val unflippedLocs = Array(
+      Loc(-3,4),Loc(-2,4),
       Loc(-3,5),Loc(-2,5),
-      Loc(-3,6),Loc(-2,6),
+      Loc(-4,6),Loc(-3,6),Loc(-2,6),
       Loc(-4,7),Loc(-3,7),Loc(-2,7),
-      Loc(-4,8),Loc(-3,8),Loc(-2,8),
+      Loc(-5,8),Loc(-4,8),Loc(-3,8),Loc(-2,8),
       Loc(-5,9),Loc(-4,9),Loc(-3,9),Loc(-2,9),
-      Loc(-5,10),Loc(-4,10),Loc(-3,10),Loc(-2,10),
+      Loc(-6,10),Loc(-5,10),Loc(-4,10),Loc(-3,10),Loc(-2,10),
       Loc(-6,11),Loc(-5,11),Loc(-4,11),Loc(-3,11),Loc(-2,11),
-      Loc(-6,12),Loc(-5,12),Loc(-4,12),Loc(-3,12),Loc(-2,12)
+      Loc(-7,12),Loc(-6,12),Loc(-5,12),Loc(-4,12),Loc(-3,12),Loc(-2,12)
     )
 
     def getLocs(side: Side): Array[Loc] = {

@@ -9,10 +9,11 @@ import RichImplicits._
 
 object Drawing {
   //The euclidean distance from the center of a hexagon to the corner in pixels.
-  val gridSize = 31.0
-  val tileScale = 30.5 / gridSize
-  val pieceScale = 25.0 / gridSize
-  val techScale = 30.0 / gridSize
+  val gridSize = 32.0
+  val tileScale = 31.5 / gridSize
+  val pieceScale = 26.0 / gridSize
+  val techScale = 31.0 / gridSize
+  val spellScale = 28.0 / gridSize
   val techInteriorScale = 19.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
@@ -233,18 +234,18 @@ object Drawing {
       val hexLoc = ui.Sidebar.origin
       tile match {
         case None => ()
-        case Some(tile) => drawTile(hexLoc, Loc.zero, tile, 5.0)
+        case Some(tile) => drawTile(hexLoc, Loc.zero, tile, 6.0)
       }
       stats match {
         case None => ()
-        case Some(_) => drawPiece(hexLoc, pieceScale*5.0, side, "")
+        case Some(_) => drawPiece(hexLoc, pieceScale*6.0, side, "")
       }
       var row_idx = 0
       def row(n:Int) : PixelLoc = {
-        PixelLoc.ofHexLoc(hexLoc, gridSize) + PixelVec(0, 15.0*(n-6))
+        PixelLoc.ofHexLoc(hexLoc, gridSize) + PixelVec(0, 16.0*(n-6))
       }
       def show(s:String, color:String = "black") : Unit = {
-        text(s, row(row_idx), color)
+        text(s, row(row_idx), color, fontSize = 11)
         row_idx = row_idx + 1
       }
       stats match {
@@ -466,14 +467,14 @@ object Drawing {
     text(
       boardNames(boardIdx) + " (board " + (boardIdx+1) + ")",
       ui.TitleInfo.origin,
-      "black", textAlign="left", textBaseline="top",fontSize=14
+      "black", textAlign="center", textBaseline="top", fontSize=16, style="bold"
     )
 
     //Forward and backward buttons
     if(boardIdx > 0)
-      text("<- Prev Board", ui.PrevBoard.hexLoc(ui.PrevBoard.locs(0)), "black", textAlign="left", textBaseline="top", fontSize=12)
+      text("<- Prev Board", ui.PrevBoard.hexLoc(ui.PrevBoard.locs(0)), "black", textAlign="center", textBaseline="top", fontSize=12)
     if(boardIdx < boardNames.length-1)
-      text("Next Board ->", ui.NextBoard.hexLoc(ui.NextBoard.locs(0)), "black", textAlign="left", textBaseline="top", fontSize=12)
+      text("Next Board ->", ui.NextBoard.hexLoc(ui.NextBoard.locs(0)), "black", textAlign="center", textBaseline="top", fontSize=12)
 
     //Game info text
     Side.foreach { side =>
@@ -490,8 +491,8 @@ object Drawing {
         sum + board.curState.endOfTurnMana(side)
       }
 
-      def textAtLoc(s: String, dpx: Double, dpy: Double) =
-        text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left")
+      def textAtLoc(s: String, dpx: Double, dpy: Double, style:String = "normal") =
+        text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left", fontSize = 14, style = style)
 
       if(side == board.side) {
         val rectColor = board.side match {
@@ -499,33 +500,36 @@ object Drawing {
           case S1 => "#ffe0e0"
         }
         ctx.fillStyle = rectColor
-        ctx.fillRect(pixelLoc.x - 6.0, pixelLoc.y - 20.0, 380.0, 30.0)
+        ctx.fillRect(pixelLoc.x - 9.0, pixelLoc.y - 24.0, 410.0, 38.0)
       }
 
       if(game.winner.nonEmpty) {
         if(game.winner == Some(side))
-          textAtLoc(side.toColorName + " Team wins the game!", 0.0, -9.0)
+          textAtLoc(side.toColorName + " Team wins the game!", 0.0, -10.0, style = "bold")
       }
       else {
         if(side == board.side) {
-          textAtLoc(side.toColorName + " Team's Turn!", 0.0, -9.0)
+          textAtLoc(side.toColorName + " Team's Turn!", 0.0, -10.0, style = "bold")
           timeLeft.foreach { timeLeft =>
             val seconds: Int = Math.floor(timeLeft).toInt
             val timeStr = {
               if(seconds < 0) "-" + ((-seconds) / 60).toString + ":" + "%02d".format((-seconds) % 60)
               else (seconds / 60).toString + ":" + "%02d".format(seconds % 60)
             }
-            textAtLoc("Time left: " + timeStr, 120.0, -9.0)
+            textAtLoc("Time left: " + timeStr, 140.0, -10.0, style = "bold")
           }
+        }
+        else {
+          textAtLoc(side.toColorName + " Team", 0.0, -10.0)
         }
       }
 
-      textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 250.0, -9.0)
-      textAtLoc(side.toColorName + " Team Souls: " + mana + " (+" + newMana + "/turn)", 0.0, 3.0)
-      textAtLoc(side.toColorName + " Team Wins: " + game.wins(side) + "/" + game.targetNumWins, 150.0, 3.0)
+      textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 250.0, -10.0)
+      textAtLoc("Souls: " + mana + " (+" + newMana + "/turn)", 0.0, 6.0)
+      textAtLoc("Wins: " + game.wins(side) + "/" + game.targetNumWins, 140.0, 6.0)
 
       if(side == board.side)
-        textAtLoc("Sorcery Power: " + board.sorceryPower, 250.0, 3.0)
+        textAtLoc("Sorcery Power: " + board.sorceryPower, 250.0, 6.0)
     }
 
     //End turn hex
@@ -599,6 +603,12 @@ object Drawing {
       }
       text(techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techInteriorScale, gridSize), "blue")
       text(techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techInteriorScale, gridSize), "red")
+    }
+
+    //Spells
+    for(i <- 0 until 5) {
+      val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
+      fillHex(hexLoc, "gray", spellScale, alpha=1.0)
     }
 
     //Terrain
@@ -890,10 +900,10 @@ object Drawing {
             strokeHex(ui.ResignBoard.origin, "black", tileScale, alpha=0.5)
           case MousePrevBoard =>
             if(boardIdx > 0)
-              text("<- Prev Board", ui.PrevBoard.hexLocs(0), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
+              text("<- Prev Board", ui.PrevBoard.hexLocs(0), "darkgreen", textAlign="center", textBaseline="top", fontSize=12)
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
-              text("Next Board ->", ui.NextBoard.hexLocs(0), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
+              text("Next Board ->", ui.NextBoard.hexLocs(0), "darkgreen", textAlign="center", textBaseline="top", fontSize=12)
 
           case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
@@ -941,10 +951,10 @@ object Drawing {
             highlightHex(ui.ResignBoard.origin)
           case MousePrevBoard =>
             if(boardIdx > 0)
-              text("<- Prev Board", ui.PrevBoard.hexLocs(0), "cyan", textAlign="left", textBaseline="top", fontSize=12)
+              text("<- Prev Board", ui.PrevBoard.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
-              text("Next Board ->", ui.NextBoard.hexLocs(0), "cyan", textAlign="left", textBaseline="top", fontSize=12)
+              text("Next Board ->", ui.NextBoard.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
           case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
               highlightHex(ui.Tech.hexLoc(loc))

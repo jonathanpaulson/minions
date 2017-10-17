@@ -333,7 +333,7 @@ object Units {
 
   val dark_tower = createPieceStats(
     name = "dark_tower",
-    shortDisplayName = "DrkTower",
+    shortDisplayName = "DTower",
     displayName = "Dark Tower",
     cost = 8,
     rebate = 0,
@@ -494,6 +494,7 @@ object Units {
 
   val elemental = createPieceStats(
     name = "elemental",
+    shortDisplayName = "Element",
     cost = 10,
     rebate = 5,
     moveRange = 1,
@@ -506,7 +507,7 @@ object Units {
 
   val fallen_angel = createPieceStats(
     name = "fallen_angel",
-    shortDisplayName = "FlnAngel",
+    shortDisplayName = "FAngel",
     displayName = "Fallen Angel",
     cost = 13,
     rebate = 6,
@@ -521,7 +522,7 @@ object Units {
 
   val shadowlord = createPieceStats(
     name = "shadowlord",
-    shortDisplayName = "ShdwLord",
+    shortDisplayName = "SLord",
     cost = 13,
     rebate = 6,
     moveRange = 2,
