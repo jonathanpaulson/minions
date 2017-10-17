@@ -58,6 +58,7 @@ class Client() {
   }
 
   var gotFatalError: Boolean = false
+  var lastMessageSeen: Int = 0
 
   def scrollMessages() = {
     messages.scrollTop = messages.scrollHeight.toDouble
@@ -82,20 +83,6 @@ class Client() {
     gotFatalError = true
   }
 
-  def reportUserJoined(username: String, side: Option[Side]) = {
-    val sideStr = side match {
-      case None => "as a spectator"
-      case Some(side) => "team " + side.toColorName
-    }
-    reportMessage(username + " joined " + sideStr + "!")
-  }
-  def reportUserLeft(username: String, side: Option[Side]) = {
-    val sideStr = side match {
-      case None => "as a spectator"
-      case Some(side) => "team " + side.toColorName
-    }
-    reportMessage(username + " left " + sideStr)
-  }
 
   def addClickedMessage(): Unit = {
     jQuery("body").append("<p>You clicked!</p>")
@@ -237,11 +224,10 @@ class Client() {
         reportError(err)
       case Protocol.OkHeartbeat(_) =>
         ()
-      case Protocol.UserJoined(username,side) =>
-        reportUserJoined(username,side)
-      case Protocol.UserLeft(username,side) =>
-        reportUserLeft(username,side)
-
+      case Protocol.UserJoined(_, _) =>
+        ()
+      case Protocol.UserLeft(_, _) =>
+        ()
       case Protocol.OkBoardAction(_,_) =>
         ()
       case Protocol.OkGameAction(_) =>
@@ -273,14 +259,10 @@ class Client() {
         }
         gameAction match {
           case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) | (_: PayForReinforcement) | (_: UnpayForReinforcement) => ()
-          case ResignBoard(boardIdx) =>
-            reportMessage("Team " + game.get.curSide.toColorName + " resigned board " + boardIdx + "!")
-            game.get.winner.foreach { winner =>
-              reportMessage("Team " + winner.toColorName + " won the game!")
-            }
-
-          case AddWin(side,boardIdx) =>
-            reportMessage("Team " + side.toColorName + " won board " + boardIdx + "!")
+          case ResignBoard(_) =>
+            ()
+          case AddWin(_, _) =>
+            ()
         }
 
       case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
@@ -326,18 +308,15 @@ class Client() {
         //At each new turn, clear the time left so that it can be refreshed by the next server update
         estimatedTurnEndTime = None
 
-        game.get.winner match {
-          case Some(winner) =>
-            reportMessage("Team " + winner.toColorName + " won the game!")
-          case None =>
-            reportMessage("Beginning " + newSide.toColorName + " team turn (turn #" + game.get.turnNumber + ")")
-            game.get.newTechsThisTurn.foreach { case (side,tech) =>
-              reportMessage("Team " + side.toColorName + " acquired new tech: " + tech.displayName)
-            }
-        }
 
       case Protocol.ReportTimeLeft(timeLeft) =>
         updateEstimatedTurnEndTime(timeLeft)
+
+      case Protocol.Messages(messages) =>
+        for(i <- lastMessageSeen to messages.length-1) {
+          reportMessage(messages(i))
+        }
+        lastMessageSeen = messages.length
     }
   }
 
@@ -484,6 +463,7 @@ class Client() {
       draw()
     }
   }
+
   def keyup(e : KeyboardEvent) : Unit = {
     if(e.keyCode == 16) {
       shiftPressed = false
