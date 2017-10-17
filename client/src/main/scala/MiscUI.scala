@@ -257,6 +257,13 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
       }
     }
 
+    override def hexLoc(loc: Loc): HexLoc = {
+      if(flipDisplay)
+        HexLoc((boardXSize-loc.x-1).toDouble * gridSizeScale + origin.x, (boardYSize-loc.y-1).toDouble * gridSizeScale + origin.y)
+      else
+        HexLoc(loc.x.toDouble * gridSizeScale + origin.x, loc.y.toDouble * gridSizeScale + origin.y)
+    }
+
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
       val _ = (game)
       val (unflippedLoc,hexDelta) = getLocAndDelta(hexLoc)
