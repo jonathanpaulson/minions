@@ -19,14 +19,6 @@ import RichImplicits._
 object PixelLoc {
   def midpoint(a: PixelLoc, b: PixelLoc): PixelLoc = PixelLoc((a.x+b.x)/2.0,(a.y+b.y)/2.0)
 
-  def ofLoc(loc : Loc, gridSize: Double) : PixelLoc = {
-    val x = loc.x.toDouble
-    val y = loc.y.toDouble
-    PixelLoc(
-      gridSize * Math.sqrt(3) * (x + y/2.0),
-      gridSize * 3.0/2.0 * y
-    )
-  }
   def ofHexLoc(hexLoc : HexLoc, gridSize: Double) : PixelLoc = {
     val x = hexLoc.x
     val y = hexLoc.y
@@ -127,7 +119,7 @@ case class HexLoc(x: Double, y: Double) {
   //Find the Loc for the hex that contains this HexLoc, taking into account the hexagon shape of a cell,
   //And also whether or not we're flipping the board display around.
   //Also returns the extra offset within the cell.
-  def round(flipDisplay: Boolean, board: BoardState): (Loc,HexVec) = {
+  def round(): (Loc,HexVec) = {
     /*
      This algorithm is magic. Here's how it works:
      Given a hexagon H, let H' be the inscribed hexagon formed by connecting the midpoints of the sides of H.
@@ -174,10 +166,7 @@ case class HexLoc(x: Double, y: Double) {
     }
 
     val delta = this - loc
-    if(flipDisplay && board.tiles.inBounds(loc))
-      (Loc(board.tiles.xSize - loc.x - 1, board.tiles.ySize - loc.y - 1), delta)
-    else
-      (loc, delta)
+    (loc, delta)
   }
 }
 
@@ -200,6 +189,7 @@ case class HexVec(dx: Double, dy: Double){
   def +(d: HexVec): HexVec = HexVec(dx + d.dx, dy + d.dy)
   def -(d: HexVec): HexVec = HexVec(dx - d.dx, dy - d.dy)
   def *(c: Double): HexVec = HexVec(dx*c,dy*c)
+  def /(c: Double): HexVec = HexVec(dx/c,dy/c)
 
   //Determine which hexant this belongs to
   def hexant(): Int = {

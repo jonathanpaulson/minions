@@ -324,6 +324,8 @@ case class Loc(x:Int, y:Int) {
   }
 }
 object Loc {
+  val zero: Loc = Loc(0,0)
+
   def xCoordString(x: Int): String = {
     if(x < 0)
       x.toString()

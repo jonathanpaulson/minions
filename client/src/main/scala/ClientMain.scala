@@ -133,8 +133,10 @@ class Client() {
 
   val flipDisplay: Boolean = ourSide == Some(S1) //Flip so that 0,0 is in the lower right
 
+  //UI layout
+  var ui: Option[UI] = None
   //Mouse movement path state
-  val mouseState = MouseState(ourSide,flipDisplay,this)
+  var mouseState: Option[MouseState] = None
 
   //Websocket connection!
   val connection = Connection(username,password,ourSide)
@@ -216,7 +218,7 @@ class Client() {
     localActionSequence(boardIdx) = serverActionSequence(boardIdx)
     numActionsLocalAhead = 0
     if(curBoardIdx == boardIdx) {
-      mouseState.clear()
+      mouseState.get.clear()
       draw()
     }
   }
@@ -258,6 +260,9 @@ class Client() {
         localSequence = serverSequence.clone()
         localActionSequence = Array.fill(summaries.length)(Vector())
         numActionsLocalAhead = 0
+
+        ui = Some(UI(flipDisplay,serverBoards(0).initialState.tiles.xSize,serverBoards(0).initialState.tiles.ySize))
+        mouseState = Some(MouseState(ourSide,ui.get,this))
 
       case Protocol.ReportGameAction(gameAction,_) =>
         println("Received game action " + gameAction)
@@ -309,7 +314,7 @@ class Client() {
         for(i <- 0 until numBoards)
           resetLocalBoards(i)
 
-        mouseState.clear()
+        mouseState.get.clear()
 
         if(game.get.curSide != newSide)
           throw new Exception("Server reported side is not the same as game side")
@@ -384,13 +389,13 @@ class Client() {
   }
 
   def draw() : Unit = {
-    withBoardForMouse { board =>
-      mouseState.refresh(game.get,board.curState)
-    }
-    curLocalBoard().foreach { _ =>
-      val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
-      Drawing.drawEverything(canvas, ctx, game.get, localBoards, serverBoardNames, curBoardIdx, mouseState,
-        flipDisplay, mouseState.undoing, showCoords, timeLeft)
+    ui.foreach { ui =>
+      withBoardForMouse { case (mouseState, board) =>
+        mouseState.refresh(game.get,board.curState)
+        val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
+        Drawing.drawEverything(canvas, ctx, game.get, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
+          mouseState.undoing, showCoords, timeLeft)
+      }
     }
   }
 
@@ -399,15 +404,17 @@ class Client() {
     PixelLoc(e.clientX - rect.left, e.clientY - rect.top) - UI.translateOrigin
   }
 
-  def withBoardForMouse(f: Board => Unit): Unit = {
-    curLocalBoard() match {
-      case None => mouseState.clear()
-      case Some(board) => f(board)
+  def withBoardForMouse(f: (MouseState,Board) => Unit): Unit = {
+    mouseState.foreach { mouseState =>
+      curLocalBoard() match {
+        case None => mouseState.clear()
+        case Some(board) => f(mouseState,board)
+      }
     }
   }
 
   def mousedown(e: MouseEvent) : Unit = {
-    withBoardForMouse { board =>
+    withBoardForMouse { case (mouseState, board) =>
       val pixelLoc = mousePixel(e)
       val undo = e.button==2; // Right click
       mouseState.handleMouseDown(pixelLoc,game.get,board.curState, undo)
@@ -415,7 +422,7 @@ class Client() {
     draw()
   }
   def mouseup(e : MouseEvent) : Unit = {
-    withBoardForMouse { board =>
+    withBoardForMouse { case (mouseState, board) =>
       val pixelLoc = mousePixel(e)
       val undo = e.button==2; // Right click
       mouseState.handleMouseUp(pixelLoc,game.get,board.curState,curBoardIdx, undo)
@@ -423,7 +430,7 @@ class Client() {
     draw()
   }
   def mousemove(e : MouseEvent) : Unit = {
-    withBoardForMouse { board =>
+    withBoardForMouse { case (mouseState, board) =>
       val pixelLoc = mousePixel(e)
       mouseState.handleMouseMove(pixelLoc,game.get,board.curState)
     }
@@ -431,7 +438,9 @@ class Client() {
   }
   def mouseout(e : MouseEvent) : Unit = {
     val _ = e
-    mouseState.clear()
+    withBoardForMouse { case (mouseState, _) =>
+      mouseState.clear()
+    }
     draw()
   }
 
@@ -451,7 +460,7 @@ class Client() {
     if(e.keyCode == 33) {
       e.preventDefault()
       if(curBoardIdx > 0) {
-        mouseState.clear()
+        mouseState.foreach(_.clear())
         curBoardIdx -= 1
         draw()
       }
@@ -460,7 +469,7 @@ class Client() {
     else if(e.keyCode == 34) {
       e.preventDefault()
       if(curBoardIdx < numBoards - 1) {
-        mouseState.clear()
+        mouseState.foreach(_.clear())
         curBoardIdx += 1
         draw()
       }

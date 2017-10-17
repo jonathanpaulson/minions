@@ -58,7 +58,7 @@ sealed trait MouseMode {
 //---------------------------------------------------------------------------------------
 //Current state of the mouse.
 
-case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val client: Client)
+case class MouseState(val ourSide: Option[Side], val ui: UI, val client: Client)
 {
   //The current target moused-over
   var hovered : MouseTarget = MouseNone
@@ -92,67 +92,14 @@ case class MouseState(val ourSide: Option[Side], val flipDisplay: Boolean, val c
     }
   }
 
-  private def getLocAndDelta(pixelLoc: PixelLoc, board: BoardState): (Loc,HexVec) = {
-    val hexLoc = HexLoc.ofPixel(pixelLoc, Drawing.gridSize)
-    hexLoc.round(flipDisplay,board)
-  }
-
-  private def getPiece(loc: Loc, hexDelta: HexVec, board: BoardState): Option[Piece] = {
-    if(!board.pieces.inBounds(loc))
-      None
-    else {
-      board.pieces(loc) match {
-        case Nil => None
-        case p :: Nil => Some(p)
-        case p1 :: p2 :: Nil =>
-          hexDelta.closestCorner() match {
-            case 0 | 4 | 5 => Some(p1)
-            case 1 | 2 | 3 => Some(p2)
-          }
-        case p1 :: p2 :: p3 :: Nil =>
-          hexDelta.hexant() match {
-            case 4 | 5 => Some(p1)
-            case 2 | 3 => Some(p2)
-            case 0 | 1 => Some(p3)
-            case _ => assertUnreachable()
-          }
-        case _ => None
-      }
-    }
-  }
-
   private def getTarget(pixelLoc: PixelLoc, game: Game, board: BoardState): MouseTarget = {
-    val (loc,hexDelta) = getLocAndDelta(pixelLoc,board)
-    getPiece(loc,hexDelta,board) match {
-      case Some(piece) => MousePiece(piece.spec,loc)
-      case None =>
-        if(board.inBounds(loc))
-          MouseTile(loc)
-        else {
-          UI.Reinforcements.getSelectedPiece(flipDisplay,board,loc) match {
-            case Some((pieceName, side)) => MouseReinforcement(pieceName, side, loc)
-            case None =>
-              UI.DeadPieces.getSelectedSpec(board,loc) match {
-                case Some(pieceSpec) => MouseDeadPiece(pieceSpec, loc)
-                case None =>
-                  UI.Tech.getSelectedTechIdx(game,loc) match {
-                    case Some(techIdx) => MouseTech(techIdx, loc)
-                    case None =>
-                      if(loc == UI.EndTurn.loc)
-                        MouseEndTurn(loc)
-                      else if(loc == UI.ResignBoard.loc)
-                        MouseResignBoard(loc)
-                      else if(UI.PrevBoard.locs.contains(loc))
-                        MousePrevBoard
-                      else if(UI.NextBoard.locs(board).contains(loc))
-                        MouseNextBoard
-                      else
-                        MouseNone
-                  }
-              }
-          }
-        }
+    val hexLoc = HexLoc.ofPixel(pixelLoc, Drawing.gridSize)
+    for(component <- ui.clickableComponents) {
+      val target = component.getMouseTarget(game,board,hexLoc)
+      if(target != MouseNone)
+        return target
     }
+    MouseNone
   }
 
   def handleMouseDown(pixelLoc: PixelLoc, game: Game, board: BoardState, undo: Boolean) : Unit = {

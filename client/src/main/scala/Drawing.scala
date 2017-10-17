@@ -48,8 +48,8 @@ object Drawing {
     boards: Array[Board],
     boardNames: Array[String],
     boardIdx: Int,
+    ui: UI,
     mouseState: MouseState,
-    flipDisplay: Boolean,
     undoing: Boolean,
     showCoords: Boolean,
     timeLeft: Option[Double]
@@ -58,8 +58,8 @@ object Drawing {
     val board = boards(boardIdx).curState
 
     import scala.language.implicitConversions
-    implicit def hexLocOfLoc(loc: Loc): HexLoc = {
-      HexLoc.ofLoc(loc,flipDisplay,board)
+    implicit def pixelLocOfHexLoc(hexLoc: HexLoc): PixelLoc = {
+      PixelLoc.ofHexLoc(hexLoc,gridSize)
     }
 
     def move(hexLoc : HexLoc) : Unit = {
@@ -147,8 +147,7 @@ object Drawing {
       ((h % n) + n) % n
     }
 
-    def drawTile(loc : Loc, tile: Tile, scaleBy: Double) : Unit = {
-      val hexLoc = hexLocOfLoc(loc)
+    def drawTile(hexLoc: HexLoc, loc: Loc, tile: Tile, scaleBy: Double) : Unit = {
       val scale = scaleBy*tileScale
       tile.terrain match {
         case Wall => fillHex(hexLoc, "white", scale)
@@ -189,7 +188,6 @@ object Drawing {
           fillHexWithImage(hexLoc, img, scale)
       }
       if(showCoords) {
-        val (loc,_) = hexLoc.round(flipDisplay,board)
         text(loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
       }
     }
@@ -215,13 +213,15 @@ object Drawing {
       val loc = piece.loc
       board.pieces(loc) match {
         case Nil => assertUnreachable()
-        case _ :: Nil => (loc,pieceScale)
+        case _ :: Nil =>
+          val hexLoc = ui.MainBoard.hexLoc(loc)
+          (hexLoc,pieceScale)
         case p1 :: _ :: Nil  =>
-          val hexLoc = hexLocOfLoc(loc)
+          val hexLoc = ui.MainBoard.hexLoc(loc)
           if(piece.id == p1.id) (hexCorner(hexLoc,smallPieceOffset,5), smallPieceScale)
           else                 (hexCorner(hexLoc,smallPieceOffset,2), smallPieceScale)
         case p1 :: p2 :: _ :: Nil =>
-          val hexLoc = hexLocOfLoc(loc)
+          val hexLoc = ui.MainBoard.hexLoc(loc)
           if(piece.id == p1.id)      (hexCorner(hexLoc,smallPieceOffset,5), smallPieceScale)
           else if(piece.id == p2.id) (hexCorner(hexLoc,smallPieceOffset,3), smallPieceScale)
           else                       (hexCorner(hexLoc,smallPieceOffset,1), smallPieceScale)
@@ -230,18 +230,18 @@ object Drawing {
     }
 
     def drawSidebar(piece: Option[Piece], stats: Option[PieceStats], side: Option[Side], tile : Option[Tile]) = {
-      val loc = UI.Sidebar.loc
+      val hexLoc = ui.Sidebar.origin
       tile match {
         case None => ()
-        case Some(tile) => drawTile(loc, tile, 5.0)
+        case Some(tile) => drawTile(hexLoc, Loc.zero, tile, 5.0)
       }
       stats match {
         case None => ()
-        case Some(_) => drawPiece(loc, pieceScale*5.0, side, "")
+        case Some(_) => drawPiece(hexLoc, pieceScale*5.0, side, "")
       }
       var row_idx = 0
       def row(n:Int) : PixelLoc = {
-        PixelLoc.ofHexLoc(loc, gridSize) + PixelVec(0, 15.0*(n-6))
+        PixelLoc.ofHexLoc(hexLoc, gridSize) + PixelVec(0, 15.0*(n-6))
       }
       def show(s:String, color:String = "black") : Unit = {
         text(s, row(row_idx), color)
@@ -448,17 +448,6 @@ object Drawing {
       }
     }
 
-
-    // def locsOfReinforcement(loc: Loc, count: Int): Array[HexLoc] = {
-    //   val hexLoc = hexLocOfLoc(loc)
-    //   val stackSpacingHeight = 0.10 / Math.sqrt(count.toDouble)
-    //   val offsetVec = HexVec(0.5,-1.0)
-    //   val result = (0 until count).map { i =>
-    //     hexLoc + offsetVec * (i * stackSpacingHeight - 0.05)
-    //   }.toArray
-    //   result
-    // }
-
     ctx.setTransform(1,0,0,1,0,0)
     ctx.clearRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
 
@@ -471,25 +460,25 @@ object Drawing {
     ctx.globalAlpha = 1.0
     ctx.fillRect(0.0, 0.0, canvas.width.toDouble, canvas.height.toDouble)
 
-    ctx.translate(UI.translateOrigin.dx,UI.translateOrigin.dy)
+    ctx.translate(UI.translateOrigin.dx, UI.translateOrigin.dy)
 
     //Board title
     text(
       boardNames(boardIdx) + " (board " + (boardIdx+1) + ")",
-      PixelLoc.ofLoc(UI.Info.getBoardTitleLoc(board), gridSize),
+      ui.TitleInfo.origin,
       "black", textAlign="left", textBaseline="top",fontSize=14
     )
 
     //Forward and backward buttons
     if(boardIdx > 0)
-      text("<- Prev Board", PixelLoc.ofLoc(UI.PrevBoard.locs(0), gridSize), "black", textAlign="left", textBaseline="top", fontSize=12)
+      text("<- Prev Board", ui.PrevBoard.hexLoc(ui.PrevBoard.locs(0)), "black", textAlign="left", textBaseline="top", fontSize=12)
     if(boardIdx < boardNames.length-1)
-      text("Next Board ->", PixelLoc.ofLoc(UI.NextBoard.locs(board)(0), gridSize), "black", textAlign="left", textBaseline="top", fontSize=12)
+      text("Next Board ->", ui.NextBoard.hexLoc(ui.NextBoard.locs(0)), "black", textAlign="left", textBaseline="top", fontSize=12)
 
     //Game info text
     Side.foreach { side =>
-      val infoLoc = UI.Info.getLoc(side,flipDisplay,board)
-      val pixelLoc = PixelLoc.ofHexLoc(hexLocOfLoc(infoLoc), gridSize)
+      val infoLoc = ui.TopInfo.getHexLoc(side)
+      val pixelLoc = PixelLoc.ofHexLoc(infoLoc, gridSize)
       val color = side match {
         case S0 => "#000099"
         case S1 => "#770000"
@@ -541,26 +530,25 @@ object Drawing {
 
     //End turn hex
     if(game.isBoardDone(boardIdx)) {
-      fillHex(UI.EndTurn.loc, "#ff99ff", tileScale, alpha=1.0)
-      strokeHex(UI.EndTurn.loc, "#ff00ff", tileScale, lineWidth=2.0)
+      fillHex(ui.EndTurn.origin, "#ff99ff", tileScale, alpha=1.0)
+      strokeHex(ui.EndTurn.origin, "#ff00ff", tileScale, lineWidth=2.0)
     }
     else {
-      fillHex(UI.EndTurn.loc, "#dddddd", tileScale)
-      strokeHex(UI.EndTurn.loc, "#666666", tileScale, lineWidth=1.0)
+      fillHex(ui.EndTurn.origin, "#dddddd", tileScale)
+      strokeHex(ui.EndTurn.origin, "#666666", tileScale, lineWidth=1.0)
     }
-    text("End Turn", PixelLoc.ofHexLoc(hexLocOfLoc(UI.EndTurn.loc), gridSize), "black")
+    text("End Turn", ui.EndTurn.origin, "black")
 
     //Resign board hex
-    fillHex(UI.ResignBoard.loc, "#dddddd", tileScale)
-    strokeHex(UI.ResignBoard.loc, "#666666", tileScale, lineWidth=1.0)
-    text("Resign", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize) + PixelVec(0,-4.0), "black")
-    text("Board", PixelLoc.ofHexLoc(hexLocOfLoc(UI.ResignBoard.loc), gridSize) + PixelVec(0,7.0), "black")
+    fillHex(ui.ResignBoard.origin, "#dddddd", tileScale)
+    strokeHex(ui.ResignBoard.origin, "#666666", tileScale, lineWidth=1.0)
+    text("Resign", PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize) + PixelVec(0,-4.0), "black")
+    text("Board", PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize) + PixelVec(0,7.0), "black")
 
     //Reinforcements
     Side.foreach { side =>
-      val locsAndContents = UI.Reinforcements.getLocsAndContents(side,flipDisplay,board)
-      locsAndContents.foreach { case (loc,pieceName,count) =>
-        val hexLoc = hexLocOfLoc(loc)
+      val locsAndContents = ui.Reinforcements.getHexLocsAndContents(side,board)
+      locsAndContents.foreach { case (hexLoc,pieceName,count) =>
         drawPiece(hexLoc, pieceScale, Some(side), "")
         val label = displayNameOfPieceName(pieceName)
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
@@ -570,21 +558,21 @@ object Drawing {
 
     //Dead pieces
     {
-      val locsAndContents = UI.DeadPieces.getLocsAndContents(board)
+      val locsAndContents = ui.DeadPieces.getHexLocsAndContents(board)
       if(locsAndContents.length > 0) {
-        text("Dead pieces", PixelLoc.ofHexLoc(hexLocOfLoc(UI.DeadPieces.getDescLoc(board)), gridSize), "black")
+        text("Dead pieces", PixelLoc.ofHexLoc(ui.DeadPieces.descLoc, gridSize), "black")
       }
-      locsAndContents.foreach { case (loc,_,pieceName,side) =>
+      locsAndContents.foreach { case (hexLoc,_,pieceName,side) =>
         val label = displayNameOfPieceName(pieceName)
-        drawPiece(hexLocOfLoc(loc), pieceScale, Some(side), label)
+        drawPiece(hexLoc, pieceScale, Some(side), label)
       }
     }
 
     //Techs
-    val techLocs = UI.Tech.getLocs(game)
+    val techLocs = ui.Tech.getHexLocs(game)
     for(i <- 0 until game.techLine.length) {
       val techState = game.techLine(i)
-      val loc = techLocs(i)
+      val hexLoc = techLocs(i)
       val fillColor =
         (techState.level(S0), techState.level(S1)) match {
           case (TechLocked, TechLocked) => "#aaaaaa"
@@ -600,12 +588,11 @@ object Drawing {
           case (TechAcquired, TechAcquired) => Some("#ff00ff")
         }
 
-      fillHex(loc, fillColor, techScale, alpha=1.0)
+      fillHex(hexLoc, fillColor, techScale, alpha=1.0)
       strokeColor.foreach { color =>
-        strokeHex(loc, color, techScale, lineWidth=2.0)
+        strokeHex(hexLoc, color, techScale, lineWidth=2.0)
       }
 
-      val hexLoc = hexLocOfLoc(loc)
       text(techState.shortDisplayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
       techState.techNumber.foreach { techNumber =>
         text("#" + techNumber, PixelLoc.ofHexLoc(hexLoc, gridSize) + PixelVec(0,10), "black")
@@ -616,7 +603,8 @@ object Drawing {
 
     //Terrain
     board.tiles.foreachi {case (loc, tile) =>
-      drawTile(loc,tile, 1.0)
+      val hexLoc = ui.MainBoard.hexLoc(loc)
+      drawTile(hexLoc,loc,tile, 1.0)
     }
 
     def pieceCanStillDoThings(piece: Piece): Boolean = {
@@ -806,9 +794,9 @@ object Drawing {
         ctx.fillStyle = "black"
         ctx.setLineDash(scala.scalajs.js.Array(5.0, 10.0))
         ctx.beginPath()
-        move(overrideStart.getOrElse(path(0)))
+        move(overrideStart.getOrElse(ui.MainBoard.hexLoc(path(0))))
         for(i <- 1 to path.length-1) {
-          line(path(i))
+          line(ui.MainBoard.hexLoc(path(i)))
         }
         ctx.stroke()
         ctx.closePath()
@@ -832,36 +820,36 @@ object Drawing {
           movements.foreach { case Movement(spec,path) =>
             drawPath(path)
             findLocOfPiece(spec).foreach { loc =>
-              strokeHex(hexLocOfLoc(loc), "black", tileScale)
+              strokeHex(ui.MainBoard.hexLoc(loc), "black", tileScale)
             }
           }
         case Attack(aSpec,tSpec) =>
           findLocOfPiece(aSpec).foreach { loc =>
-            strokeHex(hexLocOfLoc(loc), "black", tileScale)
+            strokeHex(ui.MainBoard.hexLoc(loc), "black", tileScale)
           }
           findLocOfPiece(tSpec).foreach { loc =>
-            fillHex(hexLocOfLoc(loc), "magenta", tileScale, alpha=0.1)
-            strokeHex(hexLocOfLoc(loc), "magenta", tileScale)
+            fillHex(ui.MainBoard.hexLoc(loc), "magenta", tileScale, alpha=0.1)
+            strokeHex(ui.MainBoard.hexLoc(loc), "magenta", tileScale)
           }
         case Spawn(_,_) =>
-          UI.Reinforcements.getLocs(board.side, flipDisplay, board).foreach { loc =>
-            strokeHex(hexLocOfLoc(loc), "black", tileScale, alpha=0.5)
+          ui.Reinforcements.getLocs(board.side).foreach { loc =>
+            strokeHex(ui.Reinforcements.hexLoc(loc), "black", tileScale, alpha=0.5)
           }
         case ActivateTile(loc) =>
-          strokeHex(hexLocOfLoc(loc), "black", tileScale)
+          strokeHex(ui.MainBoard.hexLoc(loc), "black", tileScale)
         case ActivateAbility(spec,_,targets) =>
           List(spec,targets.target0,targets.target1).foreach { spec =>
             findLocOfPiece(spec).foreach { loc =>
-              strokeHex(hexLocOfLoc(loc), "black", tileScale)
+              strokeHex(ui.MainBoard.hexLoc(loc), "black", tileScale)
             }
           }
         case Teleport(_,src,dest) =>
-          strokeHex(hexLocOfLoc(src), "black", tileScale)
-          strokeHex(hexLocOfLoc(dest), "black", tileScale)
+          strokeHex(ui.MainBoard.hexLoc(src), "black", tileScale)
+          strokeHex(ui.MainBoard.hexLoc(dest), "black", tileScale)
         case PlaySpell(_,targets) =>
           List(targets.target0,targets.target1).foreach { spec =>
             findLocOfPiece(spec).foreach { loc =>
-              strokeHex(hexLocOfLoc(loc), "black", tileScale)
+              strokeHex(ui.MainBoard.hexLoc(loc), "black", tileScale)
             }
           }
         case DiscardSpell(_) =>
@@ -896,24 +884,24 @@ object Drawing {
           case MouseNone => ()
           case MouseTile(loc) =>
             drawSidebar(None, None, None, Some(board.tiles(loc)))
-          case MouseEndTurn(loc) =>
-            strokeHex(loc, "black", tileScale, alpha=0.5)
-          case MouseResignBoard(loc) =>
-            strokeHex(loc, "black", tileScale, alpha=0.5)
+          case MouseEndTurn(_) =>
+            strokeHex(ui.EndTurn.origin, "black", tileScale, alpha=0.5)
+          case MouseResignBoard(_) =>
+            strokeHex(ui.ResignBoard.origin, "black", tileScale, alpha=0.5)
           case MousePrevBoard =>
             if(boardIdx > 0)
-              text("<- Prev Board", PixelLoc.ofLoc(UI.PrevBoard.locs(0), gridSize), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
+              text("<- Prev Board", ui.PrevBoard.hexLocs(0), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
-              text("Next Board ->", PixelLoc.ofLoc(UI.NextBoard.locs(board)(0), gridSize), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
+              text("Next Board ->", ui.NextBoard.hexLocs(0), "darkgreen", textAlign="left", textBaseline="top", fontSize=12)
 
           case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
-              strokeHex(loc, "black", tileScale, alpha=0.5)
+              strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
             }
             drawSidebar(None, Some(game.techLine(techIdx).tech.pieceStats), None, None)
           case MouseReinforcement(pieceName,side,loc) =>
-            strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
+            strokeHex(ui.Reinforcements.hexLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing) {
               val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
                 if(pieceName == name) Some(pieceSpec) else None
@@ -922,10 +910,10 @@ object Drawing {
             }
             drawSidebar(None, Some(Units.pieceMap(pieceName)), Some(side), None)
           case MouseDeadPiece(pieceSpec,loc) =>
-            strokeHex(hexLocOfLoc(loc), "black", pieceScale, alpha=0.5)
+            strokeHex(ui.DeadPieces.hexLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing)
               highlightUndoneActionsForPieceSpec(pieceSpec)
-            UI.DeadPieces.getSelectedPiece(board, pieceSpec) match {
+            ui.DeadPieces.getSelectedPiece(board, pieceSpec) match {
               case None => ()
               case Some((stats, side)) =>
                 drawSidebar(None, Some(stats), Some(side), None)
@@ -947,32 +935,32 @@ object Drawing {
         mouseState.dragTarget match {
           case MouseNone => ()
           case MouseTile(_) => ()
-          case MouseEndTurn(loc) =>
-            highlightHex(loc)
-          case MouseResignBoard(loc) =>
-            highlightHex(loc)
+          case MouseEndTurn(_) =>
+            highlightHex(ui.EndTurn.origin)
+          case MouseResignBoard(_) =>
+            highlightHex(ui.ResignBoard.origin)
           case MousePrevBoard =>
             if(boardIdx > 0)
-              text("<- Prev Board", PixelLoc.ofLoc(UI.PrevBoard.locs(0), gridSize), "cyan", textAlign="left", textBaseline="top", fontSize=12)
+              text("<- Prev Board", ui.PrevBoard.hexLocs(0), "cyan", textAlign="left", textBaseline="top", fontSize=12)
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
-              text("Next Board ->", PixelLoc.ofLoc(UI.NextBoard.locs(board)(0), gridSize), "cyan", textAlign="left", textBaseline="top", fontSize=12)
+              text("Next Board ->", ui.NextBoard.hexLocs(0), "cyan", textAlign="left", textBaseline="top", fontSize=12)
           case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
-              highlightHex(loc)
+              highlightHex(ui.Tech.hexLoc(loc))
             }
           case MouseReinforcement(pieceName,_,loc) =>
-            highlightHex(loc,scale=pieceScale)
+            highlightHex(ui.Reinforcements.hexLoc(loc),scale=pieceScale)
             if(!undoing) {
               val locs = board.legalSpawnLocs(pieceName)
               for(loc <- locs) {
-                highlightHex(loc)
+                highlightHex(ui.MainBoard.hexLoc(loc))
               }
             }
 
           case MouseDeadPiece(_,loc) =>
             if(undoing) {
-              highlightHex(loc)
+              highlightHex(ui.DeadPieces.hexLoc(loc))
             }
           case MousePiece(spec,_) =>
             board.findPiece(spec) match {
@@ -997,8 +985,8 @@ object Drawing {
                           drawPath(path.toVector,overrideStart = Some(loc))
                         case (_ : Teleport) =>
                           //If teleporting, highlight the teleport location
-                          strokeHex(hoverLoc, "cyan", scale, alpha=0.3, lineWidth=2)
-                          fillHex(hoverLoc, "cyan", scale, alpha=0.05)
+                          strokeHex(ui.MainBoard.hexLoc(hoverLoc), "cyan", scale, alpha=0.3, lineWidth=2)
+                          fillHex(ui.MainBoard.hexLoc(hoverLoc), "cyan", scale, alpha=0.05)
                         case (_ : Attack) | (_ : Spawn) | (_ : ActivateTile) | (_ : ActivateAbility) | (_ : PlaySpell) | (_ : DiscardSpell) =>
                           ()
                       }
@@ -1007,7 +995,7 @@ object Drawing {
                     //Highlight the movement range
                     val moveLocsAndSteps = board.legalMoves(piece)
                     moveLocsAndSteps.foreach { case (loc,_) =>
-                      highlightHex(loc)
+                      highlightHex(ui.MainBoard.hexLoc(loc))
                     }
 
                     val attackerStats = piece.curStats(board)
@@ -1071,11 +1059,12 @@ object Drawing {
                       }
                     }
                     (attackLocs ++ moveLocs).foreach { loc =>
+                      val hexLoc = ui.MainBoard.hexLoc(loc)
                       if(moveLocs.contains(loc)) {
-                        highlightHex(loc)
+                        highlightHex(hexLoc)
                       } else {
-                        fillHex(loc, "magenta", tileScale, alpha=0.15)
-                        strokeHex(loc, "magenta", tileScale, alpha=0.5, lineWidth=1.5)
+                        fillHex(hexLoc, "magenta", tileScale, alpha=0.15)
+                        strokeHex(hexLoc, "magenta", tileScale, alpha=0.5, lineWidth=1.5)
                       }
                     }
                   }
@@ -1086,7 +1075,19 @@ object Drawing {
 
     //Highlight hex tile on mouse hover
     mouseState.hovered.getLoc().foreach { hoverLoc =>
-      strokeHex(hoverLoc, "black", tileScale, alpha=0.3)
+      val component = mouseState.hovered match {
+        case MouseNone => ui.MainBoard
+        case MousePiece(_,_) => ui.MainBoard
+        case MouseTile(_) => ui.MainBoard
+        case MouseTech(_,_) => ui.Tech
+        case MouseReinforcement(_,_,_) => ui.Reinforcements
+        case MouseDeadPiece(_,_) => ui.DeadPieces
+        case MouseEndTurn(_) => ui.EndTurn
+        case MouseNextBoard => ui.NextBoard
+        case MousePrevBoard => ui.PrevBoard
+        case MouseResignBoard(_) => ui.ResignBoard
+      }
+      strokeHex(component.hexLoc(hoverLoc), "black", tileScale, alpha=0.3)
     }
   }
 }

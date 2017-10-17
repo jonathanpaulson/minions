@@ -7,97 +7,169 @@ object UI {
   //How much to translate the canvas origin inward from the upper left corner.
   val translateOrigin = PixelVec(2.65 * Drawing.gridSize, 8.0 * Drawing.gridSize)
 
+  //One component or panel or set of controls of the UI.
+  sealed trait Component {
+    val origin: HexLoc
+    val gridSizeScale: Double
+
+    def hexLoc(loc: Loc): HexLoc = {
+      HexLoc(loc.x.toDouble * gridSizeScale + origin.x, loc.y.toDouble * gridSizeScale + origin.y)
+    }
+
+    protected def getLocAndDelta(hexLoc: HexLoc): (Loc, HexVec) = {
+      HexLoc((hexLoc.x - origin.x) / gridSizeScale, (hexLoc.y - origin.y) / gridSizeScale).round()
+    }
+  }
+
+  sealed trait Clickable {
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget
+  }
+}
+
+case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int)
+{
   //Positioning for text about game stats and mana
-  object Info {
-    def getLoc(side: Side, flipDisplay: Boolean, board: BoardState): Loc = {
+  object TitleInfo extends UI.Component {
+    val origin = HexLoc(boardXSize.toDouble * 0.5 + 2, -5.0)
+    val gridSizeScale = 1
+  }
+
+  object TopInfo extends UI.Component {
+    val origin = HexLoc(0,0)
+    val gridSizeScale = 1
+
+    def getHexLoc(side: Side): HexLoc = {
       (side,flipDisplay) match {
         case (S0,false) | (S1,true) =>
-          Loc(1,-4)
+          hexLoc(Loc(1,-4))
         case (S1,false) | (S0,true) =>
-          Loc(board.tiles.xSize/2 + 4, -4)
+          hexLoc(Loc(boardXSize/2 + 4, -4))
       }
     }
-    def getBoardTitleLoc(board : BoardState) : Loc = {
-      Loc(board.tiles.xSize/2 + 2, -5)
+  }
+
+  object PrevBoard extends UI.Component with UI.Clickable {
+    val origin = HexLoc(2,-5)
+    val gridSizeScale = 1
+    val locs: Array[Loc] = Array(Loc(0,0),Loc(1,0))
+    val hexLocs = locs.map(hexLoc(_))
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game,board)
+      val (loc,_) = getLocAndDelta(hexLoc)
+      if(locs.contains(loc)) MousePrevBoard
+      else MouseNone
     }
   }
-  object PrevBoard {
-    val locs: Array[Loc] = Array(Loc(2, -5),Loc(3, -5))
-  }
-  object NextBoard {
-    def locs(board : BoardState) : Array[Loc] = {
-      Array(Loc(board.tiles.xSize + 4, -5), Loc(board.tiles.xSize + 5, -5))
+
+  object NextBoard extends UI.Component with UI.Clickable {
+    val origin = HexLoc(boardXSize.toDouble + 4, -5)
+    val gridSizeScale = 1
+    val locs: Array[Loc] = Array(Loc(0,0),Loc(1,0))
+    val hexLocs = locs.map(hexLoc(_))
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game,board)
+      val (loc,_) = getLocAndDelta(hexLoc)
+      if(locs.contains(loc)) MouseNextBoard
+      else MouseNone
     }
+
   }
 
   //Positioning for end turn hex button
-  object EndTurn {
-    val loc: Loc = Loc(17, -4)
+  object EndTurn extends UI.Component with UI.Clickable {
+    val origin = HexLoc(17,-4)
+    val gridSizeScale = 1
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game,board)
+      val (loc,_) = getLocAndDelta(hexLoc)
+      if(loc == Loc.zero) MouseEndTurn(loc)
+      else MouseNone
+    }
   }
-  object ResignBoard {
-    val loc: Loc = Loc(18, -4)
-  }
-  object Sidebar {
-    val loc: Loc = Loc(20, -1)
+  object ResignBoard extends UI.Component with UI.Clickable {
+    val origin = HexLoc(18,-4)
+    val gridSizeScale = 1
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game,board)
+      val (loc,_) = getLocAndDelta(hexLoc)
+      if(loc == Loc.zero) MouseResignBoard(loc)
+      else MouseNone
+    }
   }
 
-  //Positioning for tech line
-  object Tech {
-    val xOffset = 1
-    val yOffset = -3
+  object Sidebar extends UI.Component {
+    val origin = HexLoc(20,-1)
+    val gridSizeScale = 1
+  }
+
+  object Tech extends UI.Component with UI.Clickable {
+    val origin = HexLoc(1,-3)
+    val gridSizeScale = 1
 
     def getLoc(techIdx: Int): Loc = {
-      Loc((techIdx/2)+xOffset, yOffset + (if(techIdx%2==0) 0 else 1))
+      Loc(techIdx/2, (if(techIdx%2==0) 0 else 1))
     }
 
-    def getLocs(game: Game): Array[Loc] = {
-      (0 until game.techLine.length).map { i => getLoc(i) }.toArray
+    def getHexLocs(game: Game): Array[HexLoc] = {
+      (0 until game.techLine.length).map { i => hexLoc(getLoc(i)) }.toArray
     }
 
-    def getSelectedTechIdx(game: Game, loc: Loc): Option[Int] = {
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (board)
+      val (loc,_) = getLocAndDelta(hexLoc)
+
       val idx = {
-        if(loc.y == yOffset) (loc.x-xOffset)*2
-        else if(loc.y == yOffset+1) (loc.x-xOffset)*2 + 1
+        if(loc.y == 0) loc.x*2
+        else if(loc.y == 1) loc.x*2 + 1
         else -1
       }
       if(idx >= 0 && idx < game.techLine.length)
-        Some(idx)
+        MouseTech(idx, loc)
       else
-        None
+        MouseNone
     }
-
   }
 
-  object DeadPieces {
-    def getDescLoc(board: BoardState): Loc = {
-      Loc(-board.tiles.ySize / 2 - 1, board.tiles.ySize + 1)
-    }
+  object DeadPieces extends UI.Component with UI.Clickable {
+    val origin = HexLoc(-boardYSize.toDouble / 2, boardYSize.toDouble + 1)
+    val gridSizeScale = 1
 
-    def getLocsAndContents(board: BoardState): Array[(Loc,PieceSpec,PieceName,Side)] = {
+    val descLoc: HexLoc = hexLoc(Loc(-1,0))
+
+    def getHexLocsAndContents(board: BoardState): Array[(HexLoc,PieceSpec,PieceName,Side)] = {
       board.killedThisTurn.reverse.zipWithIndex.map { case ((spec,pieceName,side),i) =>
-        val loc = Loc(-board.tiles.ySize / 2 + i, board.tiles.ySize + 1)
-        (loc,spec,pieceName,side)
+        (hexLoc(Loc(i,0)),spec,pieceName,side)
       }.toArray
     }
-
-    def getSelectedSpec(board: BoardState, loc: Loc): Option[PieceSpec] = {
-      val locs = getLocsAndContents(board)
-      locs.findMap { case (l,spec,_,_) => if(loc == l) Some(spec) else None }
-    }
-
-    def getSelectedLoc(board: BoardState, pieceSpec: PieceSpec): Option[Loc] = {
-      val locs = getLocsAndContents(board)
-      locs.findMap { case (l,spec,_,_) => if(pieceSpec == spec) Some(l) else None }
-    }
-
     def getSelectedPiece(board: BoardState, pieceSpec: PieceSpec): Option[(PieceStats, Side)] = {
-      val locs = getLocsAndContents(board)
-      locs.findMap { case (_,spec,pieceName,side) => if(pieceSpec == spec) Some((Units.pieceMap(pieceName), side)) else None }
+      board.killedThisTurn.findMap { case (spec,pieceName,side) =>
+        if(pieceSpec == spec) Some((Units.pieceMap(pieceName), side)) else None
+      }
+    }
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game)
+      val (loc,_) = getLocAndDelta(hexLoc)
+      val idx = loc.x
+      if(idx >= 0 && idx < board.killedThisTurn.length) {
+        val reversed = board.killedThisTurn.reverse
+        val (spec,_,_) = reversed(idx)
+        MouseDeadPiece(spec, loc)
+      }
+      else
+        MouseNone
     }
   }
 
   //Positioning for reinforcements
-  object Reinforcements {
+  object Reinforcements extends UI.Component with UI.Clickable {
+    val origin = HexLoc(0,0)
+    val gridSizeScale = 1
+
     val unflippedLocs = Array(
       Loc(-3,5),Loc(-2,5),
       Loc(-3,6),Loc(-2,6),
@@ -109,17 +181,17 @@ object UI {
       Loc(-6,12),Loc(-5,12),Loc(-4,12),Loc(-3,12),Loc(-2,12)
     )
 
-    def getLocs(side: Side, flipDisplay: Boolean, board: BoardState): Array[Loc] = {
+    def getLocs(side: Side): Array[Loc] = {
       (side,flipDisplay) match {
         case (S0,false) | (S1,true) =>
           unflippedLocs
         case (S1,false) | (S0,true) =>
-          unflippedLocs.map { loc => Loc(board.tiles.xSize - loc.x - 1, board.tiles.ySize - loc.y - 1) }
+          unflippedLocs.map { loc => Loc(boardXSize - loc.x - 1, boardYSize - loc.y - 1) }
       }
     }
 
-    def getLocsAndContents(side: Side, flipDisplay: Boolean, board: BoardState): Array[(Loc,PieceName,Int)] = {
-      val locs = getLocs(side,flipDisplay,board)
+    def getHexLocsAndContents(side: Side, board: BoardState): Array[(HexLoc,PieceName,Int)] = {
+      val locs = getLocs(side)
       var i = 0
       Units.pieces.flatMap { stats =>
         board.reinforcements(side).get(stats.name) match {
@@ -127,32 +199,17 @@ object UI {
           case Some(count) =>
             val loc = locs(i)
             i += 1
-            Some((loc,stats.name,count))
+            Some((hexLoc(loc),stats.name,count))
         }
       }
     }
 
-    def getSelectedLocAndCount(side: Side, flipDisplay: Boolean, board: BoardState, pieceName: PieceName): Option[(Loc,Int)] = {
-      val locs = getLocs(side,flipDisplay,board)
-      var i = 0
-      Units.pieces.findMap { stats =>
-        board.reinforcements(side).get(stats.name) match {
-          case None => None
-          case Some(count) =>
-            val loc = locs(i)
-            if(stats.name == pieceName)
-              Some((loc,count))
-            else {
-              i += 1
-              None
-            }
-        }
-      }
-    }
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game)
+      val (loc,_) = getLocAndDelta(hexLoc)
 
-    def getSelectedPiece(flipDisplay: Boolean, board: BoardState, loc: Loc): Option[(PieceName, Side)] = {
       Side.sides.findMap { side =>
-        val locs = getLocs(side,flipDisplay,board)
+        val locs = getLocs(side)
         val selectedIdx = locs.indexOf(loc)
         if(selectedIdx == -1) None
         else {
@@ -161,7 +218,8 @@ object UI {
             board.reinforcements(side).get(stats.name) match {
               case None => None
               case Some(_) =>
-                if(i == selectedIdx) Some((stats.name, side))
+                if(i == selectedIdx)
+                  Some(MouseReinforcement(stats.name, side, loc))
                 else {
                   i += 1
                   None
@@ -169,9 +227,66 @@ object UI {
             }
           }
         }
-      }
+      }.getOrElse(MouseNone)
     }
 
   }
+
+  //Positioning for the main board
+  object MainBoard extends UI.Component with UI.Clickable {
+    val origin = HexLoc(0,0)
+    val gridSizeScale = 1
+
+    private def getPiece(loc: Loc, hexDelta: HexVec, board: BoardState): Option[Piece] = {
+      board.pieces(loc) match {
+        case Nil => None
+        case p :: Nil => Some(p)
+        case p1 :: p2 :: Nil =>
+          hexDelta.closestCorner() match {
+            case 0 | 4 | 5 => Some(p1)
+            case 1 | 2 | 3 => Some(p2)
+          }
+        case p1 :: p2 :: p3 :: Nil =>
+          hexDelta.hexant() match {
+            case 4 | 5 => Some(p1)
+            case 2 | 3 => Some(p2)
+            case 0 | 1 => Some(p3)
+            case _ => assertUnreachable()
+          }
+        case _ => None
+      }
+    }
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game)
+      val (unflippedLoc,hexDelta) = getLocAndDelta(hexLoc)
+      val loc = {
+        if(flipDisplay)
+          Loc(boardXSize - unflippedLoc.x - 1, boardYSize - unflippedLoc.y - 1)
+        else
+          unflippedLoc
+      }
+
+      if(!board.pieces.inBounds(loc))
+        MouseNone
+      else {
+        getPiece(loc,hexDelta,board) match {
+          case Some(piece) => MousePiece(piece.spec,loc)
+          case None => MouseTile(loc)
+        }
+      }
+    }
+  }
+
+  val clickableComponents: List[UI.Clickable] = List(
+    MainBoard,
+    Reinforcements,
+    DeadPieces,
+    Tech,
+    EndTurn,
+    ResignBoard,
+    PrevBoard,
+    NextBoard,
+  )
 
 }
