@@ -259,6 +259,7 @@ object BoardState {
       spellsInHand = SideArray.create(List()),
       sorceryPower = 0,
       hasUsedSpawnerTile = false,
+      hasGainedSpell = false,
       side = S0,
       hasWon = false,
       canMove = false,
@@ -556,8 +557,13 @@ case class BoardState private (
           Failure(new Exception("Bought reinforcement piece with unknown name: " + pieceName))
         else
           Success(())
-      case GainSpell(_) => Success(())
-      case RevealSpell(_,_,_) => Success(())
+      case GainSpell(_) =>
+        if(hasGainedSpell)
+          Failure(new Exception("Already chose a spell for this board this turn"))
+        else
+          Success(())
+      case RevealSpell(_,_,_) =>
+        Success(())
     }
   }
 
@@ -573,6 +579,7 @@ case class BoardState private (
 
       case GainSpell(spellId) =>
         spellsInHand(side) = spellsInHand(side) :+ spellId
+        hasGainedSpell = true
 
       case RevealSpell(side,spellId,spellName) =>
         spellsRevealed(side) = spellsRevealed(side) + (spellId -> spellName)

@@ -257,13 +257,6 @@ class Client() {
           case Success(()) =>
             draw()
         }
-        gameAction match {
-          case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) | (_: PayForReinforcement) | (_: UnpayForReinforcement) => ()
-          case ResignBoard(_) =>
-            ()
-          case AddWin(_, _) =>
-            ()
-        }
 
       case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
         println("Received board " + boardIdx + " action " + boardAction)

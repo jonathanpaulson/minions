@@ -100,7 +100,14 @@ object ServerMain extends App {
   }
   var gameSequence: Int = 0
 
-  var specialNecrosRemaining: SideArray[List[String]] = SideArray.create(List())
+  //These get repopulated when empty when we need to draw one
+  val specialNecrosRemaining: SideArray[List[String]] = SideArray.create(List())
+
+  //These get repopulated when empty when we need to draw one
+  val spellsRemaining: SideArray[List[String]] = SideArray.create(List())
+  var nextSpellId: Int = 0
+  var spellMap: Map[Int,SpellName] = Map()
+  val revealedSpellIds: SideArray[Set[Int]] = SideArray.create(Set())
 
   val (boards,boardNames): (Array[Board],Array[String]) = {
     val availableMaps = {
@@ -167,6 +174,7 @@ object ServerMain extends App {
   }
   var endOfTurnTime: Option[Double] = None
 
+
   //----------------------------------------------------------------------------------
   //GAME ACTOR - singleton actor that maintains the state of the game being played
 
@@ -176,6 +184,7 @@ object ServerMain extends App {
   case class QueryStr(val sessionId: Int, val queryStr: String) extends GameActorEvent
   case class ShouldEndTurn(val turnNumberToEnd: Int) extends GameActorEvent
   case class ShouldReportTimeLeft() extends GameActorEvent
+  case class StartGame() extends GameActorEvent
 
   private class GameActor extends Actor {
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
@@ -193,11 +202,11 @@ object ServerMain extends App {
       }
     }
 
-    // private def broadcast(response: Protocol.Response, side: Option[Side]): Unit = {
-    //   userOuts.foreach { case (sid,out) =>
-    //     if(userSides(sid) == side) out ! response
-    //   }
-    // }
+    private def broadcastToSide(response: Protocol.Response, side: Side): Unit = {
+      userOuts.foreach { case (sid,out) =>
+        if(userSides(sid).contains(side)) out ! response
+      }
+    }
     private def broadcastAll(response: Protocol.Response): Unit = {
       userOuts.foreach { case (_,out) =>
         out ! response
@@ -208,6 +217,7 @@ object ServerMain extends App {
       game.doAction(gameAction).map { case () =>
         gameAction match {
           case PayForReinforcement(_, _) | UnpayForReinforcement(_, _) | PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
+          case AddUpcomingSpell(_,_) => ()
           case AddWin(side, boardIdx) =>
             messages = messages :+ ("Team " + side.toColorName + " won board " + boardIdx + "!")
             broadcastAll(Protocol.Messages(messages))
@@ -251,6 +261,46 @@ object ServerMain extends App {
       val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
     }
 
+    private def revealSpellToSide(side: Side, spellId: Int): Unit = {
+      if(!revealedSpellIds(side).contains(spellId)) {
+        revealedSpellIds(side) = revealedSpellIds(side) + spellId
+        val actionId = "reveal" + spellId
+        val spellName = spellMap(spellId)
+        val revealAction: BoardAction = DoGeneralBoardAction(RevealSpell(side,spellId,spellName),actionId)
+        for(boardIdx <- 0 until numBoards) {
+          boards(boardIdx).doAction(revealAction) match {
+            case Failure(_) => assertUnreachable()
+            case Success(()) =>
+              boardSequences(boardIdx) += 1
+              //Broadcast the revealing only to the side
+              broadcastToSide(Protocol.ReportBoardAction(boardIdx,revealAction,boardSequences(boardIdx)),side)
+          }
+        }
+      }
+    }
+
+    private def refillUpcomingSpells(): Unit = {
+      //Reveal extra spells beyond the end - players get to look ahead a little in the deck
+      val extraSpellsRevealed = 10
+      Side.foreach { side =>
+        while(game.upcomingSpells(side).length < numBoards + 1 + extraSpellsRevealed) {
+          if(spellsRemaining(side).isEmpty)
+            spellsRemaining(side) = rand.shuffle(Spells.createDeck())
+
+          val spellName = spellsRemaining(side)(0)
+          val spellId = nextSpellId
+          spellsRemaining(side) = spellsRemaining(side).drop(1)
+          nextSpellId += 1
+
+          spellMap = spellMap + (spellId -> spellName)
+          revealSpellToSide(side,spellId)
+
+          val gameAction: GameAction = AddUpcomingSpell(side,spellId)
+          performAndBroadcastGameActionIfLegal(gameAction)
+        }
+      }
+    }
+
     private def doEndOfTurn(): Unit = {
       val oldSide = game.curSide
       val newSide = game.curSide.opp
@@ -283,6 +333,8 @@ object ServerMain extends App {
       game.endTurn()
       boards.foreach { board => board.endTurn() }
       broadcastAll(Protocol.ReportNewTurn(newSide))
+
+      refillUpcomingSpells()
 
       for(boardIdx <- 0 until boards.length) {
         val board = boards(boardIdx)
@@ -395,6 +447,17 @@ object ServerMain extends App {
                   case Failure(e) =>
                     out ! Protocol.QueryError("Illegal action: " + e.getLocalizedMessage)
                   case Success(()) =>
+                    //When someone plays or discards a spell legally/successfully, reveal it to the other side.
+                    boardAction match {
+                      case PlayerActions(actions,_) =>
+                        actions.foreach {
+                          case PlaySpell(spellId,_) => revealSpellToSide(game.curSide.opp,spellId)
+                          case DiscardSpell(spellId) => revealSpellToSide(game.curSide.opp,spellId)
+                          case (_: Movements) | (_: Attack) | (_: Spawn) | (_: ActivateTile) | (_: ActivateAbility) | (_: Teleport) => ()
+                        }
+                      case (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: DoGeneralBoardAction) => ()
+                    }
+
                     //If this board was set as done, then since we did an action on it, unset it.
                     maybeUnsetBoardDone(boardIdx)
 
@@ -427,7 +490,7 @@ object ServerMain extends App {
                       messages = messages :+ ("Team " + game.curSide.toColorName + " resigned board " + boardIdx + "!")
                       broadcastAll(Protocol.Messages(messages))
                     }
-                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) =>
+                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) | (_: AddUpcomingSpell) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }
                 specialResult.flatMap { case () => game.doAction(gameAction) } match {
@@ -529,14 +592,20 @@ object ServerMain extends App {
 
       case ShouldReportTimeLeft() =>
         maybeBroadcastTimeLeft()
+
+      case StartGame() =>
+        refillUpcomingSpells()
+        game.startGame()
     }
 
   }
 
+  val gameActor = actorSystem.actorOf(Props(classOf[GameActor]))
+  gameActor ! StartGame()
+
   //----------------------------------------------------------------------------------
   //WEBSOCKET MESSAGE HANDLING
 
-  val gameActor = actorSystem.actorOf(Props(classOf[GameActor]))
   val nextSessionId = new AtomicInteger()
 
   def websocketMessageFlow(username: String, sideStr: Option[String]) : Flow[Message, Message, _] = {

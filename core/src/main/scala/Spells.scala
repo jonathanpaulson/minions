@@ -17,4 +17,9 @@ case object Spells {
     spells.head
   }
 
+  def createDeck(): List[SpellName] = {
+    List(
+      fester,fester,fester,fester,fester,fester
+    ).map(_.name)
+  }
 }

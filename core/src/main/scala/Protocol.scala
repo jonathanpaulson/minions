@@ -402,6 +402,7 @@ object Protocol {
   implicit val payForReinforcementFormat = Json.format[PayForReinforcement]
   implicit val unpayForReinforcementFormat = Json.format[UnpayForReinforcement]
   implicit val addWinFormat = Json.format[AddWin]
+  implicit val addUpcomingSpellFormat = Json.format[AddUpcomingSpell]
   implicit val performTechFormat = Json.format[PerformTech]
   implicit val undoTechFormat = Json.format[UndoTech]
   implicit val setBoardDoneFormat = Json.format[SetBoardDone]
@@ -411,6 +412,7 @@ object Protocol {
       "PayForReinforcement" -> ((json:JsValue) => payForReinforcementFormat.reads(json)),
       "UnpayForReinforcement" -> ((json:JsValue) => unpayForReinforcementFormat.reads(json)),
       "AddWin" -> ((json:JsValue) => addWinFormat.reads(json)),
+      "AddUpcomingSpell" -> ((json:JsValue) => addUpcomingSpellFormat.reads(json)),
       "PerformTech" -> ((json:JsValue) => performTechFormat.reads(json)),
       "UndoTech" -> ((json:JsValue) => undoTechFormat.reads(json)),
       "SetBoardDone" -> ((json:JsValue) => setBoardDoneFormat.reads(json)),
@@ -421,6 +423,7 @@ object Protocol {
         case (t:PayForReinforcement) => jsPair("PayForReinforcement",payForReinforcementFormat.writes(t))
         case (t:UnpayForReinforcement) => jsPair("UnpayForReinforcement",unpayForReinforcementFormat.writes(t))
         case (t:AddWin) => jsPair("AddWin",addWinFormat.writes(t))
+        case (t:AddUpcomingSpell) => jsPair("AddUpcomingSpell",addUpcomingSpellFormat.writes(t))
         case (t:PerformTech) => jsPair("PerformTech",performTechFormat.writes(t))
         case (t:UndoTech) => jsPair("UndoTech",undoTechFormat.writes(t))
         case (t:SetBoardDone) => jsPair("SetBoardDone",setBoardDoneFormat.writes(t))

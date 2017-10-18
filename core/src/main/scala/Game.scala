@@ -79,6 +79,7 @@ case class ResignBoard(boardIdx: Int) extends GameAction
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class AddWin(side: Side, boardIdx: Int) extends GameAction
+case class AddUpcomingSpell(side: Side, spellId: Int) extends GameAction
 
 case object Game {
   def apply(
@@ -117,6 +118,7 @@ case object Game {
       }.toMap
 
     val game = new Game(
+      numBoards = numBoards,
       curSide = startingSide,
       turnNumber = 0,
       winner = None,
@@ -125,6 +127,8 @@ case object Game {
       techLine = techStatesAlwaysAcquired ++ techStatesLocked,
       piecesAcquired = SideArray.create(piecesAlwaysAcquired),
       numTechsThisTurn = 0,
+      spellsToChoose = SideArray.create(Vector()),
+      upcomingSpells = SideArray.create(Vector()),
       targetNumWins = targetNumWins,
       extraTechCost = extraTechCost,
       extraManaPerTurn = extraManaPerTurn,
@@ -139,6 +143,7 @@ case object Game {
   * The "global" state which isn't local to a board.
   */
 case class Game (
+  val numBoards: Int,
   var curSide: Side,
   var turnNumber: Int,
   var winner: Option[Side],
@@ -150,6 +155,9 @@ case class Game (
   val piecesAcquired: SideArray[Map[PieceName,TechState]],
   var numTechsThisTurn: Int,
 
+  var spellsToChoose: SideArray[Vector[Int]],
+  var upcomingSpells: SideArray[Vector[Int]],
+
   val targetNumWins: Int,
   val extraTechCost: Int,
   val extraManaPerTurn: Int,
@@ -159,8 +167,6 @@ case class Game (
 
   //Just for display purposes
   var newTechsThisTurn: Vector[(Side,Tech)]
-
-  // TODO(jpaulson): Spells for the moving side
 ) {
 
   def addMana(side: Side, amount: Int): Unit = {
@@ -172,6 +178,7 @@ case class Game (
       case PayForReinforcement(side,pieceName) => tryCanPayForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
       case AddWin(_,_) => Success(())
+      case AddUpcomingSpell(_,_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => tryCanUndoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => tryCanSetBoardDone(boardIdx,done)
@@ -184,6 +191,7 @@ case class Game (
       case PayForReinforcement(side,pieceName) => payForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
       case AddWin(side,_) => { doAddWin(side); Success(()) }
+      case AddUpcomingSpell(side,spellId) => { doAddUpcomingSpell(side,spellId); Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => undoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
@@ -191,7 +199,25 @@ case class Game (
     }
   }
 
+  private def drawSpells(): Unit = {
+    while(upcomingSpells(curSide).nonEmpty && spellsToChoose(curSide).length < numBoards+1) {
+      val spellId = upcomingSpells(curSide)(0)
+      upcomingSpells(curSide) = upcomingSpells(curSide).drop(1)
+      spellsToChoose(curSide) = spellsToChoose(curSide) :+ spellId
+    }
+  }
+
+
+  //A hook for things that also need to happen at the start of the game before any turns for setup
+  //rather than just on the ends of turns
+  def startGame(): Unit = {
+    drawSpells()
+  }
+
   def endTurn(): Unit = {
+    //Clear out unchosen spells
+    spellsToChoose(curSide) = Vector()
+
     curSide = curSide.opp
     turnNumber += 1
     numTechsThisTurn = 0
@@ -210,6 +236,8 @@ case class Game (
 
     for(i <- 0 until isBoardDone.length)
       isBoardDone(i) = false
+
+    drawSpells()
   }
 
   private def tryCanPayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
@@ -268,6 +296,10 @@ case class Game (
     if(wins(side) >= targetNumWins) {
       winner = Some(side)
     }
+  }
+
+  private def doAddUpcomingSpell(side: Side, spellId: Int): Unit = {
+    upcomingSpells(side) = upcomingSpells(side) :+ spellId
   }
 
   private def tryCanPerformTech(side: Side, techLineIdx: Int): Try[Unit] = {
