@@ -53,7 +53,8 @@ object Drawing {
     mouseState: MouseState,
     undoing: Boolean,
     showCoords: Boolean,
-    timeLeft: Option[Double]
+    timeLeft: Option[Double],
+    client: Client
   ) : Unit = {
 
     val board = boards(boardIdx).curState
@@ -476,14 +477,24 @@ object Drawing {
     if(boardIdx < boardNames.length-1)
       text("Next Board ->", ui.NextBoard.hexLoc(ui.NextBoard.locs(0)), "black", textAlign="center", textBaseline="top", fontSize=12)
 
+    def textColorOfSide(side: Side): String = {
+      side match {
+        case S0 => "#000099"
+        case S1 => "#770000"
+      }
+    }
+    def rectColorOfSide(side: Side): String = {
+      side match {
+        case S0 => "#e0e0ff"
+        case S1 => "#ffe0e0"
+      }
+    }
+
     //Game info text
     Side.foreach { side =>
       val infoLoc = ui.TopInfo.getHexLoc(side)
       val pixelLoc = PixelLoc.ofHexLoc(infoLoc, gridSize)
-      val color = side match {
-        case S0 => "#000099"
-        case S1 => "#770000"
-      }
+      val color = textColorOfSide(side)
       val mana = boards.foldLeft(game.mana(side)) { case (sum,board) =>
         sum + board.curState.manaThisRound(side)
       }
@@ -495,42 +506,52 @@ object Drawing {
         text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left", fontSize = 14, style = style)
 
       if(side == board.side) {
-        val rectColor = board.side match {
-          case S0 => "#e0e0ff"
-          case S1 => "#ffe0e0"
-        }
-        ctx.fillStyle = rectColor
-        ctx.fillRect(pixelLoc.x - 9.0, pixelLoc.y - 24.0, 410.0, 38.0)
+        ctx.fillStyle = rectColorOfSide(side)
+        ctx.fillRect(pixelLoc.x - 10.0, pixelLoc.y - 26.0, 470.0, 24.0)
       }
 
-      if(game.winner.nonEmpty) {
-        if(game.winner == Some(side))
-          textAtLoc(side.toColorName + " Team wins the game!", 0.0, -10.0, style = "bold")
-      }
-      else {
-        if(side == board.side) {
-          textAtLoc(side.toColorName + " Team's Turn!", 0.0, -10.0, style = "bold")
-          timeLeft.foreach { timeLeft =>
-            val seconds: Int = Math.floor(timeLeft).toInt
-            val timeStr = {
-              if(seconds < 0) "-" + ((-seconds) / 60).toString + ":" + "%02d".format((-seconds) % 60)
-              else (seconds / 60).toString + ":" + "%02d".format(seconds % 60)
-            }
-            textAtLoc("Time left: " + timeStr, 140.0, -10.0, style = "bold")
-          }
-        }
-        else {
-          textAtLoc(side.toColorName + " Team", 0.0, -10.0)
-        }
-      }
-
-      textAtLoc("Net +souls this board: " + (board.totalMana(side) - board.totalCosts(side)), 250.0, -10.0)
-      textAtLoc("Souls: " + mana + " (+" + newMana + "/turn)", 0.0, 6.0)
-      textAtLoc("Wins: " + game.wins(side) + "/" + game.targetNumWins, 140.0, 6.0)
-
-      if(side == board.side)
-        textAtLoc("Sorcery Power: " + board.sorceryPower, 250.0, 6.0)
+      textAtLoc(side.toColorName + " Team:", 0.0, -10.0, style = "bold")
+      textAtLoc("Wins: " + game.wins(side) + "/" + game.targetNumWins, 110.0, -10.0)
+      textAtLoc("Souls: " + mana + " (+" + newMana + "/turn)", 200.0, -10.0)
+      textAtLoc("Techs Used: " + game.numTechsThisTurn + "/" + (game.extraTechsAndSpellsThisTurn + 1), 345.0, -10.0)
     }
+
+    //Board-specific info text
+    Side.foreach { side =>
+      val infoLoc = ui.BoardInfo.getHexLoc(side)
+      val pixelLoc = PixelLoc.ofHexLoc(infoLoc, gridSize)
+      val color = textColorOfSide(side)
+
+      if(side == board.side) {
+        ctx.fillStyle = rectColorOfSide(side)
+        ctx.fillRect(pixelLoc.x - 10.0, pixelLoc.y - 16.0, 360.0, 24.0)
+      }
+
+      def textAtLoc(s: String, dpx: Double, dpy: Double, style:String = "normal") =
+        text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left", fontSize = 14, style = style)
+
+      textAtLoc("Souls: +" + board.endOfTurnMana(side) + "/turn", 0, 0)
+      textAtLoc("Net +souls: " + (board.totalMana(side) - board.totalCosts(side)), 110, 0)
+      if(side == board.side)
+        textAtLoc("Sorcery Power: " + board.sorceryPower, 220, 0)
+    }
+
+    //Clock
+    val clockStr = {
+      if(client.gotFatalError)
+        "Connection error"
+      else timeLeft match {
+        case None => ""
+        case Some(timeLeft) =>
+          val seconds: Int = Math.floor(timeLeft).toInt
+          val timeStr = {
+            if(seconds < 0) "-" + ((-seconds) / 60).toString + ":" + "%02d".format((-seconds) % 60)
+            else (seconds / 60).toString + ":" + "%02d".format(seconds % 60)
+          }
+          board.side.toColorName + "Team Time left: " + timeStr
+      }
+    }
+    text(clockStr, ui.Clock.origin, textColorOfSide(board.side), textAlign="left", style = "bold", fontSize=16)
 
     //End turn hex
     if(game.isBoardDone(boardIdx)) {
@@ -548,6 +569,12 @@ object Drawing {
     strokeHex(ui.ResignBoard.origin, "#666666", tileScale, lineWidth=1.0)
     text("Resign", PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize) + PixelVec(0,-4.0), "black")
     text("Board", PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize) + PixelVec(0,7.0), "black")
+
+    //Extra tech and spells hex
+    fillHex(ui.ExtraTechAndSpells.origin, "#dddddd", tileScale)
+    strokeHex(ui.ExtraTechAndSpells.origin, "#666666", tileScale, lineWidth=1.0)
+    text("Buy Extra", PixelLoc.ofHexLoc(ui.ExtraTechAndSpells.origin, gridSize) + PixelVec(0,-4.0), "black")
+    text("Tech+Spell", PixelLoc.ofHexLoc(ui.ExtraTechAndSpells.origin, gridSize) + PixelVec(0,7.0), "black")
 
     //Reinforcements
     Side.foreach { side =>

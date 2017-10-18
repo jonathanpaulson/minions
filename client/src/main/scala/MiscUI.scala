@@ -5,7 +5,7 @@ import RichImplicits._
 
 object UI {
   //How much to translate the canvas origin inward from the upper left corner.
-  val translateOrigin = PixelVec(4.25 * Drawing.gridSize, 9.75 * Drawing.gridSize)
+  val translateOrigin = PixelVec(4.25 * Drawing.gridSize, 10 * Drawing.gridSize)
 
   //One component or panel or set of controls of the UI.
   sealed trait Component {
@@ -35,20 +35,20 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     def getHexLoc(side: Side): HexLoc = {
       (side,flipDisplay) match {
         case (S0,false) | (S1,true) =>
-          HexLoc(1.5,-5.75)
+          HexLoc(1.3,-5.9)
         case (S1,false) | (S0,true) =>
-          HexLoc(boardXSize.toDouble/2 + 5, -5.75)
+          HexLoc(boardXSize.toDouble/2 + 5.7, -5.9)
       }
     }
   }
 
   object TitleInfo extends UI.Component {
-    val origin = HexLoc(boardXSize.toDouble * 0.5 + 1.0, -1.35)
+    val origin = HexLoc(boardXSize.toDouble * 0.5 + 1.25, -1.85)
     val gridSizeScale = 1
   }
 
   object PrevBoard extends UI.Component with UI.Clickable {
-    val origin = HexLoc(1.0,-1.3)
+    val origin = HexLoc(1.25,-1.8)
     val gridSizeScale = 1
     val locs: Array[Loc] = Array(Loc(0,0),Loc(1,0))
     val hexLocs = locs.map(hexLoc(_))
@@ -62,7 +62,7 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
   }
 
   object NextBoard extends UI.Component with UI.Clickable {
-    val origin = HexLoc(boardXSize.toDouble + 1.0, -1.3)
+    val origin = HexLoc(boardXSize.toDouble + 1.25, -1.8)
     val gridSizeScale = 1
     val locs: Array[Loc] = Array(Loc(0,0),Loc(1,0))
     val hexLocs = locs.map(hexLoc(_))
@@ -73,7 +73,20 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
       if(locs.contains(loc)) MouseNextBoard
       else MouseNone
     }
+  }
 
+  object BoardInfo extends UI.Component {
+    val origin = HexLoc(0,0)
+    val gridSizeScale = 1
+
+    def getHexLoc(side: Side): HexLoc = {
+      (side,flipDisplay) match {
+        case (S0,false) | (S1,true) =>
+          HexLoc(-1,-1)
+        case (S1,false) | (S0,true) =>
+          HexLoc(boardXSize.toDouble - 3, -1)
+      }
+    }
   }
 
   //Positioning for end turn hex button
@@ -100,13 +113,18 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     }
   }
 
+  object Clock extends UI.Component {
+    val origin = HexLoc(21.0,-5.5)
+    val gridSizeScale = 1
+  }
+
   object Sidebar extends UI.Component {
-    val origin = HexLoc(21,-2.5)
+    val origin = HexLoc(20,-0.5)
     val gridSizeScale = 1
   }
 
   object Tech extends UI.Component with UI.Clickable {
-    val origin = HexLoc(1,-5) + HexVec(-0.20,0.4)
+    val origin = HexLoc(1,-5) + HexVec(0.05,-0.1)
     val gridSizeScale = 1
 
     def getLoc(techIdx: Int): Loc = {
@@ -133,8 +151,13 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     }
   }
 
+  object ExtraTechAndSpells extends UI.Component {
+    val origin = HexLoc(16.55,-5.1)
+    val gridSizeScale = 1
+  }
+
   object SpellChoice extends UI.Component {
-    val origin = HexLoc(1.5,-2) + HexVec(0.15,-0.3)
+    val origin = HexLoc(1.5,-2) + HexVec(0.425,-0.85)
     val gridSizeScale = 1
 
     def getLoc(spellChoiceIdx: Int): Loc = {

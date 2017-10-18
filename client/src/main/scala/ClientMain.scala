@@ -49,7 +49,7 @@ class Client() {
   def init(): Unit = {
     val jcanvas = jQuery(canvas)
     val jmessages = jQuery(messages)
-    jmessages.height(canvas.height*0.5)
+    jmessages.height(canvas.height*0.4)
     jmessages.width(canvas.width*0.275)
     val canvas_offset = jcanvas.offset.asInstanceOf[Offset]
     val left = canvas_offset.left + jcanvas.width - jmessages.outerWidth(true)
@@ -366,7 +366,7 @@ class Client() {
         mouseState.refresh(game.get,board.curState)
         val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
         Drawing.drawEverything(canvas, ctx, game.get, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
-          mouseState.undoing, showCoords, timeLeft)
+          mouseState.undoing, showCoords, timeLeft, this)
       }
     }
   }
