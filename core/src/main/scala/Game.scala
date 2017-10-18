@@ -78,6 +78,8 @@ case class ResignBoard(boardIdx: Int) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
+case class ChooseSpell(side: Side, spellId: Int) extends GameAction
+case class UnchooseSpell(side: Side, spellId: Int) extends GameAction
 case class AddWin(side: Side, boardIdx: Int) extends GameAction
 case class AddUpcomingSpell(side: Side, spellId: Int) extends GameAction
 
@@ -127,7 +129,8 @@ case object Game {
       techLine = techStatesAlwaysAcquired ++ techStatesLocked,
       piecesAcquired = SideArray.create(piecesAlwaysAcquired),
       numTechsThisTurn = 0,
-      spellsToChoose = SideArray.create(Vector()),
+      spellsToChoose = Vector(),
+      spellsChosen = Set(),
       upcomingSpells = SideArray.create(Vector()),
       targetNumWins = targetNumWins,
       extraTechCost = extraTechCost,
@@ -155,7 +158,8 @@ case class Game (
   val piecesAcquired: SideArray[Map[PieceName,TechState]],
   var numTechsThisTurn: Int,
 
-  var spellsToChoose: SideArray[Vector[Int]],
+  var spellsToChoose: Vector[Int],
+  var spellsChosen: Set[Int],
   var upcomingSpells: SideArray[Vector[Int]],
 
   val targetNumWins: Int,
@@ -177,6 +181,8 @@ case class Game (
     action match {
       case PayForReinforcement(side,pieceName) => tryCanPayForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
+      case ChooseSpell(side,spellId) => tryCanChooseSpell(side,spellId)
+      case UnchooseSpell(side,spellId) => tryCanUnchooseSpell(side,spellId)
       case AddWin(_,_) => Success(())
       case AddUpcomingSpell(_,_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
@@ -190,6 +196,8 @@ case class Game (
     action match {
       case PayForReinforcement(side,pieceName) => payForReinforcement(side,pieceName)
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
+      case ChooseSpell(side,spellId) => chooseSpell(side,spellId)
+      case UnchooseSpell(side,spellId) => unchooseSpell(side,spellId)
       case AddWin(side,_) => { doAddWin(side); Success(()) }
       case AddUpcomingSpell(side,spellId) => { doAddUpcomingSpell(side,spellId); Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
@@ -199,11 +207,13 @@ case class Game (
     }
   }
 
-  private def drawSpells(): Unit = {
-    while(upcomingSpells(curSide).nonEmpty && spellsToChoose(curSide).length < numBoards+1) {
+  private def clearAndDrawSpells(): Unit = {
+    spellsToChoose = Vector()
+    spellsChosen = Set()
+    while(upcomingSpells(curSide).nonEmpty && spellsToChoose.length < numBoards+1) {
       val spellId = upcomingSpells(curSide)(0)
       upcomingSpells(curSide) = upcomingSpells(curSide).drop(1)
-      spellsToChoose(curSide) = spellsToChoose(curSide) :+ spellId
+      spellsToChoose = spellsToChoose :+ spellId
     }
   }
 
@@ -211,13 +221,11 @@ case class Game (
   //A hook for things that also need to happen at the start of the game before any turns for setup
   //rather than just on the ends of turns
   def startGame(): Unit = {
-    drawSpells()
+    //Clear and draw spells first turn
+    clearAndDrawSpells()
   }
 
   def endTurn(): Unit = {
-    //Clear out unchosen spells
-    spellsToChoose(curSide) = Vector()
-
     curSide = curSide.opp
     turnNumber += 1
     numTechsThisTurn = 0
@@ -237,7 +245,7 @@ case class Game (
     for(i <- 0 until isBoardDone.length)
       isBoardDone(i) = false
 
-    drawSpells()
+    clearAndDrawSpells()
   }
 
   private def tryCanPayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
@@ -287,6 +295,46 @@ case class Game (
       case (suc : Success[Unit]) =>
         val stats = Units.pieceMap(pieceName)
         mana(side) = mana(side) + stats.cost
+        suc
+    }
+  }
+
+  private def tryCanChooseSpell(side: Side, spellId: Int): Try[Unit] = {
+    if(side != curSide)
+      Failure(new Exception("Currently the other team's turn"))
+    else if(!spellsToChoose.contains(spellId))
+      Failure(new Exception("Trying to choose unknown spell id"))
+    else if(spellsChosen.contains(spellId))
+      Failure(new Exception("Spell already chosen by a board"))
+    else
+      Success(())
+  }
+
+  private def chooseSpell(side: Side, spellId: Int): Try[Unit] = {
+    tryCanChooseSpell(side,spellId) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        spellsChosen = spellsChosen + spellId
+        suc
+    }
+  }
+
+  private def tryCanUnchooseSpell(side: Side, spellId: Int): Try[Unit] = {
+    if(side != curSide)
+      Failure(new Exception("Currently the other team's turn"))
+    else if(!spellsToChoose.contains(spellId))
+      Failure(new Exception("Trying to undo choosing unknown spell id"))
+    else if(!spellsChosen.contains(spellId))
+      Failure(new Exception("Cannot undo choosing an unchosen spell"))
+    else
+      Success(())
+  }
+
+  private def unchooseSpell(side: Side, spellId: Int): Try[Unit] = {
+    tryCanUnchooseSpell(side,spellId) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        spellsChosen = spellsChosen - spellId
         suc
     }
   }

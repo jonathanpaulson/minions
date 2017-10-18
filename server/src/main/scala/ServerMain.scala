@@ -216,7 +216,9 @@ object ServerMain extends App {
     private def performAndBroadcastGameActionIfLegal(gameAction: GameAction): Try[Unit] = {
       game.doAction(gameAction).map { case () =>
         gameAction match {
-          case PayForReinforcement(_, _) | UnpayForReinforcement(_, _) | PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
+          case PayForReinforcement(_, _) | UnpayForReinforcement(_, _) => ()
+          case ChooseSpell(_, _) | UnchooseSpell(_, _) => ()
+          case PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
           case AddUpcomingSpell(_,_) => ()
           case AddWin(side, boardIdx) =>
             messages = messages :+ ("Team " + side.toColorName + " won board " + boardIdx + "!")
@@ -430,14 +432,23 @@ object ServerMain extends App {
                       val gameAction: GameAction = UnpayForReinforcement(side,pieceName)
                       performAndBroadcastGameActionIfLegal(gameAction)
                     }
+                  case GainSpellUndo(spellId,_) =>
+                    //Check ahead of time if it's legal
+                    boards(boardIdx).tryLegality(boardAction).flatMap { case () =>
+                      //And if so, go ahead and recover the cost of the unit
+                      val gameAction: GameAction = UnchooseSpell(side,spellId)
+                      performAndBroadcastGameActionIfLegal(gameAction)
+                    }
                   case DoGeneralBoardAction(generalBoardAction,_) =>
                     generalBoardAction match {
                       case BuyReinforcement(pieceName) =>
                         //Pay for the cost of the unit
                         val gameAction: GameAction = PayForReinforcement(side,pieceName)
                         performAndBroadcastGameActionIfLegal(gameAction)
-                      case GainSpell(_) =>
-                        Failure(new Exception("Not implemented yet"))
+                      case GainSpell(spellId) =>
+                        //Make sure the spell can be chosen
+                        val gameAction: GameAction = ChooseSpell(side,spellId)
+                        performAndBroadcastGameActionIfLegal(gameAction)
                       case RevealSpell(_,_,_) =>
                         Failure(new Exception("Only server allowed to send this action"))
                     }
@@ -455,7 +466,7 @@ object ServerMain extends App {
                           case DiscardSpell(spellId) => revealSpellToSide(game.curSide.opp,spellId)
                           case (_: Movements) | (_: Attack) | (_: Spawn) | (_: ActivateTile) | (_: ActivateAbility) | (_: Teleport) => ()
                         }
-                      case (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: DoGeneralBoardAction) => ()
+                      case (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: GainSpellUndo) | (_: DoGeneralBoardAction) => ()
                     }
 
                     //If this board was set as done, then since we did an action on it, unset it.
@@ -490,7 +501,8 @@ object ServerMain extends App {
                       messages = messages :+ ("Team " + game.curSide.toColorName + " resigned board " + boardIdx + "!")
                       broadcastAll(Protocol.Messages(messages))
                     }
-                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) | (_: AddUpcomingSpell) =>
+                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) | (_: AddUpcomingSpell) |
+                      (_: ChooseSpell) | (_: UnchooseSpell) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }
                 specialResult.flatMap { case () => game.doAction(gameAction) } match {

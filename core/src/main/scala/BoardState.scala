@@ -149,6 +149,15 @@ sealed trait GeneralBoardAction {
       case GainSpell(_) | RevealSpell(_,_,_) => false
     }
   }
+
+  //Does this action involve gaining the identified spell?
+  def involvesGainSpell(spellId: Int): Boolean = {
+    this match {
+      case GainSpell(id) => spellId == id
+      case BuyReinforcement(_) | RevealSpell(_,_,_) => false
+    }
+  }
+
 }
 
 case class BuyReinforcement(pieceName: PieceName) extends GeneralBoardAction
@@ -322,6 +331,8 @@ case class BoardState private (
   var sorceryPower: Int,
   //Has the side to move used a spawner this turn?
   var hasUsedSpawnerTile: Boolean,
+  //Has this side picked its spell for the turn?
+  var hasGainedSpell: Boolean,
 
   //Current side to move
   var side: Side,
@@ -359,6 +370,7 @@ case class BoardState private (
       spellsInHand = spellsInHand.copy(),
       sorceryPower = sorceryPower,
       hasUsedSpawnerTile = hasUsedSpawnerTile,
+      hasGainedSpell = hasGainedSpell,
       side = side,
       hasWon = hasWon,
       canMove = canMove,

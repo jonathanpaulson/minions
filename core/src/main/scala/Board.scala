@@ -46,6 +46,8 @@ case class LocalPieceUndo(pieceSpec: PieceSpec, actionId: String) extends BoardA
 case class SpellUndo(spellId: Int, actionId: String) extends BoardAction
 //Undo the most recent GeneralBoardAction buying this reinforcement.
 case class BuyReinforcementUndo(pieceName: PieceName, actionId: String) extends BoardAction
+//Undo the most recent GeneralBoardAction choosing this spell.
+case class GainSpellUndo(spellId: Int, actionId: String) extends BoardAction
 
 
 //Pairs board states together with the legal history of actions that generated those states, after reordering of actions.
@@ -153,7 +155,7 @@ class Board private (
           history.spawnActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
         }
         if(!anyActionInvolvesPiece)
-          Failure(new Exception("Cannot undo actions for a piece that hasn't acted"))
+          Failure(new Exception("No actions to undo by this piece this turn"))
         else
           Success(())
 
@@ -163,7 +165,7 @@ class Board private (
           history.spawnActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesSpell(spellId) } }
         }
         if(!anyActionInvolvesSpell)
-          Failure(new Exception("Cannot undo actions for a spell that wasn't played"))
+          Failure(new Exception("No actions to undo involving this spell this turn"))
         else
           Success(())
 
@@ -172,6 +174,12 @@ class Board private (
           Failure(new Exception("Trying to undo buying reinforcement piece with unknown name: " + pieceName))
         else if(!history.generalBoardActionsThisTurn.exists { generalAction => generalAction.involvesBuyPiece(pieceName) })
           Failure(new Exception("Cannot undo buying a piece that was not bought this turn"))
+        else
+          Success(())
+
+      case GainSpellUndo(spellId,_) =>
+        if(!history.generalBoardActionsThisTurn.exists { generalAction => generalAction.involvesGainSpell(spellId) })
+          Failure(new Exception("No actions to undo involving this spell this turn"))
         else
           Success(())
     }
@@ -301,8 +309,6 @@ class Board private (
           case SpellUndo(spellId,_) =>
             val newMoveAttackState = initialStateThisTurn.copy()
             //Reapply all generalBoard actions
-            //Note that this relies on the invariant mentioned at the top of BoardState.scala - that reordering generalBoard actions
-            //to come before player actions never changes the legality of the total move sequence or the final result of that sequence.
             history.generalBoardActionsThisTurn.foreach { generalBoardAction =>
               newMoveAttackState.doGeneralBoardAction(generalBoardAction)
             }
@@ -338,6 +344,33 @@ class Board private (
               dropLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction =>
                 generalBoardAction.involvesBuyPiece(pieceName)
               }
+
+            //General actions cannot be made illegal via one another
+            keptGeneralActionsThisTurn.foreach { generalBoardAction =>
+              newMoveAttackState.doGeneralBoardAction(generalBoardAction)
+            }
+
+            val newMoveAttackActionsThisTurn =
+              reapplyLegal(history.moveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions) }
+            val newSpawnState = newMoveAttackState.copy()
+            val newSpawnActionsThisTurn =
+              reapplyLegal(history.spawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions) }
+
+            BoardHistory(
+              moveAttackState = newMoveAttackState,
+              spawnState = newSpawnState,
+              moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
+              spawnActionsThisTurn = newSpawnActionsThisTurn,
+              generalBoardActionsThisTurn = keptGeneralActionsThisTurn
+            )
+
+          case GainSpellUndo(spellId,_) =>
+            val newMoveAttackState = initialStateThisTurn.copy()
+            //Reapply all generalBoard actions, after filtering
+            val keptGeneralActionsThisTurn =
+              dropLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction =>
+                generalBoardAction.involvesGainSpell(spellId)
+               }
 
             //General actions cannot be made illegal via one another
             keptGeneralActionsThisTurn.foreach { generalBoardAction =>
