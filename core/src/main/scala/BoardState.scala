@@ -146,7 +146,7 @@ sealed trait GeneralBoardAction {
   def involvesBuyPiece(pieceName: PieceName): Boolean = {
     this match {
       case BuyReinforcement(name) => pieceName == name
-      case GainSpell(_) | RevealSpell(_,_,_) => false
+      case GainSpell(_) | RevealSpells(_) => false
     }
   }
 
@@ -154,7 +154,7 @@ sealed trait GeneralBoardAction {
   def involvesGainSpell(spellId: Int): Boolean = {
     this match {
       case GainSpell(id) => spellId == id
-      case BuyReinforcement(_) | RevealSpell(_,_,_) => false
+      case BuyReinforcement(_) | RevealSpells(_) => false
     }
   }
 
@@ -163,7 +163,7 @@ sealed trait GeneralBoardAction {
 case class BuyReinforcement(pieceName: PieceName) extends GeneralBoardAction
 case class GainSpell(spellId: Int) extends GeneralBoardAction
 //server -> client only
-case class RevealSpell(side: Side, spellId: Int, spellName: SpellName) extends GeneralBoardAction
+case class RevealSpells(spellIdsAndNames: Array[(Int,SpellName)]) extends GeneralBoardAction
 
 /** Tile:
  *  A single tile on the board
@@ -264,7 +264,7 @@ object BoardState {
       unsummonedThisTurn = Nil,
       turnNumber = 0,
       reinforcements = SideArray.create(Map()),
-      spellsRevealed = SideArray.create(Map()),
+      spellsRevealed = Map(),
       spellsInHand = SideArray.create(List()),
       sorceryPower = 0,
       hasUsedSpawnerTile = false,
@@ -322,8 +322,8 @@ case class BoardState private (
   //Count of reinforcement pieces in hand by name
   val reinforcements: SideArray[Map[PieceName,Int]],
 
-  //Map of all spells that have been revealed, by side.
-  val spellsRevealed: SideArray[Map[Int,SpellName]],
+  //Map of all spells that have been revealed.
+  var spellsRevealed: Map[Int,SpellName],
   //List of all spells in hand, indexed by spellID
   val spellsInHand: SideArray[List[Int]],
 
@@ -366,7 +366,7 @@ case class BoardState private (
       unsummonedThisTurn = unsummonedThisTurn,
       turnNumber = turnNumber,
       reinforcements = reinforcements.copy(),
-      spellsRevealed = spellsRevealed.copy(),
+      spellsRevealed = spellsRevealed,
       spellsInHand = spellsInHand.copy(),
       sorceryPower = sorceryPower,
       hasUsedSpawnerTile = hasUsedSpawnerTile,
@@ -510,6 +510,7 @@ case class BoardState private (
     killedThisTurn = Nil
     unsummonedThisTurn = Nil
     hasUsedSpawnerTile = false
+    hasGainedSpell = false
 
     //Check for win conditions - start of turn at least 8 graveyards
     var startNumGraveyards = 0
@@ -574,7 +575,7 @@ case class BoardState private (
           Failure(new Exception("Already chose a spell for this board this turn"))
         else
           Success(())
-      case RevealSpell(_,_,_) =>
+      case RevealSpells(_) =>
         Success(())
     }
   }
@@ -593,8 +594,10 @@ case class BoardState private (
         spellsInHand(side) = spellsInHand(side) :+ spellId
         hasGainedSpell = true
 
-      case RevealSpell(side,spellId,spellName) =>
-        spellsRevealed(side) = spellsRevealed(side) + (spellId -> spellName)
+      case RevealSpells(spellIdsAndNames) =>
+        spellIdsAndNames.foreach { case (spellId,spellName) =>
+          spellsRevealed = spellsRevealed + (spellId -> spellName)
+        }
     }
   }
 
@@ -1030,7 +1033,7 @@ case class BoardState private (
         spellsInHand(side).contains(spellId) match {
           case false => fail("Spell not in hand or already played or discarded")
           case true =>
-            spellsRevealed(side).get(spellId) match {
+            spellsRevealed.get(spellId) match {
               case None => fail("Spell was not revealed")
               case Some(spellName) =>
                 Spells.spellMap.get(spellName) match {
@@ -1155,7 +1158,7 @@ case class BoardState private (
         piece.actState = DoneActing
 
       case PlaySpell(spellId,targets) =>
-        val spell = Spells.spellMap(spellsRevealed(side)(spellId))
+        val spell = Spells.spellMap(spellsRevealed(spellId))
         spell.spellType match {
           case NormalSpell => ()
           case Sorcery => sorceryPower -= 1
@@ -1176,7 +1179,7 @@ case class BoardState private (
         spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
 
       case DiscardSpell(spellId) =>
-        val spell = Spells.spellMap(spellsRevealed(side)(spellId))
+        val spell = Spells.spellMap(spellsRevealed(spellId))
         spell.spellType match {
           case NormalSpell => sorceryPower += 1
           case Sorcery => sorceryPower += 1

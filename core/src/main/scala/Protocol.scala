@@ -265,18 +265,18 @@ object Protocol {
 
   implicit val buyReinforcementFormat = Json.format[BuyReinforcement]
   implicit val gainSpellFormat = Json.format[GainSpell]
-  implicit val revealSpellFormat = Json.format[RevealSpell]
+  implicit val revealSpellsFormat = Json.format[RevealSpells]
   implicit val generalBoardActionFormat = {
     val reads: Reads[GeneralBoardAction] = readsFromPair[GeneralBoardAction]("GeneralBoardAction",Map(
       "BuyReinforcement" -> ((json:JsValue) => buyReinforcementFormat.reads(json)),
       "GainSpell" -> ((json:JsValue) => gainSpellFormat.reads(json)),
-      "RevealSpell" -> ((json:JsValue) => revealSpellFormat.reads(json))
+      "RevealSpells" -> ((json:JsValue) => revealSpellsFormat.reads(json))
     ))
     val writes: Writes[GeneralBoardAction] = new Writes[GeneralBoardAction] {
       def writes(t: GeneralBoardAction): JsValue = t match {
         case (t:BuyReinforcement) => jsPair("BuyReinforcement",buyReinforcementFormat.writes(t))
         case (t:GainSpell) => jsPair("GainSpell",gainSpellFormat.writes(t))
-        case (t:RevealSpell) => jsPair("RevealSpell",revealSpellFormat.writes(t))
+        case (t:RevealSpells) => jsPair("RevealSpells",revealSpellsFormat.writes(t))
       }
     }
     Format(reads,writes)
@@ -409,7 +409,7 @@ object Protocol {
   implicit val buyExtraTechAndSpellFormat = Json.format[BuyExtraTechAndSpell]
   implicit val unbuyExtraTechAndSpellFormat = Json.format[UnbuyExtraTechAndSpell]
   implicit val addWinFormat = Json.format[AddWin]
-  implicit val addUpcomingSpellFormat = Json.format[AddUpcomingSpell]
+  implicit val addUpcomingSpellsFormat = Json.format[AddUpcomingSpells]
   implicit val performTechFormat = Json.format[PerformTech]
   implicit val undoTechFormat = Json.format[UndoTech]
   implicit val setBoardDoneFormat = Json.format[SetBoardDone]
@@ -423,7 +423,7 @@ object Protocol {
       "BuyExtraTechAndSpell" -> ((json:JsValue) => buyExtraTechAndSpellFormat.reads(json)),
       "UnbuyExtraTechAndSpell" -> ((json:JsValue) => unbuyExtraTechAndSpellFormat.reads(json)),
       "AddWin" -> ((json:JsValue) => addWinFormat.reads(json)),
-      "AddUpcomingSpell" -> ((json:JsValue) => addUpcomingSpellFormat.reads(json)),
+      "AddUpcomingSpells" -> ((json:JsValue) => addUpcomingSpellsFormat.reads(json)),
       "PerformTech" -> ((json:JsValue) => performTechFormat.reads(json)),
       "UndoTech" -> ((json:JsValue) => undoTechFormat.reads(json)),
       "SetBoardDone" -> ((json:JsValue) => setBoardDoneFormat.reads(json)),
@@ -438,7 +438,7 @@ object Protocol {
         case (t:BuyExtraTechAndSpell) => jsPair("BuyExtraTechAndSpell",buyExtraTechAndSpellFormat.writes(t))
         case (t:UnbuyExtraTechAndSpell) => jsPair("UnbuyExtraTechAndSpell",unbuyExtraTechAndSpellFormat.writes(t))
         case (t:AddWin) => jsPair("AddWin",addWinFormat.writes(t))
-        case (t:AddUpcomingSpell) => jsPair("AddUpcomingSpell",addUpcomingSpellFormat.writes(t))
+        case (t:AddUpcomingSpells) => jsPair("AddUpcomingSpells",addUpcomingSpellsFormat.writes(t))
         case (t:PerformTech) => jsPair("PerformTech",performTechFormat.writes(t))
         case (t:UndoTech) => jsPair("UndoTech",undoTechFormat.writes(t))
         case (t:SetBoardDone) => jsPair("SetBoardDone",setBoardDoneFormat.writes(t))

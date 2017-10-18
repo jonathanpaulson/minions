@@ -83,7 +83,7 @@ case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameA
 case class ChooseSpell(side: Side, spellId: Int) extends GameAction
 case class UnchooseSpell(side: Side, spellId: Int) extends GameAction
 case class AddWin(side: Side, boardIdx: Int) extends GameAction
-case class AddUpcomingSpell(side: Side, spellId: Int) extends GameAction
+case class AddUpcomingSpells(side: Side, spellIds: Array[Int]) extends GameAction
 
 case object Game {
   def apply(
@@ -190,7 +190,7 @@ case class Game (
       case BuyExtraTechAndSpell(side) => tryCanBuyExtraTechAndSpell(side)
       case UnbuyExtraTechAndSpell(side) => tryCanUnbuyExtraTechAndSpell(side)
       case AddWin(_,_) => Success(())
-      case AddUpcomingSpell(_,_) => Success(())
+      case AddUpcomingSpells(_,_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => tryCanUndoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => tryCanSetBoardDone(boardIdx,done)
@@ -207,7 +207,7 @@ case class Game (
       case BuyExtraTechAndSpell(side) => buyExtraTechAndSpell(side)
       case UnbuyExtraTechAndSpell(side) => unbuyExtraTechAndSpell(side)
       case AddWin(side,_) => { doAddWin(side); Success(()) }
-      case AddUpcomingSpell(side,spellId) => { doAddUpcomingSpell(side,spellId); Success(()) }
+      case AddUpcomingSpells(side,spellIds) => { doAddUpcomingSpells(side,spellIds); Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
       case UndoTech(side,techLineIdx) => undoTech(side,techLineIdx)
       case SetBoardDone(boardIdx,done) => setBoardDone(boardIdx,done)
@@ -354,8 +354,8 @@ case class Game (
     }
   }
 
-  private def doAddUpcomingSpell(side: Side, spellId: Int): Unit = {
-    upcomingSpells(side) = upcomingSpells(side) :+ spellId
+  private def doAddUpcomingSpells(side: Side, spellIds: Array[Int]): Unit = {
+    upcomingSpells(side) = upcomingSpells(side) ++ spellIds
   }
 
   private def tryCanPerformTech(side: Side, techLineIdx: Int): Try[Unit] = {

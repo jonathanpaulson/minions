@@ -220,7 +220,7 @@ object ServerMain extends App {
           case ChooseSpell(_, _) | UnchooseSpell(_, _) => ()
           case BuyExtraTechAndSpell(_) | UnbuyExtraTechAndSpell(_) => ()
           case PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
-          case AddUpcomingSpell(_,_) => ()
+          case AddUpcomingSpells(_,_) => ()
           case AddWin(side, boardIdx) =>
             messages = messages :+ ("Team " + side.toColorName + " won board " + boardIdx + "!")
             broadcastAll(Protocol.Messages(messages))
@@ -264,20 +264,28 @@ object ServerMain extends App {
       val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
     }
 
-    private def revealSpellToSide(side: Side, spellId: Int): Unit = {
-      if(!revealedSpellIds(side).contains(spellId)) {
+    private def revealSpellsToSide(side: Side, spellIds: Array[Int]): Unit = {
+      val spellIdsAndNames =
+        spellIds.flatMap { spellId =>
+          if(revealedSpellIds(side).contains(spellId))
+            None
+          else
+            Some((spellId,spellMap(spellId)))
+        }
+
+      spellIdsAndNames.foreach { case (spellId,_) =>
         revealedSpellIds(side) = revealedSpellIds(side) + spellId
-        val actionId = "reveal" + spellId
-        val spellName = spellMap(spellId)
-        val revealAction: BoardAction = DoGeneralBoardAction(RevealSpell(side,spellId,spellName),actionId)
-        for(boardIdx <- 0 until numBoards) {
-          boards(boardIdx).doAction(revealAction) match {
-            case Failure(_) => assertUnreachable()
-            case Success(()) =>
-              boardSequences(boardIdx) += 1
-              //Broadcast the revealing only to the side
-              broadcastToSide(Protocol.ReportBoardAction(boardIdx,revealAction,boardSequences(boardIdx)),side)
-          }
+      }
+
+      val actionId = "reveal"
+      val revealAction: BoardAction = DoGeneralBoardAction(RevealSpells(spellIdsAndNames),actionId)
+      for(boardIdx <- 0 until numBoards) {
+        boards(boardIdx).doAction(revealAction) match {
+          case Failure(_) => assertUnreachable()
+          case Success(()) =>
+            boardSequences(boardIdx) += 1
+            //Broadcast the revealing only to the side
+            broadcastToSide(Protocol.ReportBoardAction(boardIdx,revealAction,boardSequences(boardIdx)),side)
         }
       }
     }
@@ -286,7 +294,11 @@ object ServerMain extends App {
       //Reveal extra spells beyond the end - players get to look ahead a little in the deck
       val extraSpellsRevealed = 10
       Side.foreach { side =>
-        while(game.upcomingSpells(side).length < numBoards + 1 + extraSpellsRevealed) {
+        var newUpcomingSpells: Vector[Int] = Vector()
+
+        val numSpellsToAdd = numBoards + 1 + extraSpellsRevealed - game.upcomingSpells(side).length
+        for(i <- 0 until numSpellsToAdd) {
+          val _ = i
           if(spellsRemaining(side).isEmpty)
             spellsRemaining(side) = rand.shuffle(Spells.createDeck())
 
@@ -294,13 +306,13 @@ object ServerMain extends App {
           val spellId = nextSpellId
           spellsRemaining(side) = spellsRemaining(side).drop(1)
           nextSpellId += 1
-
           spellMap = spellMap + (spellId -> spellName)
-          revealSpellToSide(side,spellId)
-
-          val gameAction: GameAction = AddUpcomingSpell(side,spellId)
-          performAndBroadcastGameActionIfLegal(gameAction)
+          newUpcomingSpells = newUpcomingSpells :+ spellId
         }
+        revealSpellsToSide(side,newUpcomingSpells.toArray)
+
+        val gameAction: GameAction = AddUpcomingSpells(side,newUpcomingSpells.toArray)
+        val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
       }
     }
 
@@ -338,6 +350,8 @@ object ServerMain extends App {
         val board = boards(boardIdx)
         if(!board.curState.hasGainedSpell) {
           game.spellsToChoose.find { spellId => !game.spellsChosen.contains(spellId)}.foreach { spellId =>
+            val gameAction: GameAction = ChooseSpell(game.curSide,spellId)
+            performAndBroadcastGameActionIfLegal(gameAction)
             val boardAction: BoardAction = DoGeneralBoardAction(GainSpell(spellId),"autospell")
             boardSequences(boardIdx) += 1
             broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
@@ -462,7 +476,7 @@ object ServerMain extends App {
                         //Make sure the spell can be chosen
                         val gameAction: GameAction = ChooseSpell(side,spellId)
                         performAndBroadcastGameActionIfLegal(gameAction)
-                      case RevealSpell(_,_,_) =>
+                      case RevealSpells(_) =>
                         Failure(new Exception("Only server allowed to send this action"))
                     }
                 }
@@ -475,8 +489,8 @@ object ServerMain extends App {
                     boardAction match {
                       case PlayerActions(actions,_) =>
                         actions.foreach {
-                          case PlaySpell(spellId,_) => revealSpellToSide(game.curSide.opp,spellId)
-                          case DiscardSpell(spellId) => revealSpellToSide(game.curSide.opp,spellId)
+                          case PlaySpell(spellId,_) => revealSpellsToSide(game.curSide.opp,Array(spellId))
+                          case DiscardSpell(spellId) => revealSpellsToSide(game.curSide.opp,Array(spellId))
                           case (_: Movements) | (_: Attack) | (_: Spawn) | (_: ActivateTile) | (_: ActivateAbility) | (_: Teleport) => ()
                         }
                       case (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: GainSpellUndo) | (_: DoGeneralBoardAction) => ()
@@ -506,7 +520,10 @@ object ServerMain extends App {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks
                 val specialResult: Try[Unit] = gameAction match {
                   case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) => Success(())
-                  case BuyExtraTechAndSpell(_) | UnbuyExtraTechAndSpell(_) => Success(())
+                  case BuyExtraTechAndSpell(_) =>
+                    refillUpcomingSpells()
+                    Success(())
+                  case UnbuyExtraTechAndSpell(_) => Success(())
                   case ResignBoard(boardIdx) =>
                     //Check ahead of time if it's legal
                     game.tryIsLegal(gameAction).map { case () =>
@@ -515,7 +532,7 @@ object ServerMain extends App {
                       messages = messages :+ ("Team " + game.curSide.toColorName + " resigned board " + boardIdx + "!")
                       broadcastAll(Protocol.Messages(messages))
                     }
-                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) | (_: AddUpcomingSpell) |
+                  case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) | (_: AddUpcomingSpells) |
                       (_: ChooseSpell) | (_: UnchooseSpell) =>
                     Failure(new Exception("Only server allowed to send this action"))
                 }
@@ -645,7 +662,7 @@ object ServerMain extends App {
     val sessionId = nextSessionId.getAndIncrement()
 
     //Create output stream for the given user
-    val responseBufferSize = 16 //Buffer messages to the user before failing
+    val responseBufferSize = 128 //Buffer messages to the user before failing
 
     //Specifies a sink where the values are made by a flow of Messages
     //and mapping them and then feeding them to the GameActor
