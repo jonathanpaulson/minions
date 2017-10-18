@@ -403,17 +403,19 @@ case class Game (
       Failure(new Exception("Currently the other team's turn"))
     else if(techLineIdx < 0 || techLineIdx >= techLine.length)
       Failure(new Exception("Invalid tech idx"))
-    else if(techLine(techLineIdx).level(side) == techLine(techLineIdx).startingLevelThisTurn(side))
-      Failure(new Exception("Cannot undo tech from previous turns"))
-    else if(techLineIdx < techLine.length - 1 &&
-      techLine(techLineIdx).level(side) == TechUnlocked &&
-      techLine(techLineIdx+1).level(side) != techLine(techLineIdx+1).startingLevelThisTurn(side))
-      Failure(new Exception("Cannot undo this tech without undoing later techs first"))
     else {
       val techState = techLine(techLineIdx)
       techState.level(side) match {
         case TechLocked => Failure(new Exception("Cannot undo tech never acquired"))
-        case TechUnlocked | TechAcquired => Success(())
+        case TechUnlocked | TechAcquired =>
+          if(techLine(techLineIdx).level(side) == techLine(techLineIdx).startingLevelThisTurn(side))
+            Failure(new Exception("Cannot undo tech from previous turns"))
+          else if(techLineIdx < techLine.length - 1 &&
+            techLine(techLineIdx).level(side) == TechUnlocked &&
+            techLine(techLineIdx+1).level(side) != techLine(techLineIdx+1).startingLevelThisTurn(side))
+            Failure(new Exception("Cannot undo this tech without undoing later techs first"))
+          else
+            Success(())
       }
     }
   }
