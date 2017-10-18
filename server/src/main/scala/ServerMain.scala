@@ -218,6 +218,7 @@ object ServerMain extends App {
         gameAction match {
           case PayForReinforcement(_, _) | UnpayForReinforcement(_, _) => ()
           case ChooseSpell(_, _) | UnchooseSpell(_, _) => ()
+          case BuyExtraTechAndSpell(_) | UnbuyExtraTechAndSpell(_) => ()
           case PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
           case AddUpcomingSpell(_,_) => ()
           case AddWin(side, boardIdx) =>
@@ -329,6 +330,18 @@ object ServerMain extends App {
         val idx = game.techLine.indexWhere { techState => techState.level(oldSide) == TechLocked}
         if(idx >= 0) { //-1 if not found
           val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(PerformTech(oldSide,idx))
+        }
+      }
+
+      //Automatically choose spells if it hasn't happened yet, as a convenience
+      for(boardIdx <- 0 until numBoards) {
+        val board = boards(boardIdx)
+        if(!board.curState.hasGainedSpell) {
+          game.spellsToChoose.find { spellId => !game.spellsChosen.contains(spellId)}.foreach { spellId =>
+            val boardAction: BoardAction = DoGeneralBoardAction(GainSpell(spellId),"autospell")
+            boardSequences(boardIdx) += 1
+            broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
+          }
         }
       }
 
@@ -493,6 +506,7 @@ object ServerMain extends App {
                 //Some game actions are special and are meant to be server -> client only, or need extra checks
                 val specialResult: Try[Unit] = gameAction match {
                   case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) => Success(())
+                  case BuyExtraTechAndSpell(_) | UnbuyExtraTechAndSpell(_) => Success(())
                   case ResignBoard(boardIdx) =>
                     //Check ahead of time if it's legal
                     game.tryIsLegal(gameAction).map { case () =>
