@@ -406,6 +406,8 @@ object Protocol {
   implicit val unpayForReinforcementFormat = Json.format[UnpayForReinforcement]
   implicit val chooseSpellFormat = Json.format[ChooseSpell]
   implicit val unchooseSpellFormat = Json.format[UnchooseSpell]
+  implicit val buyExtraTechAndSpellFormat = Json.format[BuyExtraTechAndSpell]
+  implicit val unbuyExtraTechAndSpellFormat = Json.format[UnbuyExtraTechAndSpell]
   implicit val addWinFormat = Json.format[AddWin]
   implicit val addUpcomingSpellFormat = Json.format[AddUpcomingSpell]
   implicit val performTechFormat = Json.format[PerformTech]
@@ -418,6 +420,8 @@ object Protocol {
       "UnpayForReinforcement" -> ((json:JsValue) => unpayForReinforcementFormat.reads(json)),
       "ChooseSpell" -> ((json:JsValue) => chooseSpellFormat.reads(json)),
       "UnchooseSpell" -> ((json:JsValue) => unchooseSpellFormat.reads(json)),
+      "BuyExtraTechAndSpell" -> ((json:JsValue) => buyExtraTechAndSpellFormat.reads(json)),
+      "UnbuyExtraTechAndSpell" -> ((json:JsValue) => unbuyExtraTechAndSpellFormat.reads(json)),
       "AddWin" -> ((json:JsValue) => addWinFormat.reads(json)),
       "AddUpcomingSpell" -> ((json:JsValue) => addUpcomingSpellFormat.reads(json)),
       "PerformTech" -> ((json:JsValue) => performTechFormat.reads(json)),
@@ -431,6 +435,8 @@ object Protocol {
         case (t:UnpayForReinforcement) => jsPair("UnpayForReinforcement",unpayForReinforcementFormat.writes(t))
         case (t:ChooseSpell) => jsPair("ChooseSpell",chooseSpellFormat.writes(t))
         case (t:UnchooseSpell) => jsPair("UnchooseSpell",unchooseSpellFormat.writes(t))
+        case (t:BuyExtraTechAndSpell) => jsPair("BuyExtraTechAndSpell",buyExtraTechAndSpellFormat.writes(t))
+        case (t:UnbuyExtraTechAndSpell) => jsPair("UnbuyExtraTechAndSpell",unbuyExtraTechAndSpellFormat.writes(t))
         case (t:AddWin) => jsPair("AddWin",addWinFormat.writes(t))
         case (t:AddUpcomingSpell) => jsPair("AddUpcomingSpell",addUpcomingSpellFormat.writes(t))
         case (t:PerformTech) => jsPair("PerformTech",performTechFormat.writes(t))

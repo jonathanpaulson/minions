@@ -75,6 +75,8 @@ case class PerformTech(side: Side, techLineIdx: Int) extends GameAction
 case class UndoTech(side: Side, techLineIdx: Int) extends GameAction
 case class SetBoardDone(boardIdx: Int, done: Boolean) extends GameAction
 case class ResignBoard(boardIdx: Int) extends GameAction
+case class BuyExtraTechAndSpell(side: Side) extends GameAction
+case class UnbuyExtraTechAndSpell(side: Side) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
@@ -128,6 +130,7 @@ case object Game {
       wins = SideArray.create(0),
       techLine = techStatesAlwaysAcquired ++ techStatesLocked,
       piecesAcquired = SideArray.create(piecesAlwaysAcquired),
+      extraTechsAndSpellsThisTurn = 0,
       numTechsThisTurn = 0,
       spellsToChoose = Vector(),
       spellsChosen = Set(),
@@ -156,6 +159,7 @@ case class Game (
 
   val techLine: Array[TechState],
   val piecesAcquired: SideArray[Map[PieceName,TechState]],
+  var extraTechsAndSpellsThisTurn: Int,
   var numTechsThisTurn: Int,
 
   var spellsToChoose: Vector[Int],
@@ -183,6 +187,8 @@ case class Game (
       case UnpayForReinforcement(side,pieceName) => tryCanUnpayForReinforcement(side,pieceName)
       case ChooseSpell(side,spellId) => tryCanChooseSpell(side,spellId)
       case UnchooseSpell(side,spellId) => tryCanUnchooseSpell(side,spellId)
+      case BuyExtraTechAndSpell(side) => tryCanBuyExtraTechAndSpell(side)
+      case UnbuyExtraTechAndSpell(side) => tryCanUnbuyExtraTechAndSpell(side)
       case AddWin(_,_) => Success(())
       case AddUpcomingSpell(_,_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
@@ -198,6 +204,8 @@ case class Game (
       case UnpayForReinforcement(side,pieceName) => unpayForReinforcement(side,pieceName)
       case ChooseSpell(side,spellId) => chooseSpell(side,spellId)
       case UnchooseSpell(side,spellId) => unchooseSpell(side,spellId)
+      case BuyExtraTechAndSpell(side) => buyExtraTechAndSpell(side)
+      case UnbuyExtraTechAndSpell(side) => unbuyExtraTechAndSpell(side)
       case AddWin(side,_) => { doAddWin(side); Success(()) }
       case AddUpcomingSpell(side,spellId) => { doAddUpcomingSpell(side,spellId); Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
@@ -353,8 +361,8 @@ case class Game (
   private def tryCanPerformTech(side: Side, techLineIdx: Int): Try[Unit] = {
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
-    else if(numTechsThisTurn > 0 && mana(side) < extraTechCost)
-      Failure(new Exception("Not enough souls to tech more than once this turn"))
+    else if(numTechsThisTurn >= extraTechsAndSpellsThisTurn + 1)
+      Failure(new Exception("Must buy extra tech to tech additional times this turn"))
     else if(techLineIdx < 0 || techLineIdx >= techLine.length)
       Failure(new Exception("Invalid tech idx"))
     else if(techLineIdx > 0 && techLine(techLineIdx-1).level(side) == TechLocked)
@@ -373,9 +381,6 @@ case class Game (
     tryCanPerformTech(side,techLineIdx) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        if(numTechsThisTurn > 0)
-          mana(side) = mana(side) - extraTechCost
-
         numTechsThisTurn += 1
         val techState = techLine(techLineIdx)
         techState.level(side) match {
@@ -434,6 +439,54 @@ case class Game (
           case TechLocked =>
             assertUnreachable()
         }
+        suc
+    }
+  }
+
+  private def tryCanBuyExtraTechAndSpell(side: Side): Try[Unit] = {
+    if(side != curSide)
+      Failure(new Exception("Currently the other team's turn"))
+    else if(mana(side) < extraTechCost)
+      Failure(new Exception("Not enough souls"))
+    else
+      Success(())
+  }
+
+  private def buyExtraTechAndSpell(side: Side): Try[Unit] = {
+    tryCanBuyExtraTechAndSpell(side) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        mana(side) = mana(side) - extraTechCost
+        extraTechsAndSpellsThisTurn += 1
+        val spellId = upcomingSpells(curSide)(0)
+        upcomingSpells(curSide) = upcomingSpells(curSide).drop(1)
+        spellsToChoose = spellsToChoose :+ spellId
+        suc
+    }
+  }
+
+  private def tryCanUnbuyExtraTechAndSpell(side: Side): Try[Unit] = {
+    if(side != curSide)
+      Failure(new Exception("Currently the other team's turn"))
+    else if(extraTechsAndSpellsThisTurn <= 0)
+      Failure(new Exception("No extra techs and spells to undo this turn"))
+    else if(spellsChosen.contains(spellsToChoose.last))
+      Failure(new Exception("Undo not possible since extra spell was claimed, that board must first undo claiming that spell"))
+    else if(numTechsThisTurn >= extraTechsAndSpellsThisTurn + 1)
+      Failure(new Exception("Undo not possible since extra tech was used, must first choose a tech to undo"))
+    else
+      Success(())
+  }
+
+  private def unbuyExtraTechAndSpell(side: Side): Try[Unit] = {
+    tryCanUnbuyExtraTechAndSpell(side) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        mana(side) = mana(side) + extraTechCost
+        extraTechsAndSpellsThisTurn -= 1
+        val spellId = spellsToChoose.last
+        upcomingSpells(curSide) = spellId +: upcomingSpells(curSide)
+        spellsToChoose = spellsToChoose.dropRight(1)
         suc
     }
   }
