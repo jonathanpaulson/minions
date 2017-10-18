@@ -423,6 +423,22 @@ class Board private (
     history = BoardHistory.initial(initialStateThisTurn)
   }
 
+  def revealSpells(spellIdsAndNames: Array[(Int,SpellName)]) = {
+    initialStateThisTurn = initialStateThisTurn.copy()
+    initialStateThisTurn.revealSpells(spellIdsAndNames)
+    val newMoveAttackState = history.moveAttackState.copy()
+    val newSpawnState = history.spawnState.copy()
+    newMoveAttackState.revealSpells(spellIdsAndNames)
+    newSpawnState.revealSpells(spellIdsAndNames)
+    history = BoardHistory(
+      moveAttackState = newMoveAttackState,
+      spawnState = newSpawnState,
+      moveAttackActionsThisTurn = history.moveAttackActionsThisTurn,
+      spawnActionsThisTurn = history.spawnActionsThisTurn,
+      generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
+    )
+  }
+
   def toSummary(): BoardSummary = {
     BoardSummary(
       initialStateThisTurn.copy(),

@@ -146,7 +146,7 @@ sealed trait GeneralBoardAction {
   def involvesBuyPiece(pieceName: PieceName): Boolean = {
     this match {
       case BuyReinforcement(name) => pieceName == name
-      case GainSpell(_) | RevealSpells(_) => false
+      case GainSpell(_) => false
     }
   }
 
@@ -154,7 +154,7 @@ sealed trait GeneralBoardAction {
   def involvesGainSpell(spellId: Int): Boolean = {
     this match {
       case GainSpell(id) => spellId == id
-      case BuyReinforcement(_) | RevealSpells(_) => false
+      case BuyReinforcement(_) => false
     }
   }
 
@@ -162,8 +162,6 @@ sealed trait GeneralBoardAction {
 
 case class BuyReinforcement(pieceName: PieceName) extends GeneralBoardAction
 case class GainSpell(spellId: Int) extends GeneralBoardAction
-//server -> client only
-case class RevealSpells(spellIdsAndNames: Array[(Int,SpellName)]) extends GeneralBoardAction
 
 /** Tile:
  *  A single tile on the board
@@ -563,6 +561,12 @@ case class BoardState private (
     resetSorceryPower()
   }
 
+  def revealSpells(spellIdsAndNames: Array[(Int,SpellName)]) = {
+    spellIdsAndNames.foreach { case (spellId,spellName) =>
+      spellsRevealed = spellsRevealed + (spellId -> spellName)
+    }
+  }
+
   def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
     action match {
       case BuyReinforcement(pieceName) =>
@@ -575,8 +579,6 @@ case class BoardState private (
           Failure(new Exception("Already chose a spell for this board this turn"))
         else
           Success(())
-      case RevealSpells(_) =>
-        Success(())
     }
   }
 
@@ -593,11 +595,6 @@ case class BoardState private (
       case GainSpell(spellId) =>
         spellsInHand(side) = spellsInHand(side) :+ spellId
         hasGainedSpell = true
-
-      case RevealSpells(spellIdsAndNames) =>
-        spellIdsAndNames.foreach { case (spellId,spellName) =>
-          spellsRevealed = spellsRevealed + (spellId -> spellName)
-        }
     }
   }
 

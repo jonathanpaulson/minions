@@ -301,6 +301,9 @@ class Client() {
         //At each new turn, clear the time left so that it can be refreshed by the next server update
         estimatedTurnEndTime = None
 
+      case Protocol.ReportRevealSpells(spellIdsAndNames) =>
+        serverBoards.foreach { board => board.revealSpells(spellIdsAndNames) }
+        localBoards.foreach { board => board.revealSpells(spellIdsAndNames) }
 
       case Protocol.ReportTimeLeft(timeLeft) =>
         updateEstimatedTurnEndTime(timeLeft)

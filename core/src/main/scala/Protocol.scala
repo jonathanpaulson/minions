@@ -23,6 +23,7 @@ object Protocol {
   case class ReportGameAction(gameAction: GameAction, newGameSequence: Int) extends Response
   case class ReportNewTurn(newSide: Side) extends Response
   case class ReportResetBoard(boardIdx: Int, necroNames:SideArray[PieceName], canMove: Boolean) extends Response
+  case class ReportRevealSpells(spellsIdsAndNames: Array[(Int,SpellName)]) extends Response
   case class ReportTimeLeft(timeLeft: Option[Double]) extends Response
 
   sealed trait Query
@@ -265,18 +266,15 @@ object Protocol {
 
   implicit val buyReinforcementFormat = Json.format[BuyReinforcement]
   implicit val gainSpellFormat = Json.format[GainSpell]
-  implicit val revealSpellsFormat = Json.format[RevealSpells]
   implicit val generalBoardActionFormat = {
     val reads: Reads[GeneralBoardAction] = readsFromPair[GeneralBoardAction]("GeneralBoardAction",Map(
       "BuyReinforcement" -> ((json:JsValue) => buyReinforcementFormat.reads(json)),
       "GainSpell" -> ((json:JsValue) => gainSpellFormat.reads(json)),
-      "RevealSpells" -> ((json:JsValue) => revealSpellsFormat.reads(json))
     ))
     val writes: Writes[GeneralBoardAction] = new Writes[GeneralBoardAction] {
       def writes(t: GeneralBoardAction): JsValue = t match {
         case (t:BuyReinforcement) => jsPair("BuyReinforcement",buyReinforcementFormat.writes(t))
         case (t:GainSpell) => jsPair("GainSpell",gainSpellFormat.writes(t))
-        case (t:RevealSpells) => jsPair("RevealSpells",revealSpellsFormat.writes(t))
       }
     }
     Format(reads,writes)
@@ -466,6 +464,7 @@ object Protocol {
   implicit val reportGameActionFormat = Json.format[ReportGameAction]
   implicit val reportNewTurnFormat = Json.format[ReportNewTurn]
   implicit val reportResetBoardFormat = Json.format[ReportResetBoard]
+  implicit val reportRevealSpellsFormat = Json.format[ReportRevealSpells]
   implicit val reportTimeLeftFormat = Json.format[ReportTimeLeft]
   implicit val responseFormat = {
     val reads: Reads[Response] = readsFromPair[Response]("Response",Map(
@@ -484,6 +483,7 @@ object Protocol {
       "ReportGameAction" -> ((json:JsValue) => reportGameActionFormat.reads(json)),
       "ReportNewTurn" -> ((json:JsValue) => reportNewTurnFormat.reads(json)),
       "ReportResetBoard" -> ((json:JsValue) => reportResetBoardFormat.reads(json)),
+      "ReportRevealSpells" -> ((json:JsValue) => reportRevealSpellsFormat.reads(json)),
       "ReportTimeLeft" -> ((json:JsValue) => reportTimeLeftFormat.reads(json))
     ))
     val writes: Writes[Response] = new Writes[Response] {
@@ -503,6 +503,7 @@ object Protocol {
         case (t:ReportGameAction) => jsPair("ReportGameAction",reportGameActionFormat.writes(t))
         case (t:ReportNewTurn) => jsPair("ReportNewTurn",reportNewTurnFormat.writes(t))
         case (t:ReportResetBoard) => jsPair("ReportResetBoard",reportResetBoardFormat.writes(t))
+        case (t:ReportRevealSpells) => jsPair("ReportRevealSpells",reportRevealSpellsFormat.writes(t))
         case (t:ReportTimeLeft) => jsPair("ReportTimeLeft",reportTimeLeftFormat.writes(t))
       }
     }

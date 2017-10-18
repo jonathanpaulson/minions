@@ -277,17 +277,10 @@ object ServerMain extends App {
         revealedSpellIds(side) = revealedSpellIds(side) + spellId
       }
 
-      val actionId = "reveal"
-      val revealAction: BoardAction = DoGeneralBoardAction(RevealSpells(spellIdsAndNames),actionId)
       for(boardIdx <- 0 until numBoards) {
-        boards(boardIdx).doAction(revealAction) match {
-          case Failure(_) => assertUnreachable()
-          case Success(()) =>
-            boardSequences(boardIdx) += 1
-            //Broadcast the revealing only to the side
-            broadcastToSide(Protocol.ReportBoardAction(boardIdx,revealAction,boardSequences(boardIdx)),side)
-        }
+        boards(boardIdx).revealSpells(spellIdsAndNames)
       }
+      broadcastToSide(Protocol.ReportRevealSpells(spellIdsAndNames),side)
     }
 
     private def refillUpcomingSpells(): Unit = {
@@ -476,8 +469,6 @@ object ServerMain extends App {
                         //Make sure the spell can be chosen
                         val gameAction: GameAction = ChooseSpell(side,spellId)
                         performAndBroadcastGameActionIfLegal(gameAction)
-                      case RevealSpells(_) =>
-                        Failure(new Exception("Only server allowed to send this action"))
                     }
                 }
 
