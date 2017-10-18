@@ -869,14 +869,11 @@ case class BoardState private (
       case (spell: TargetedSpell) =>
         findPiece(targets.target0) match {
           case None => failed("No target specified for spell")
-          case Some(target) =>
-            if(!spell.canTarget(side,target)) failed(spell.targetError)
-            else Success(())
+          case Some(target) => spell.tryCanTarget(side,target,target.curStats(this))
         }
       case (spell: TileSpell) =>
         if(!tiles.inBounds(targets.loc0)) failed("Target location not in bounds")
-        else if(!spell.canTarget(side,tiles(targets.loc0),pieces(targets.loc0))) failed(spell.targetError)
-        else Success(())
+        else spell.tryCanTarget(side,tiles(targets.loc0),pieces(targets.loc0))
       case (_: NoEffectSpell) =>
         Success(())
     }

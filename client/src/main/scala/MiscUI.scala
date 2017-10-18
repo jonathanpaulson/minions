@@ -157,7 +157,7 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
   }
 
   object SpellChoice extends UI.Component {
-    val origin = HexLoc(1.5,-2) + HexVec(0.425,-0.85)
+    val origin = HexLoc(0.5,-2) + HexVec(0.425,-0.85)
     val gridSizeScale = 1
 
     def getLoc(spellChoiceIdx: Int): Loc = {

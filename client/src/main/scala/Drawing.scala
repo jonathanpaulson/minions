@@ -386,9 +386,9 @@ object Drawing {
           if(stats.spawnRange > 0) {
             assert(stats.spawnRange <= 2)
             if(stats.spawnRange == 1)
-              show("Summoner (friendly units can spawn adjacent)")
+              show("Spawner (friendly units can spawn adjacent)")
             else
-              show("Greater Summoner (spawn units at range 2)")
+              show("Greater Spawner (spawn units at range 2)")
           }
           if(stats.isPersistent) {
             show("Persistent (cannot be unsummoned)")
@@ -633,9 +633,41 @@ object Drawing {
     }
 
     //Spells
-    for(i <- 0 until 5) {
-      val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
-      fillHex(hexLoc, "gray", spellScale, alpha=1.0)
+    client.ourSide.foreach { ourSide =>
+      val labelLoc = PixelLoc.ofHexLoc(ui.SpellChoice.origin + HexVec(-1,0), gridSize)
+      if(ourSide == game.curSide) {
+        text("Available", labelLoc + PixelVec(0,-4.0), "black")
+        text("Spells", labelLoc + PixelVec(0,7.0), "black")
+      }
+      else {
+        text("Upcoming", labelLoc + PixelVec(0,-4.0), "black")
+        text("Spells", labelLoc + PixelVec(0,7.0), "black")
+      }
+
+      for(i <- 0 until 12) {
+        val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
+        val (spellId,isDrawn) = {
+          val chooseLen = { if(ourSide == game.curSide) game.spellsToChoose.length else 0 }
+          if(i < chooseLen) (Some(game.spellsToChoose(i)),true)
+          else if(i - chooseLen < game.upcomingSpells(ourSide).length) (Some(game.upcomingSpells(ourSide)(i - chooseLen)),false)
+          else (None,false)
+        }
+        spellId.foreach { spellId =>
+          board.spellsRevealed.get(spellId).foreach { spellName =>
+            val color = {
+              if(!isDrawn) "#aaaaaa"
+              else ourSide match {
+                case S0 => "#bbbbff"
+                case S1 => "#ffbbbb"
+              }
+            }
+            val spell = Spells.spellMap(spellName)
+            fillHex(hexLoc, color, spellScale)
+            strokeHex(hexLoc, "black", spellScale, alpha=0.2)
+            text(spell.shortDisplayName, hexLoc, "black")
+          }
+        }
+      }
     }
 
     //Terrain

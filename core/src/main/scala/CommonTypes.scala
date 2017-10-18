@@ -145,7 +145,7 @@ case class PieceModWithDuration(
  */
 sealed trait PieceAbility {
   val name: AbilityName  //MUST be a UNIQUE key for different modifiers!
-  val displayName: String //For display purposes
+  val displayName: String
   val desc: String
   val isSorcery: Boolean //Requires a discarded spell
   val tryIsUsableNow: Piece => Try[Unit]
@@ -229,6 +229,7 @@ case object DoubleCantrip extends SpellType
 sealed trait Spell {
   val name: SpellName
   val displayName: String
+  val shortDisplayName: String
   val desc: String
   val spellType: SpellType
 
@@ -246,6 +247,7 @@ sealed trait Spell {
 case class NoEffectSpell(
   val name: SpellName,
   val displayName: String,
+  val shortDisplayName: String,
   val desc: String,
   val spellType: SpellType
 ) extends Spell {
@@ -260,10 +262,10 @@ case class NoEffectSpell(
 case class TargetedSpell(
   val name: SpellName,
   val displayName: String,
+  val shortDisplayName: String,
   val desc: String,
   val spellType: SpellType,
-  val canTarget: (Side, Piece) => Boolean, //(spell caster side, target)
-  val targetError: String, //Error message when target not legal
+  val tryCanTarget: (Side, Piece, PieceStats) => Try[Unit], //(spell caster side, target, target current stats)
   val effect: TargetEffect
 ) extends Spell {
   override def equals(o: Any): Boolean = super.equals(o)
@@ -277,10 +279,10 @@ case class TargetedSpell(
 case class TileSpell(
   val name: SpellName,
   val displayName: String,
+  val shortDisplayName: String,
   val desc: String,
   val spellType: SpellType,
-  val canTarget: (Side, Tile, List[Piece]) => Boolean, //(spell caster side, tile, pieces on tile)
-  val targetError: String, //Error message when target not legal
+  val tryCanTarget: (Side, Tile, List[Piece]) => Try[Unit], //(spell caster side, tile, pieces on tile)
   val effect: Tile => Tile
 ) extends Spell {
   override def equals(o: Any): Boolean = super.equals(o)
