@@ -15,6 +15,7 @@ sealed trait MouseTarget {
       case MouseTech(_,_) => None
       case MouseReinforcement(_,_,_) => None
       case MouseDeadPiece(_,_) => None
+      case MouseExtraTechAndSpell(_) => None
       case MouseEndTurn(_) => None
       case MouseNextBoard => None
       case MousePrevBoard => None
@@ -29,6 +30,7 @@ sealed trait MouseTarget {
       case MouseTech(_,loc) => Some(loc)
       case MouseReinforcement(_,_,loc) => Some(loc)
       case MouseDeadPiece(_,loc) => Some(loc)
+      case MouseExtraTechAndSpell(loc) => Some(loc)
       case MouseEndTurn(loc) => Some(loc)
       case MouseNextBoard => None
       case MousePrevBoard => None
@@ -42,6 +44,7 @@ case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int, loc: Loc) extends MouseTarget
 case class MouseReinforcement(pieceName: PieceName, side:Side, loc: Loc) extends MouseTarget
 case class MouseDeadPiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
+case class MouseExtraTechAndSpell(loc: Loc) extends MouseTarget
 case class MouseEndTurn(loc: Loc) extends MouseTarget
 case object MouseNextBoard extends MouseTarget
 case object MousePrevBoard extends MouseTarget
@@ -301,6 +304,15 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     //Branch based on what we selected on the mouseDown
     dragTarget match {
       case MouseNone => ()
+
+      case MouseExtraTechAndSpell(_) =>
+        if(curTarget == dragTarget) {
+          if(undo) {
+            mouseState.client.doGameAction(UnbuyExtraTechAndSpell(game.curSide))
+          } else {
+            mouseState.client.doGameAction(BuyExtraTechAndSpell(game.curSide))
+          }
+        }
 
       case MouseEndTurn(_) =>
         //Require mouse down and up on the same target
