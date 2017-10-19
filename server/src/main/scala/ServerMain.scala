@@ -202,6 +202,11 @@ object ServerMain extends App {
       }
     }
 
+    private def broadcastToSpectators(response: Protocol.Response): Unit = {
+      userOuts.foreach { case (sid,out) =>
+        if(userSides(sid).isEmpty) out ! response
+      }
+    }
     private def broadcastToSide(response: Protocol.Response, side: Side): Unit = {
       userOuts.foreach { case (sid,out) =>
         if(userSides(sid).contains(side)) out ! response
@@ -264,7 +269,7 @@ object ServerMain extends App {
       val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
     }
 
-    private def revealSpellsToSide(side: Side, spellIds: Array[Int]): Unit = {
+    private def revealSpellsToSide(side: Side, spellIds: Array[Int], revealToSpectators: Boolean = false): Unit = {
       val spellIdsAndNames =
         spellIds.flatMap { spellId =>
           if(revealedSpellIds(side).contains(spellId))
@@ -281,6 +286,8 @@ object ServerMain extends App {
         boards(boardIdx).revealSpells(spellIdsAndNames)
       }
       broadcastToSide(Protocol.ReportRevealSpells(spellIdsAndNames),side)
+      if(revealToSpectators)
+        broadcastToSpectators(Protocol.ReportRevealSpells(spellIdsAndNames))
     }
 
     private def refillUpcomingSpells(): Unit = {
@@ -480,8 +487,8 @@ object ServerMain extends App {
                     boardAction match {
                       case PlayerActions(actions,_) =>
                         actions.foreach {
-                          case PlaySpell(spellId,_) => revealSpellsToSide(game.curSide.opp,Array(spellId))
-                          case DiscardSpell(spellId) => revealSpellsToSide(game.curSide.opp,Array(spellId))
+                          case PlaySpell(spellId,_) => revealSpellsToSide(game.curSide.opp,Array(spellId), revealToSpectators = true)
+                          case DiscardSpell(spellId) => revealSpellsToSide(game.curSide.opp,Array(spellId), revealToSpectators = true)
                           case (_: Movements) | (_: Attack) | (_: Spawn) | (_: ActivateTile) | (_: ActivateAbility) | (_: Teleport) => ()
                         }
                       case (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: GainSpellUndo) | (_: DoGeneralBoardAction) => ()
