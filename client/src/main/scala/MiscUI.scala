@@ -151,9 +151,16 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     }
   }
 
-  object ExtraTechAndSpells extends UI.Component {
+  object ExtraTechAndSpell extends UI.Component with UI.Clickable {
     val origin = HexLoc(16.55,-5.1)
     val gridSizeScale = 1
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game,board)
+      val (loc,_) = getLocAndDelta(hexLoc)
+      if(loc == Loc.zero) MouseExtraTechAndSpell(loc)
+      else MouseNone
+    }
   }
 
   object SpellChoice extends UI.Component {
@@ -326,6 +333,7 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     ResignBoard,
     PrevBoard,
     NextBoard,
+    ExtraTechAndSpell,
   )
 
 }

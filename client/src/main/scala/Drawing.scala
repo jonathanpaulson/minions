@@ -571,10 +571,10 @@ object Drawing {
     text("Board", PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize) + PixelVec(0,7.0), "black")
 
     //Extra tech and spells hex
-    fillHex(ui.ExtraTechAndSpells.origin, "#dddddd", tileScale)
-    strokeHex(ui.ExtraTechAndSpells.origin, "#666666", tileScale, lineWidth=1.0)
-    text("Buy Extra", PixelLoc.ofHexLoc(ui.ExtraTechAndSpells.origin, gridSize) + PixelVec(0,-4.0), "black")
-    text("Tech+Spell", PixelLoc.ofHexLoc(ui.ExtraTechAndSpells.origin, gridSize) + PixelVec(0,7.0), "black")
+    fillHex(ui.ExtraTechAndSpell.origin, "#dddddd", tileScale)
+    strokeHex(ui.ExtraTechAndSpell.origin, "#666666", tileScale, lineWidth=1.0)
+    text("Buy Extra", PixelLoc.ofHexLoc(ui.ExtraTechAndSpell.origin, gridSize) + PixelVec(0,-4.0), "black")
+    text("Tech+Spell", PixelLoc.ofHexLoc(ui.ExtraTechAndSpell.origin, gridSize) + PixelVec(0,7.0), "black")
 
     //Reinforcements
     Side.foreach { side =>
@@ -953,6 +953,8 @@ object Drawing {
           case MouseNone => ()
           case MouseTile(loc) =>
             drawSidebar(None, None, None, Some(board.tiles(loc)))
+          case MouseExtraTechAndSpell(_) =>
+            strokeHex(ui.ExtraTechAndSpell.origin, "black", tileScale, alpha=0.5)
           case MouseEndTurn(_) =>
             strokeHex(ui.EndTurn.origin, "black", tileScale, alpha=0.5)
           case MouseResignBoard(_) =>
@@ -1004,6 +1006,8 @@ object Drawing {
         mouseState.dragTarget match {
           case MouseNone => ()
           case MouseTile(_) => ()
+          case MouseExtraTechAndSpell(_) =>
+            highlightHex(ui.ExtraTechAndSpell.origin)
           case MouseEndTurn(_) =>
             highlightHex(ui.EndTurn.origin)
           case MouseResignBoard(_) =>
@@ -1151,6 +1155,7 @@ object Drawing {
         case MouseTech(_,_) => ui.Tech
         case MouseReinforcement(_,_,_) => ui.Reinforcements
         case MouseDeadPiece(_,_) => ui.DeadPieces
+        case MouseExtraTechAndSpell(_) => ui.ExtraTechAndSpell
         case MouseEndTurn(_) => ui.EndTurn
         case MouseNextBoard => ui.NextBoard
         case MousePrevBoard => ui.PrevBoard
