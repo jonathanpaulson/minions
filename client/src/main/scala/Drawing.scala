@@ -231,13 +231,17 @@ object Drawing {
       }
     }
 
-    def drawSidebar(piece: Option[Piece], stats: Option[PieceStats], side: Option[Side], tile : Option[Tile]) = {
+    def drawSidebar(piece: Option[Piece], stats: Option[PieceStats], side: Option[Side], tile : Option[Tile], spell : Option[Spell]) = {
       val hexLoc = ui.Sidebar.origin
       tile match {
         case None => ()
         case Some(tile) => drawTile(hexLoc, Loc.zero, tile, 6.0)
       }
       stats match {
+        case None => ()
+        case Some(_) => drawPiece(hexLoc, pieceScale*6.0, side, "")
+      }
+      spell match {
         case None => ()
         case Some(_) => drawPiece(hexLoc, pieceScale*6.0, side, "")
       }
@@ -448,6 +452,21 @@ object Drawing {
               show("Only one spawner can be used per turn.")
           }
       }
+      spell match {
+        case None => ()
+        case Some(spell) =>
+          val typStr =
+            spell.spellType match {
+              case NormalSpell => ""
+              case Sorcery => " (Sorcery)"
+              case Cantrip => " (Cantrip)"
+              case DoubleCantrip => " (Cantrip x2)"
+            }
+          show(spell.displayName + typStr)
+          spell.desc.foreach { line =>
+            show(line)
+          }
+      }
     }
 
     ctx.setTransform(1,0,0,1,0,0)
@@ -644,14 +663,9 @@ object Drawing {
         text("Spells", labelLoc + PixelVec(0,7.0), "black")
       }
 
-      for(i <- 0 until 12) {
+      for(i <- 0 until ui.SpellChoice.size) {
         val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
-        val (spellId,isDrawn) = {
-          val chooseLen = { if(ourSide == game.curSide) game.spellsToChoose.length else 0 }
-          if(i < chooseLen) (Some(game.spellsToChoose(i)),true)
-          else if(i - chooseLen < game.upcomingSpells(ourSide).length) (Some(game.upcomingSpells(ourSide)(i - chooseLen)),false)
-          else (None,false)
-        }
+        val (spellId, isDrawn) = game.resolveSpellChoice(i, client.ourSide)
         spellId.foreach { spellId =>
           board.spellsRevealed.get(spellId).foreach { spellName =>
             val color = {
@@ -951,8 +965,15 @@ object Drawing {
         //Highlight mouse's target on mouse hover
         mouseState.hovered match {
           case MouseNone => ()
+          case MouseSpellChoice(idx,_) =>
+            val (spellId, isDrawn) = game.resolveSpellChoice(idx, client.ourSide)
+            spellId.foreach { spellId =>
+              board.spellsRevealed.get(spellId).foreach { spellName =>
+                drawSidebar(None, None, if(isDrawn) Some(game.curSide) else None, None, Some(Spells.spellMap(spellName)))
+              }
+            }
           case MouseTile(loc) =>
-            drawSidebar(None, None, None, Some(board.tiles(loc)))
+            drawSidebar(None, None, None, Some(board.tiles(loc)), None)
           case MouseExtraTechAndSpell(_) =>
             strokeHex(ui.ExtraTechAndSpell.origin, "black", tileScale, alpha=0.5)
           case MouseEndTurn(_) =>
@@ -970,7 +991,7 @@ object Drawing {
             if(canClickOnTech(techIdx)) {
               strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
             }
-            drawSidebar(None, Some(game.techLine(techIdx).tech.pieceStats), None, None)
+            drawSidebar(None, Some(game.techLine(techIdx).tech.pieceStats), None, None, None)
           case MouseReinforcement(pieceName,side,loc) =>
             strokeHex(ui.Reinforcements.hexLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing) {
@@ -979,7 +1000,7 @@ object Drawing {
               }
               pieceSpec.foreach { pieceSpec => highlightUndoneActionsForPieceSpec(pieceSpec) }
             }
-            drawSidebar(None, Some(Units.pieceMap(pieceName)), Some(side), None)
+            drawSidebar(None, Some(Units.pieceMap(pieceName)), Some(side), None, None)
           case MouseDeadPiece(pieceSpec,loc) =>
             strokeHex(ui.DeadPieces.hexLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing)
@@ -987,7 +1008,7 @@ object Drawing {
             ui.DeadPieces.getSelectedPiece(board, pieceSpec) match {
               case None => ()
               case Some((stats, side)) =>
-                drawSidebar(None, Some(stats), Some(side), None)
+                drawSidebar(None, Some(stats), Some(side), None, None)
             }
           case MousePiece(spec,_) =>
             board.findPiece(spec) match {
@@ -995,7 +1016,7 @@ object Drawing {
               case Some(piece) =>
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
                 strokeHex(loc, "black", scale, alpha=0.5)
-                drawSidebar(Some(piece), Some(piece.curStats(board)), Some(piece.side), Some(board.tiles(piece.loc)))
+                drawSidebar(Some(piece), Some(piece.curStats(board)), Some(piece.side), Some(board.tiles(piece.loc)), None)
             }
 
             if(undoing)
@@ -1005,6 +1026,8 @@ object Drawing {
         //Draw highlights based on piece selected by mouse click
         mouseState.dragTarget match {
           case MouseNone => ()
+          case MouseSpellChoice(_,loc) =>
+            highlightHex(ui.SpellChoice.hexLoc(loc))
           case MouseTile(_) => ()
           case MouseExtraTechAndSpell(_) =>
             highlightHex(ui.ExtraTechAndSpell.origin)
@@ -1150,6 +1173,7 @@ object Drawing {
     mouseState.hovered.getLoc().foreach { hoverLoc =>
       val component = mouseState.hovered match {
         case MouseNone => ui.MainBoard
+        case MouseSpellChoice(_,_) => ui.SpellChoice
         case MousePiece(_,_) => ui.MainBoard
         case MouseTile(_) => ui.MainBoard
         case MouseTech(_,_) => ui.Tech

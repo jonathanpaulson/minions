@@ -6,7 +6,7 @@ case object Spells {
     name = "fester",
     displayName = "Fester",
     shortDisplayName = "Fester",
-    desc = "Deal 1 damage to target minion that was dealt damage this turn.",
+    desc = List("Deal 1 damage to target minion", "that was dealt damage this turn."),
     spellType = NormalSpell,
     tryCanTarget = { (_: Side, piece:Piece, pieceStats:PieceStats) =>
       if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
@@ -20,7 +20,7 @@ case object Spells {
     name = "dismember",
     displayName = "Dismember",
     shortDisplayName = "Dismemb",
-    desc = "Deal 3 damage to target minion that was dealt damage this turn.",
+    desc = List("Deal 3 damage to target minion", "that was dealt damage this turn."),
     spellType = Sorcery,
     tryCanTarget = { (_: Side, piece:Piece, pieceStats:PieceStats) =>
       if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
@@ -34,7 +34,7 @@ case object Spells {
     name = "lightning_bolt",
     displayName = "Lightning Bolt",
     shortDisplayName = "Bolt",
-    desc = "Deal 1 damage to target enemy minion.",
+    desc = List("Deal 1 damage to target enemy minion."),
     spellType = Sorcery,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
@@ -47,7 +47,7 @@ case object Spells {
     name = "freeze",
     displayName = "Freeze",
     shortDisplayName = "Freeze",
-    desc = "Target enemy minion cannot attack until the start of your next turn",
+    desc = List("Target enemy minion cannot attack", "until the start of your next turn"),
     spellType = Sorcery,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
@@ -60,7 +60,7 @@ case object Spells {
     name = "shield",
     displayName = "Shield",
     shortDisplayName = "Shield",
-    desc = "Target friendly minion's defense is doubled and is persistent until the start of your next turn.",
+    desc = List("Target friendly minion's defense is doubled", "and is persistent until the start of your next turn."),
     spellType = NormalSpell,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
@@ -73,7 +73,7 @@ case object Spells {
     name = "unsummon",
     displayName = "Unsummon",
     shortDisplayName = "Unsumm",
-    desc = "Unsummon target damaged minion.",
+    desc = List("Unsummon target damaged minion."),
     spellType = NormalSpell,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
@@ -88,7 +88,7 @@ case object Spells {
     name = "spawn",
     displayName = "Spawn",
     shortDisplayName = "Spawn",
-    desc = "Target friendly minion can spawn until end of turn.",
+    desc = List("Target friendly minion can spawn", "until end of turn."),
     spellType = NormalSpell,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
@@ -102,7 +102,7 @@ case object Spells {
     name = "slow",
     displayName = "Slow",
     shortDisplayName = "Slow",
-    desc = "Target enemy minion is lumbering until the start of your next turn.",
+    desc = List("Target enemy minion is lumbering", "until the start of your next turn."),
     spellType = NormalSpell,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
@@ -115,7 +115,7 @@ case object Spells {
     name = "shackle",
     displayName = "Shackle",
     shortDisplayName = "Shackle",
-    desc = "Target enemy minion has move speed 1 end of next turn.",
+    desc = List("Target enemy minion has move speed 1", "until the start of your next turn"),
     spellType = NormalSpell,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
@@ -128,7 +128,7 @@ case object Spells {
     name = "blink",
     displayName = "Blink",
     shortDisplayName = "Blink",
-    desc = "Unsummon target friendly minion.",
+    desc = List("Unsummon target friendly minion."),
     spellType = NormalSpell,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))

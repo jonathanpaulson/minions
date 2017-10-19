@@ -225,6 +225,16 @@ case class Game (
     }
   }
 
+  def resolveSpellChoice(idx : Int, side : Option[Side]) : (Option[Int], Boolean) = {
+    side match {
+      case None => (None, false)
+      case Some(ourSide) =>
+        val chooseLen = { if(ourSide == curSide) spellsToChoose.length else 0 }
+        if(idx < chooseLen) (Some(spellsToChoose(idx)),true)
+        else if(idx - chooseLen < upcomingSpells(ourSide).length) (Some(upcomingSpells(ourSide)(idx - chooseLen)),false)
+        else (None,false)
+    }
+  }
 
   //A hook for things that also need to happen at the start of the game before any turns for setup
   //rather than just on the ends of turns

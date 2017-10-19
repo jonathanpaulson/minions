@@ -10,6 +10,7 @@ sealed trait MouseTarget {
   def findPiece(board: BoardState): Option[Piece] = {
     this match {
       case MouseNone => None
+      case MouseSpellChoice(_,_) => None
       case MousePiece(spec,_) => board.findPiece(spec)
       case MouseTile(_) => None
       case MouseTech(_,_) => None
@@ -25,6 +26,7 @@ sealed trait MouseTarget {
   def getLoc(): Option[Loc] = {
     this match {
       case MouseNone => None
+      case MouseSpellChoice(_,loc) => Some(loc)
       case MousePiece(_,loc) => Some(loc)
       case MouseTile(loc) => Some(loc)
       case MouseTech(_,loc) => Some(loc)
@@ -39,6 +41,7 @@ sealed trait MouseTarget {
   }
 }
 case object MouseNone extends MouseTarget
+case class MouseSpellChoice(idx: Int, loc: Loc) extends MouseTarget
 case class MousePiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int, loc: Loc) extends MouseTarget
@@ -304,6 +307,20 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     //Branch based on what we selected on the mouseDown
     dragTarget match {
       case MouseNone => ()
+
+      case MouseSpellChoice(idx, _) =>
+        val (spellId, isDrawn) = game.resolveSpellChoice(idx, mouseState.client.ourSide)
+        spellId match {
+          case None => ()
+          case Some(spellId) =>
+            if(isDrawn) {
+              if(undo) {
+                mouseState.client.doActionOnCurBoard(GainSpellUndo(spellId, makeActionId()))
+              } else {
+                mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(GainSpell(spellId),makeActionId()))
+              }
+            }
+        }
 
       case MouseExtraTechAndSpell(_) =>
         if(curTarget == dragTarget) {

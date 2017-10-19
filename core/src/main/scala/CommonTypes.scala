@@ -230,7 +230,7 @@ sealed trait Spell {
   val name: SpellName
   val displayName: String
   val shortDisplayName: String
-  val desc: String
+  val desc: List[String]
   val spellType: SpellType
 
   override def equals(o: Any): Boolean = o match {
@@ -248,7 +248,7 @@ case class NoEffectSpell(
   val name: SpellName,
   val displayName: String,
   val shortDisplayName: String,
-  val desc: String,
+  val desc: List[String],
   val spellType: SpellType
 ) extends Spell {
   override def equals(o: Any): Boolean = super.equals(o)
@@ -263,7 +263,7 @@ case class TargetedSpell(
   val name: SpellName,
   val displayName: String,
   val shortDisplayName: String,
-  val desc: String,
+  val desc: List[String],
   val spellType: SpellType,
   val tryCanTarget: (Side, Piece, PieceStats) => Try[Unit], //(spell caster side, target, target current stats)
   val effect: TargetEffect
@@ -280,7 +280,7 @@ case class TileSpell(
   val name: SpellName,
   val displayName: String,
   val shortDisplayName: String,
-  val desc: String,
+  val desc: List[String],
   val spellType: SpellType,
   val tryCanTarget: (Side, Tile, List[Piece]) => Try[Unit], //(spell caster side, tile, pieces on tile)
   val effect: Tile => Tile
