@@ -1274,7 +1274,7 @@ case class BoardState private (
       pieceById += (piece.id -> piece)
       nextPieceId += 1
       piecesSpawnedThisTurn += (piece.spawnedThisTurn.get -> piece)
-      numPiecesSpawnedThisTurnAt += (spawnLoc -> nthAtLoc)
+      numPiecesSpawnedThisTurnAt += (spawnLoc -> (nthAtLoc+1))
       Some(piece)
     }
   }
