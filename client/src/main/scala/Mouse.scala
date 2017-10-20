@@ -350,9 +350,25 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
             }
         }
 
-      case MouseSpellHand(_,_,_) =>
-        // FIXME
-        ()
+      case MouseSpellHand(spellId,side,_) =>
+        if(side == game.curSide) {
+          if(undo) {
+            //Require mouse down and up on the same target
+            if(curTarget == dragTarget) {
+              mouseState.client.doActionOnCurBoard(GainSpellUndo(spellId, makeActionId()))
+            }
+          } else {
+            curTarget.getLoc().foreach { loc =>
+              val target0 =
+                curTarget.findPiece(board) match {
+                  case None => PieceSpec.none
+                  case Some(piece) => piece.spec
+                }
+              val targets = SpellOrAbilityTargets(target0, PieceSpec.none, loc, Loc(-1, -1))
+              mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+            }
+          }
+        }
 
       case MouseExtraTechAndSpell(_) =>
         if(curTarget == dragTarget) {
