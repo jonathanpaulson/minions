@@ -11,6 +11,7 @@ sealed trait MouseTarget {
     this match {
       case MouseNone => None
       case MouseSpellChoice(_,_) => None
+      case MouseSpellHand(_,_,_) => None
       case MousePiece(spec,_) => board.findPiece(spec)
       case MouseTile(_) => None
       case MouseTech(_,_) => None
@@ -27,6 +28,7 @@ sealed trait MouseTarget {
     this match {
       case MouseNone => None
       case MouseSpellChoice(_,loc) => Some(loc)
+      case MouseSpellHand(_,_,loc) => Some(loc)
       case MousePiece(_,loc) => Some(loc)
       case MouseTile(loc) => Some(loc)
       case MouseTech(_,loc) => Some(loc)
@@ -42,6 +44,7 @@ sealed trait MouseTarget {
 }
 case object MouseNone extends MouseTarget
 case class MouseSpellChoice(idx: Int, loc: Loc) extends MouseTarget
+case class MouseSpellHand(spellId: Int, side: Side, loc: Loc) extends MouseTarget
 case class MousePiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int, loc: Loc) extends MouseTarget
@@ -319,6 +322,10 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
               mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(GainSpell(spellId),makeActionId()))
             }
         }
+
+      case MouseSpellHand(_,_,_) =>
+        // FIXME
+        ()
 
       case MouseExtraTechAndSpell(_) =>
         if(curTarget == dragTarget) {

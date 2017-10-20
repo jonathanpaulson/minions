@@ -473,9 +473,12 @@ object ServerMain extends App {
                         val gameAction: GameAction = PayForReinforcement(side,pieceName)
                         performAndBroadcastGameActionIfLegal(gameAction)
                       case GainSpell(spellId) =>
-                        //Make sure the spell can be chosen
-                        val gameAction: GameAction = ChooseSpell(side,spellId)
-                        performAndBroadcastGameActionIfLegal(gameAction)
+                        //Check ahead of time if it's legal
+                        boards(boardIdx).tryLegality(boardAction).flatMap { case () =>
+                          //Make sure the spell can be chosen
+                          val gameAction: GameAction = ChooseSpell(side,spellId)
+                          performAndBroadcastGameActionIfLegal(gameAction)
+                        }
                     }
                 }
 

@@ -225,14 +225,14 @@ case class Game (
     }
   }
 
-  def resolveSpellChoice(idx : Int, side : Option[Side]) : (Option[Int], Boolean) = {
+  def resolveSpellChoice(idx : Int, side : Option[Side]) : (Option[Int], Option[Side]) = {
     side match {
-      case None => (None, false)
+      case None => (None, None)
       case Some(ourSide) =>
         val chooseLen = { if(ourSide == curSide) spellsToChoose.length else 0 }
-        if(idx < chooseLen) (Some(spellsToChoose(idx)),true)
-        else if(idx - chooseLen < upcomingSpells(ourSide).length) (Some(upcomingSpells(ourSide)(idx - chooseLen)),false)
-        else (None,false)
+        if(idx < chooseLen) (Some(spellsToChoose(idx)), Some(ourSide))
+        else if(idx - chooseLen < upcomingSpells(ourSide).length) (Some(upcomingSpells(ourSide)(idx - chooseLen)), None)
+        else (None, None)
     }
   }
 
