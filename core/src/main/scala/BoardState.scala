@@ -632,8 +632,12 @@ case class BoardState private (
     }
   }
 
-  private def forEachLegalMoveHelper(piece: Piece, pathBias: List[Loc])(f: (Loc,List[Loc],List[(PieceSpec,List[Loc])]) => Unit): Unit = {
-    val q = scala.collection.mutable.Queue[(Loc, Int, List[Loc])]()
+  //pathBias - bias the search to focus on locations in this path first, so as to keep stable a path the user has traced
+  //allowNonMinimalBias - adhere to the pathBias more strongly, possibly returning a nonminimal path
+  private def forEachLegalMoveHelper(piece: Piece, pathBias: List[Loc], allowNonMinimalBias: Boolean)
+    (f: (Loc,List[Loc],List[(PieceSpec,List[Loc])]) => Unit): Unit
+  = {
+    var q = Vector[(Loc, Int, List[Loc])]()
     val passedThrough = scala.collection.mutable.HashSet[Loc]()
     val endedOn = scala.collection.mutable.HashSet[Loc]()
 
@@ -684,21 +688,39 @@ case class BoardState private (
     }
 
     //Breadth first floodfill
-    q += ((piece.loc, 0, List()))
+    q = q :+ ((piece.loc, 0, List()))
     while(!q.isEmpty) {
-      val (loc,d,revPath) = q.dequeue
-      if(tiles.inBounds(loc)) {
-        if(canMoveThroughLoc(piece,loc)) {
-          val nextRevPath = loc :: revPath
-          if(!endedOn.contains(loc))
-            tryEndingLoc(loc,nextRevPath)
+      val (loc,d,revPath) = q(0)
+      q = q.drop(1)
+      //Test boundary and also ensure path cannot collide with itself
+      if(tiles.inBounds(loc) && !revPath.contains(loc) && canMoveThroughLoc(piece,loc)) {
+        val nextRevPath = loc :: revPath
+        if(!endedOn.contains(loc))
+          tryEndingLoc(loc,nextRevPath)
 
-          if(!passedThrough.contains(loc)) {
-            passedThrough += loc
-            if(d < range) {
-              //Enqueue locations that we're biased to prefer first, so that we try those paths first.
-              topology.forEachAdj(loc) { y => if(pathBias.contains(y)) q.enqueue((y, d+1, nextRevPath)) }
-              topology.forEachAdj(loc) { y => q.enqueue((y, d+1, nextRevPath)) }
+        if(!passedThrough.contains(loc)) {
+          passedThrough += loc
+          if(d < range) {
+            //In the case where we're adhering more strongly, enqueue the location that's supposed to follow our current
+            //location so that we immediately try that node next
+            if(allowNonMinimalBias) {
+              val idx = pathBias.indexOf(loc)
+              if(idx >= 0 && idx < pathBias.length - 1) {
+                val y = pathBias(idx+1)
+                if(topology.distance(loc,y) == 1)
+                  q = ((y, d+1, nextRevPath)) +: q
+              }
+            }
+
+            //Enqueue locations that we're biased to prefer first, so that we try those paths first.
+            pathBias.foreach { y =>
+              if(topology.distance(loc,y) == 1)
+                q = q :+ ((y, d+1, nextRevPath))
+            }
+            //Then enqueue all other locations
+            topology.forEachAdj(loc) { y =>
+              if(!pathBias.contains(y))
+                q = q :+ ((y, d+1, nextRevPath))
             }
           }
         }
@@ -706,11 +728,11 @@ case class BoardState private (
     }
   }
 
-  //Find the set of all legal locations that a piece can move to, along with the number of steps to reach the location
+  //Find the set of all legal locations that a piece can move to, along with the number of steps to reach the location.
   //Does not include teleports.
   def legalMoves(piece : Piece): Map[Loc, Int] = {
     val ans = scala.collection.mutable.HashMap[Loc, Int]()
-    forEachLegalMoveHelper(piece,List()) { case (loc,revPath,_) =>
+    forEachLegalMoveHelper(piece,List(),allowNonMinimalBias=false) { case (loc,revPath,_) =>
       ans(loc) = revPath.length
     }
     Map() ++ ans
@@ -729,11 +751,15 @@ case class BoardState private (
     ans
   }
 
-  //Similar to legalMoves but finds a shortest path whose destination satisfies the desired predicate,
+  //Similar to legalMoves but finds a path whose destination satisfies the desired predicate,
   //along with list of pieces and paths to move (usually one, but multiple in the case of swaps or rotations)
+  //May return a nonminimal path in the case that the path is traversing friendly units such that the user could
+  //be trying to perform a swap or rotation.
   //Does not include teleports.
-  def findLegalMove(piece : Piece, pathBias: List[Loc])(f: (Loc,List[(PieceSpec,List[Loc])]) => Boolean): Option[(List[Loc],List[(PieceSpec,List[Loc])])] = {
-    forEachLegalMoveHelper(piece,pathBias) { case (loc,revPath,shuffles) =>
+  def findLegalMove(piece : Piece, pathBias: List[Loc], allowNonMinimalBias: Boolean)
+    (f: (Loc,List[(PieceSpec,List[Loc])]) => Boolean): Option[(List[Loc],List[(PieceSpec,List[Loc])])]
+  = {
+    forEachLegalMoveHelper(piece,pathBias,allowNonMinimalBias) { case (loc,revPath,shuffles) =>
       if(f(loc,shuffles)) {
         val reversedShuffles = shuffles.map { case (spec,rpath) => (spec, rpath.reverse) }
         return Some((revPath.reverse, reversedShuffles))
@@ -834,7 +860,7 @@ case class BoardState private (
     }
   }
 
-  private def canSwarmTogether(pieceStats: PieceStats, otherStats: PieceStats): Boolean = {
+  def canSwarmTogether(pieceStats: PieceStats, otherStats: PieceStats): Boolean = {
     pieceStats.swarmMax > 1 && otherStats.swarmMax > 1 && pieceStats.name == otherStats.name
   }
 
