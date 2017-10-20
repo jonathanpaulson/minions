@@ -1045,12 +1045,14 @@ object Drawing {
             if(canClickOnTech(techIdx)) {
               highlightHex(ui.Tech.hexLoc(loc))
             }
-          case MouseReinforcement(pieceName,_,loc) =>
-            highlightHex(ui.Reinforcements.hexLoc(loc),scale=pieceScale)
-            if(!undoing) {
-              val locs = board.legalSpawnLocs(pieceName)
-              for(loc <- locs) {
-                highlightHex(ui.MainBoard.hexLoc(loc))
+          case MouseReinforcement(pieceName,side,loc) =>
+            if(side == game.curSide) {
+              highlightHex(ui.Reinforcements.hexLoc(loc),scale=pieceScale)
+              if(!undoing) {
+                val locs = board.legalSpawnLocs(pieceName)
+                for(loc <- locs) {
+                  highlightHex(ui.MainBoard.hexLoc(loc))
+                }
               }
             }
 

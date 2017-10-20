@@ -336,16 +336,14 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
       case MouseNone => ()
 
       case MouseSpellChoice(idx, _) =>
-        val (spellId, isDrawn) = game.resolveSpellChoice(idx, mouseState.client.ourSide)
+        val (spellId, _) = game.resolveSpellChoice(idx, mouseState.client.ourSide)
         spellId match {
           case None => ()
           case Some(spellId) =>
-            if(isDrawn) {
-              if(undo) {
-                mouseState.client.doActionOnCurBoard(GainSpellUndo(spellId, makeActionId()))
-              } else {
-                mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(GainSpell(spellId),makeActionId()))
-              }
+            if(undo) {
+              mouseState.client.doActionOnCurBoard(GainSpellUndo(spellId, makeActionId()))
+            } else {
+              mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(GainSpell(spellId),makeActionId()))
             }
         }
 
@@ -426,24 +424,26 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
           }
         }
 
-      case MouseReinforcement(pieceName,_,_) =>
-        if(undo) {
-          //Require mouse down and up on the same target
-          if(curTarget == dragTarget) {
-            val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
-              if(pieceName == name) Some(pieceSpec) else None
-            }
-            pieceSpec match {
-              case Some(pieceSpec) =>
-                mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
-              case None =>
-                mouseState.client.doActionOnCurBoard(BuyReinforcementUndo(pieceName,makeActionId()))
+      case MouseReinforcement(pieceName,side,_) =>
+        if(side == game.curSide) {
+          if(undo) {
+            //Require mouse down and up on the same target
+            if(curTarget == dragTarget) {
+              val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
+                if(pieceName == name) Some(pieceSpec) else None
+              }
+              pieceSpec match {
+                case Some(pieceSpec) =>
+                  mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
+                case None =>
+                  mouseState.client.doActionOnCurBoard(BuyReinforcementUndo(pieceName,makeActionId()))
+              }
             }
           }
-        }
-        else {
-          curTarget.getLoc().foreach { curLoc =>
-            mouseState.client.doActionOnCurBoard(PlayerActions(List(Spawn(curLoc,pieceName)),makeActionId()))
+          else {
+            curTarget.getLoc().foreach { curLoc =>
+              mouseState.client.doActionOnCurBoard(PlayerActions(List(Spawn(curLoc,pieceName)),makeActionId()))
+            }
           }
         }
 
