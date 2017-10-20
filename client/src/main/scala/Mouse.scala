@@ -166,8 +166,9 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
   //Tolerance in seconds for double click
   val doubleClickTolerance = 0.40
 
-  //When clicking and dragging for a movement, the path of that movement
+  //When clicking and dragging for a movement, the path of that movement, and the piece movements associated with it
   var path : List[Loc] = Nil
+  var pathMovements : List[(PieceSpec,List[Loc])] = Nil
 
   //Double click implementation
   //First mousedown -> (target,time,false)
@@ -177,11 +178,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
 
   private def clearPath() = {
     path = Nil
-  }
-
-  private def movementActionsOfPath(piece: Piece): Option[PlayerAction] = {
-    if(path.length <= 1) None
-    else Some(Movements(List(Movement(piece.spec, path.toVector))))
+    pathMovements = Nil
   }
 
   //Current time in seconds
@@ -220,6 +217,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
 
     //Update path to be a shortest path from [dragTarget] to [curLoc] that
     //shares the longest prefix with the current [path].
+    //(actually, not always shortest, see the case below where not mergable)
     val dragPiece = dragTarget.findPiece(board)
     val curLoc = curTarget.getLoc()
     (dragPiece, curLoc) match {
@@ -229,15 +227,31 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
           clearPath()
         else {
           val newLegalMove = {
+            //Truncate path to current loc, or extend by current loc, to use as the bias
+            //for the next path
+            val pathBias = {
+              val idx = path.indexOf(curLoc)
+              if(idx != -1) path.take(idx+1)
+              else path :+ curLoc
+            }
+
             val targetPiece = curTarget.findPiece(board)
             targetPiece match {
               case None =>
                 //Ordinary move to location
-                board.findLegalMove(dragPiece,pathBias=path) { loc => loc == curLoc }
+                board.findLegalMove(dragPiece,pathBias=pathBias,allowNonMinimalBias=false) { case (loc,_) => loc == curLoc }
               case Some(targetPiece) =>
                 //Merge into friendly swarm
-                if(targetPiece.side == dragPiece.side)
-                  board.findLegalMove(dragPiece,pathBias=path) { loc => loc == curLoc }
+                if(targetPiece.side == dragPiece.side) {
+                  //If not mergable, then the user might be trying to swap, so preserve path as much as possible
+                  //even if the path becomes nonminimal
+                  val dpStats = dragPiece.curStats(board)
+                  val tpStats = targetPiece.curStats(board)
+                  val allowNonMinimalBias = {
+                    !board.canSwarmTogether(dpStats,tpStats) || dpStats.swarmMax < board.pieces(curLoc).length + 1
+                  }
+                  board.findLegalMove(dragPiece,pathBias=pathBias,allowNonMinimalBias) { case (loc,_) => loc == curLoc }
+                }
                 //Attack enemy piece
                 else {
                   val dpStats = dragPiece.curStats(board)
@@ -246,7 +260,8 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                     None
                   else {
                     val attackRange = { if(tpStats.isFlying) dpStats.attackRangeVsFlying else dpStats.attackRange }
-                    board.findLegalMove(dragPiece,pathBias=path) { loc =>
+                    board.findLegalMove(dragPiece,pathBias=pathBias,allowNonMinimalBias=false) { case (loc,shuffles) =>
+                      shuffles.length <= 1 &&
                       board.topology.distance(loc, curLoc) <= attackRange &&
                       (loc == dragPiece.loc || !dpStats.isLumbering)
                     }
@@ -256,8 +271,9 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
           }
           newLegalMove match {
             case None => ()
-            case Some(newPath) =>
+            case Some((newPath,newPathMovements)) =>
               path = newPath
+              pathMovements = newPathMovements
           }
         }
     }
@@ -277,8 +293,19 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     val movementFromPath: Option[PlayerAction] = {
       //Move based on the path, if we have a nontrivial path and either the final location
       //is under the mouse OR we're attacking.
-     if(attack.nonEmpty || (path.length >= 1 && path.last == curLoc))
-        movementActionsOfPath(piece)
+      if(attack.nonEmpty || (path.length >= 1 && path.last == curLoc)) {
+        //Move based on path only if attempting to attack
+        if(attack.nonEmpty) {
+          if(path.length <= 1) None
+          else Some(Movements(List(Movement(piece.spec, path.toVector))))
+        }
+        //Do fancy movement that potentially includes swaps
+        else {
+          val filteredPathMovements = pathMovements.filter { case (_,path) => path.length > 1 }
+          if(filteredPathMovements.isEmpty) None
+          else Some(Movements(filteredPathMovements.map { case (pieceSpec,path) => Movement(pieceSpec,path.toVector) }))
+        }
+      }
       //Use teleporter
       else if(board.tiles(piece.loc).terrain == Teleporter)
         Some(Teleport(piece.spec, piece.loc, curLoc))
@@ -488,6 +515,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     }
 
     path = Nil
+    pathMovements = Nil
 
     if(didDoubleClick)
       doubleClickState = None
