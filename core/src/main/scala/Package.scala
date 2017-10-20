@@ -18,4 +18,10 @@ package object core {
     * as well as in recorded files and such.
     */
   type SpellName = String
+
+  /** SpellId:
+    * An identifier for a particular spell.
+    * Used in the communication protocol as well as in recorded files and such.
+    */
+  type SpellId = Int
 }

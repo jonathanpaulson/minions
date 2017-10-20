@@ -649,6 +649,18 @@ object Drawing {
       }
     }
 
+    // Played spells
+    {
+      val locsAndContents = ui.SpellPlayed.getHexLocsAndContents(board)
+      if(locsAndContents.length > 0) {
+        text("Played spells", PixelLoc.ofHexLoc(ui.SpellPlayed.descLoc, gridSize), "black")
+      }
+      locsAndContents.foreach { case (hexLoc, spellId, side) =>
+        drawSpell(hexLoc, Some(side), spellId)
+      }
+    }
+
+
     //Techs
     val techLocs = ui.Tech.getHexLocs(game)
     for(i <- 0 until game.techLine.length) {
@@ -990,6 +1002,12 @@ object Drawing {
           case MouseSpellChoice(idx,_) =>
             val (spellId, side) = game.resolveSpellChoice(idx, client.ourSide)
             drawSidebar(None, None, side, None, spellId)
+          case MouseSpellPlayed(spellId, side, targets, _) =>
+            drawSidebar(None, None, Some(side), None, Some(spellId))
+            targets match {
+              case None => highlightUndoneAction(DiscardSpell(spellId))
+              case Some(targets) => highlightUndoneAction(PlaySpell(spellId, targets))
+            }
           case MouseTile(loc) =>
             drawSidebar(None, None, None, Some(board.tiles(loc)), None)
           case MouseExtraTechAndSpell(_) =>
@@ -1048,6 +1066,10 @@ object Drawing {
             highlightHex(ui.SpellHand.hexLoc(loc))
           case MouseSpellChoice(_,loc) =>
             highlightHex(ui.SpellChoice.hexLoc(loc))
+          case MouseSpellPlayed(_,_,_,loc) =>
+            if(undoing) {
+              highlightHex(ui.SpellPlayed.hexLoc(loc))
+            }
           case MouseTile(_) => ()
           case MouseExtraTechAndSpell(_) =>
             highlightHex(ui.ExtraTechAndSpell.origin)
@@ -1197,6 +1219,7 @@ object Drawing {
         case MouseNone => ui.MainBoard
         case MouseSpellChoice(_,_) => ui.SpellChoice
         case MouseSpellHand(_,_,_) => ui.SpellHand
+        case MouseSpellPlayed(_,_,_,_) => ui.SpellPlayed
         case MousePiece(_,_) => ui.MainBoard
         case MouseTile(_) => ui.MainBoard
         case MouseTech(_,_) => ui.Tech

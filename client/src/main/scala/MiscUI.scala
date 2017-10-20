@@ -181,6 +181,30 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     }
   }
 
+  object SpellPlayed extends UI.Component with UI.Clickable {
+    val origin = HexLoc(boardYSize.toDouble / 2 - 1, boardYSize.toDouble + 1) + HexVec(-0.3,-0.6)
+    val gridSizeScale = 1
+    val descLoc: HexLoc = hexLoc(Loc(-1,0))
+
+    def getHexLocsAndContents(board: BoardState): Array[(HexLoc,SpellId,Side)] = {
+      board.spellsPlayedThisTurn.reverse.zipWithIndex.map { case (info, i) =>
+        (hexLoc(Loc(i,0)), info.spellId, info.side)
+      }.toArray
+    }
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val _ = (game)
+      val (loc,_) = getLocAndDelta(hexLoc)
+      val idx = loc.x
+      if(loc.y == 0 && idx >= 0 && idx < board.spellsPlayedThisTurn.length) {
+        val info = board.spellsPlayedThisTurn.reverse(idx)
+        MouseSpellPlayed(info.spellId, info.side, info.targets, loc)
+      }
+      else
+        MouseNone
+    }
+  }
+
   object DeadPieces extends UI.Component with UI.Clickable {
     val origin = HexLoc(-boardYSize.toDouble / 2, boardYSize.toDouble + 1) + HexVec(-0.3,-0.6)
     val gridSizeScale = 1
@@ -374,6 +398,7 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
     ExtraTechAndSpell,
     SpellChoice,
     SpellHand,
+    SpellPlayed,
   )
 
 }
