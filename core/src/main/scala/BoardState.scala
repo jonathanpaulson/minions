@@ -707,6 +707,7 @@ case class BoardState private (
               val idx = pathBias.indexOf(loc)
               if(idx >= 0 && idx < pathBias.length - 1) {
                 val y = pathBias(idx+1)
+                //TODO allow shrinking d if y is reachable by a shorter path, plus implement path compression in findLegalMoves
                 if(topology.distance(loc,y) == 1)
                   q = ((y, d+1, nextRevPath)) +: q
               }
