@@ -394,13 +394,13 @@ object Units {
 
   val mummy = createPieceStats(
     name = "mummy",
-    cost = 6,
+    cost = 8,
     rebate = 0,
-    attackEffect = Some(Damage(4)),
-    defense = Some(5),
+    attackEffect = Some(Damage(5)),
+    defense = Some(8),
     moveRange = 1,
     attackRange = 1,
-    deathSpawn = Some(wight.name),
+    deathSpawn = Some(initiate.name),
     spawnRange = 1,
   )
 
