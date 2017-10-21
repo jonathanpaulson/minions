@@ -91,7 +91,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
 
   //Positioning for end turn hex button
   object EndTurn extends UI.Component with UI.Clickable {
-    val origin = HexLoc(14.5,-1)
+    val origin = HexLoc(14.5,-2)
     val gridSizeScale = 1
 
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
