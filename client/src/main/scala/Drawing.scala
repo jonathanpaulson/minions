@@ -1208,8 +1208,20 @@ object Drawing {
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", ui.NextBoard.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
           case MouseTech(techIdx,loc) =>
-            if(canClickOnTech(techIdx)) {
-              highlightHex(ui.Tech.hexLoc(loc))
+            if(undoing) {
+              val techState = game.techLine(techIdx)
+              techState.tech match {
+                case PieceTech(pieceName) =>
+                  boards(boardIdx).findBuyReinforcementUndoAction(pieceName) match {
+                    case Some(action) => highlightUndoneGeneralAction(action)
+                    case None => ()
+                  }
+              }
+            }
+            else {
+              if(canClickOnTech(techIdx)) {
+                highlightHex(ui.Tech.hexLoc(loc))
+              }
             }
           case MouseReinforcement(pieceName,side,loc) =>
             if(side == game.curSide) {
