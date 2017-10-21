@@ -497,6 +497,7 @@ object Drawing {
       spell match {
         case None => ()
         case Some(spellId) =>
+          show("")
           externalInfo.spellsRevealed.get(spellId) match {
             case None =>
               show("Unknown Spell")
@@ -507,7 +508,7 @@ object Drawing {
                   case NormalSpell => ""
                   case Sorcery => " (Sorcery)"
                   case Cantrip => " (Cantrip)"
-                  case DoubleCantrip => " (Cantrip x2)"
+                  case DoubleCantrip => "" //double cantrip spell description covers this
                 }
               show(spell.displayName + typStr)
               spellTargets.foreach { targets => targets match {
@@ -518,10 +519,10 @@ object Drawing {
                 show(line)
               }
               spell.spellType match {
-                case NormalSpell => ""
+                case NormalSpell => ()
                 case Sorcery => show(""); show("Sorcery (costs 1 sorcery power to play)")
                 case Cantrip => show(""); show("Cantrip (gain 1 sorcery power when played)")
-                case DoubleCantrip => show(""); show("Cantrip x 2 (gain 2 sorcery power when played or discarded)")
+                case DoubleCantrip => () //double cantrip spell description covers this
               }
               if(spell.spawnPhaseOnly) {
                 show("")

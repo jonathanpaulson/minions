@@ -218,6 +218,15 @@ case object Spells {
     }
   )
 
+  val doubleCantrip = NoEffectSpell(
+    name = "doubleCantrip",
+    displayName = "Double Cantrip",
+    shortDisplayName = "DCant",
+    desc = List("Gain 2 sorcery power when played or discarded."),
+    spellType = DoubleCantrip,
+    spawnPhaseOnly = false,
+  )
+
   val spells = Array(
     fester,
     unsummon,
@@ -235,6 +244,7 @@ case object Spells {
     spawn,
     blink,
     raiseZombie,
+    doubleCantrip,
   )
   val spellMap: Map[SpellName,Spell] = spells.groupBy(spell => spell.name).mapValues { spells =>
     assert(spells.length == 1)
@@ -256,9 +266,10 @@ case object Spells {
       lumbering,lumbering,
       shackle,shackle,
 
-      spawn,spawn,spawn,
-      blink,blink,blink,
-      raiseZombie,raiseZombie,raiseZombie,
+      spawn,spawn,spawn,spawn,
+      blink,blink,blink,blink,
+      raiseZombie,raiseZombie,raiseZombie,raiseZombie,
+      doubleCantrip,doubleCantrip,
     ).map(_.name)
   }
 }
