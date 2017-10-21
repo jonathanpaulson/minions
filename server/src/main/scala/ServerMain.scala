@@ -144,7 +144,7 @@ object ServerMain extends App {
        state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
        state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
        */
-        /*state.tiles.foreachi { (loc, tile) =>
+       /*state.tiles.foreachi { (loc, tile) =>
           if (tile.terrain == Graveyard) {
             val _ = state.spawnPieceInitial(S0, Units.fallen_angel.name, loc)
           }

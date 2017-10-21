@@ -1244,8 +1244,12 @@ object Drawing {
                     var attackLocs = Set[Loc]()
                     moveLocsPieceCouldAttackFrom.foreach { fromLoc =>
                       board.tiles.topology.forEachReachable(fromLoc, stats.attackRange) { loc =>
-                        attackLocs += loc
-                        true //Always continue floodfilling from location, attack range isn't blocked by terrain
+                        if(board.inBounds(loc)) {
+                          attackLocs += loc
+                          true
+                        } else {
+                          false
+                        }
                       }
                     }
                     (attackLocs ++ moveLocs).foreach { loc =>
