@@ -80,10 +80,10 @@ case class UnbuyExtraTechAndSpell(side: Side) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
-case class ChooseSpell(side: Side, spellId: Int) extends GameAction
-case class UnchooseSpell(side: Side, spellId: Int) extends GameAction
+case class ChooseSpell(side: Side, spellId: SpellId) extends GameAction
+case class UnchooseSpell(side: Side, spellId: SpellId) extends GameAction
 case class AddWin(side: Side, boardIdx: Int) extends GameAction
-case class AddUpcomingSpells(side: Side, spellIds: Array[Int]) extends GameAction
+case class AddUpcomingSpells(side: Side, spellIds: Array[SpellId]) extends GameAction
 
 case object Game {
   def apply(
@@ -319,7 +319,7 @@ case class Game (
     }
   }
 
-  private def tryCanChooseSpell(side: Side, spellId: Int): Try[Unit] = {
+  private def tryCanChooseSpell(side: Side, spellId: SpellId): Try[Unit] = {
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
     else if(!spellsToChoose.contains(spellId))
@@ -330,7 +330,7 @@ case class Game (
       Success(())
   }
 
-  private def chooseSpell(side: Side, spellId: Int): Try[Unit] = {
+  private def chooseSpell(side: Side, spellId: SpellId): Try[Unit] = {
     tryCanChooseSpell(side,spellId) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
@@ -339,7 +339,7 @@ case class Game (
     }
   }
 
-  private def tryCanUnchooseSpell(side: Side, spellId: Int): Try[Unit] = {
+  private def tryCanUnchooseSpell(side: Side, spellId: SpellId): Try[Unit] = {
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
     else if(!spellsToChoose.contains(spellId))
@@ -350,7 +350,7 @@ case class Game (
       Success(())
   }
 
-  private def unchooseSpell(side: Side, spellId: Int): Try[Unit] = {
+  private def unchooseSpell(side: Side, spellId: SpellId): Try[Unit] = {
     tryCanUnchooseSpell(side,spellId) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
@@ -366,7 +366,7 @@ case class Game (
     }
   }
 
-  private def doAddUpcomingSpells(side: Side, spellIds: Array[Int]): Unit = {
+  private def doAddUpcomingSpells(side: Side, spellIds: Array[SpellId]): Unit = {
     upcomingSpells(side) = upcomingSpells(side) ++ spellIds
   }
 

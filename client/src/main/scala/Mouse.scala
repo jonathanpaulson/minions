@@ -46,8 +46,8 @@ sealed trait MouseTarget {
 }
 case object MouseNone extends MouseTarget
 case class MouseSpellChoice(idx: Int, loc: Loc) extends MouseTarget
-case class MouseSpellHand(spellId: Int, side: Side, loc: Loc) extends MouseTarget
-case class MouseSpellPlayed(spellId: Int, side: Side, targets: Option[SpellOrAbilityTargets], loc: Loc) extends MouseTarget
+case class MouseSpellHand(spellId: SpellId, side: Side, loc: Loc) extends MouseTarget
+case class MouseSpellPlayed(spellId: SpellId, side: Side, targets: Option[SpellOrAbilityTargets], loc: Loc) extends MouseTarget
 case class MousePiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int, loc: Loc) extends MouseTarget

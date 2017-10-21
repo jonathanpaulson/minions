@@ -269,7 +269,7 @@ object ServerMain extends App {
       val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
     }
 
-    private def revealSpellsToSide(side: Side, spellIds: Array[Int], revealToSpectators: Boolean = false): Unit = {
+    private def revealSpellsToSide(side: Side, spellIds: Array[SpellId], revealToSpectators: Boolean = false): Unit = {
       val spellIdsAndNames =
         spellIds.flatMap { spellId =>
           if(revealedSpellIds(side).contains(spellId))
