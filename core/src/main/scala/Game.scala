@@ -268,6 +268,7 @@ case class Game (
     curSide = curSide.opp
     turnNumber += 1
     numTechsThisTurn = 0
+    extraTechAndSpellsThisTurn = 0
 
     mana(curSide) += extraManaPerTurn
 
@@ -455,9 +456,6 @@ case class Game (
     tryCanUndoTech(side,techLineIdx) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        if(numTechsThisTurn > 1)
-          mana(side) = mana(side) + extraTechCost
-
         numTechsThisTurn -= 1
         val techState = techLine(techLineIdx)
         techState.level(side) match {
