@@ -268,7 +268,6 @@ object BoardState {
       unsummonedThisTurn = Nil,
       turnNumber = 0,
       reinforcements = SideArray.create(Map()),
-      spellsRevealed = Map(),
       spellsInHand = SideArray.create(List()),
       spellsPlayedThisTurn = Nil,
       sorceryPower = 0,
@@ -327,8 +326,6 @@ case class BoardState private (
   //Count of reinforcement pieces in hand by name
   val reinforcements: SideArray[Map[PieceName,Int]],
 
-  //Map of all spells that have been revealed.
-  var spellsRevealed: Map[Int,SpellName],
   //List of all spells in hand, indexed by spellID
   val spellsInHand: SideArray[List[Int]],
   // List of all spellIDs played this turn
@@ -373,7 +370,6 @@ case class BoardState private (
       unsummonedThisTurn = unsummonedThisTurn,
       turnNumber = turnNumber,
       reinforcements = reinforcements.copy(),
-      spellsRevealed = spellsRevealed,
       spellsInHand = spellsInHand.copy(),
       spellsPlayedThisTurn = spellsPlayedThisTurn,
       sorceryPower = sorceryPower,
@@ -395,24 +391,24 @@ case class BoardState private (
   }
 
   //Check whether an action would be legal
-  def tryLegality(action: PlayerAction): Try[Unit] = {
-    tryLegalitySingle(action)
+  def tryLegality(action: PlayerAction, externalInfo: ExternalInfo): Try[Unit] = {
+    tryLegalitySingle(action,externalInfo)
   }
 
   //Check whether a sequence of actions would be legal
-  def tryLegality(actions: Seq[PlayerAction]): Try[Unit] = {
+  def tryLegality(actions: Seq[PlayerAction], externalInfo: ExternalInfo): Try[Unit] = {
     val list = actions.toList
     list match {
       case Nil => Success(())
-      case action :: Nil => tryLegalitySingle(action)
+      case action :: Nil => tryLegalitySingle(action,externalInfo)
       case _ =>
         val board = this.copy()
         def loop(list: List[PlayerAction]): Try[Unit] = {
           list match {
             case Nil => Success(())
-            case action :: Nil => board.tryLegalitySingle(action)
+            case action :: Nil => board.tryLegalitySingle(action,externalInfo)
             case action :: rest =>
-              board.doActionSingle(action) match {
+              board.doActionSingle(action,externalInfo) match {
                 case Success(()) => loop(rest)
                 case Failure(err) => Failure(err)
               }
@@ -423,21 +419,21 @@ case class BoardState private (
   }
 
   //Perform an action
-  def doAction(action: PlayerAction): Try[Unit] = {
-    doActionSingle(action)
+  def doAction(action: PlayerAction, externalInfo: ExternalInfo): Try[Unit] = {
+    doActionSingle(action,externalInfo)
   }
 
   //Perform a sequence of actions, except if any part of the sequence is illegal, perform none of them.
-  def doActions(actions: Seq[PlayerAction]): Try[Unit] = {
+  def doActions(actions: Seq[PlayerAction], externalInfo: ExternalInfo): Try[Unit] = {
     val list = actions.toList
     list match {
       case Nil => Success(())
-      case action :: Nil => doActionSingle(action)
+      case action :: Nil => doActionSingle(action,externalInfo)
       case _ =>
-        tryLegality(actions) match {
+        tryLegality(actions, externalInfo) match {
           case Failure(err) => Failure(err)
           case Success(()) =>
-            list.foreach { action => doActionUnsafeAssumeLegal(action) }
+            list.foreach { action => doActionUnsafeAssumeLegal(action,externalInfo) }
             Success(())
         }
     }
@@ -445,8 +441,8 @@ case class BoardState private (
 
   //Perform an action, assuming that it's legal without checking. Could lead to
   //an exception or an invalid board state if it actually isn't legal
-  def doActionUnsafeAssumeLegal(action: PlayerAction): Unit = {
-    doActionSingleAssumeLegal(action)
+  def doActionUnsafeAssumeLegal(action: PlayerAction, externalInfo: ExternalInfo): Unit = {
+    doActionSingleAssumeLegal(action,externalInfo)
   }
 
   def resetSorceryPower(): Unit = {
@@ -571,12 +567,6 @@ case class BoardState private (
 
     //Handle sorcery power for the first turn
     resetSorceryPower()
-  }
-
-  def revealSpells(spellIdsAndNames: Array[(SpellId,SpellName)]) = {
-    spellIdsAndNames.foreach { case (spellId,spellName) =>
-      spellsRevealed = spellsRevealed + (spellId -> spellName)
-    }
   }
 
   def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
@@ -1093,7 +1083,7 @@ case class BoardState private (
   }
 
   //Check if a single action is legal
-  private def tryLegalitySingle(action: PlayerAction): Try[Unit] = Try {
+  private def tryLegalitySingle(action: PlayerAction, externalInfo: ExternalInfo): Try[Unit] = Try {
     failIf(turnNumber < 0, "Game is not started yet")
     failIf(hasWon, "Already won this board, wait for reset next turn")
     failIf(!canMove, "After you win on graveyards, your opponent gets the first turn")
@@ -1219,7 +1209,7 @@ case class BoardState private (
         spellsInHand(side).contains(spellId) match {
           case false => fail("Spell not in hand or already played or discarded")
           case true =>
-            spellsRevealed.get(spellId) match {
+            externalInfo.spellsRevealed.get(spellId) match {
               case None => fail("Spell was not revealed")
               case Some(spellName) =>
                 Spells.spellMap.get(spellName) match {
@@ -1240,11 +1230,11 @@ case class BoardState private (
   }
 
   //Perform a single action, doing nothing if it isn't legal
-  private def doActionSingle(action:PlayerAction): Try[Unit] = {
-    tryLegalitySingle(action).map { case () => doActionSingleAssumeLegal(action) }
+  private def doActionSingle(action:PlayerAction, externalInfo: ExternalInfo): Try[Unit] = {
+    tryLegalitySingle(action,externalInfo).map { case () => doActionSingleAssumeLegal(action,externalInfo) }
   }
 
-  private def doActionSingleAssumeLegal(action:PlayerAction): Unit = {
+  private def doActionSingleAssumeLegal(action:PlayerAction, externalInfo: ExternalInfo): Unit = {
     action match {
       case Movements(movements) =>
         movements.foreach { movement =>
@@ -1344,7 +1334,7 @@ case class BoardState private (
         piece.actState = DoneActing
 
       case PlaySpell(spellId,targets) =>
-        val spell = Spells.spellMap(spellsRevealed(spellId))
+        val spell = Spells.spellMap(externalInfo.spellsRevealed(spellId))
         spell.spellType match {
           case NormalSpell => ()
           case Sorcery => sorceryPower -= 1
@@ -1366,7 +1356,7 @@ case class BoardState private (
         spellsPlayedThisTurn = spellsPlayedThisTurn :+ SpellPlayedInfo(spellId, side, Some(targets))
 
       case DiscardSpell(spellId) =>
-        val spell = Spells.spellMap(spellsRevealed(spellId))
+        val spell = Spells.spellMap(externalInfo.spellsRevealed(spellId))
         spell.spellType match {
           case NormalSpell => sorceryPower += 1
           case Sorcery => sorceryPower += 1

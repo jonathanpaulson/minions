@@ -46,6 +46,7 @@ object Drawing {
     canvas: Canvas,
     ctx: CanvasRenderingContext2D,
     game: Game,
+    externalInfo: ExternalInfo,
     boards: Array[Board],
     boardNames: Array[String],
     boardIdx: Int,
@@ -220,9 +221,13 @@ object Drawing {
         }
       fillHex(hexLoc, color, spellScale)
       strokeHex(hexLoc, "black", spellScale, alpha=0.2)
-      board.spellsRevealed.get(spellId).foreach { spellName =>
-        val spell = Spells.spellMap(spellName)
-        text(spell.shortDisplayName, hexLoc, "black")
+      externalInfo.spellsRevealed.get(spellId) match {
+        case None =>
+          text("Unknown", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
+          text("Spell", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
+        case Some(spellName) =>
+          val spell = Spells.spellMap(spellName)
+          text(spell.shortDisplayName, hexLoc, "black")
       }
     }
 
@@ -471,7 +476,7 @@ object Drawing {
       spell match {
         case None => ()
         case Some(spellId) =>
-          board.spellsRevealed.get(spellId) match {
+          externalInfo.spellsRevealed.get(spellId) match {
             case None =>
               show("Unknown Spell")
             case Some(spellName) =>
