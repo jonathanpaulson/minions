@@ -523,6 +523,13 @@ object Drawing {
                 case Cantrip => show(""); show("Cantrip (gain 1 sorcery power when played)")
                 case DoubleCantrip => show(""); show("Cantrip x 2 (gain 2 sorcery power when played or discarded)")
               }
+              if(spell.spawnPhaseOnly) {
+                show("")
+                show("This spell's effect occurs only AFTER all normal")
+                show("movement and attacks. (For convenience, the UI")
+                show("will still allow moves and attacks that would be")
+                show("legal without this spell's effect)")
+              }
           }
       }
     }
@@ -984,7 +991,7 @@ object Drawing {
     }
 
     def findLocOfPiece(pieceSpec: PieceSpec): Option[Loc] = {
-      //First try the initial board
+      //First try the current board
       board.findPiece(pieceSpec) match {
         case Some(piece) => Some(piece.loc)
         case None =>

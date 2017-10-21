@@ -232,6 +232,7 @@ sealed trait Spell {
   val shortDisplayName: String
   val desc: List[String]
   val spellType: SpellType
+  val spawnPhaseOnly: Boolean
 
   override def equals(o: Any): Boolean = o match {
     case that: Spell => this.name == that.name
@@ -249,7 +250,8 @@ case class NoEffectSpell(
   val displayName: String,
   val shortDisplayName: String,
   val desc: List[String],
-  val spellType: SpellType
+  val spellType: SpellType,
+  val spawnPhaseOnly: Boolean
 ) extends Spell {
   override def equals(o: Any): Boolean = super.equals(o)
   override def hashCode: Int = super.hashCode
@@ -265,6 +267,7 @@ case class TargetedSpell(
   val shortDisplayName: String,
   val desc: List[String],
   val spellType: SpellType,
+  val spawnPhaseOnly: Boolean,
   val tryCanTarget: (Side, Piece, PieceStats) => Try[Unit], //(spell caster side, target, target current stats)
   val effect: TargetEffect
 ) extends Spell {
@@ -282,6 +285,7 @@ case class TileSpell(
   val shortDisplayName: String,
   val desc: List[String],
   val spellType: SpellType,
+  val spawnPhaseOnly: Boolean,
   val tryCanTarget: (Side, Loc, BoardState) => Try[Unit], //(spell caster side, tile, pieces on tile)
   val effect: ((BoardState,Loc) => Unit)
 ) extends Spell {

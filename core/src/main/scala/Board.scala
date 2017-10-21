@@ -254,7 +254,19 @@ class Board private (
                     case Spawner(_) =>
                       delayedToSpawnRev = playerAction :: delayedToSpawnRev
                   }
-                case ActivateAbility(_,_,_) | PlaySpell(_,_) | DiscardSpell(_) =>
+                case PlaySpell(spellId,_) =>
+                  val spellName = externalInfo.spellsRevealed(spellId)
+                  val spell = Spells.spellMap(spellName)
+                  if(spell.spawnPhaseOnly)
+                    delayedToSpawnRev = playerAction :: delayedToSpawnRev
+                  else {
+                    //When spells or abilities fail, it may be because they are targeting units only placed during spawn
+                    newMoveAttackState.doAction(playerAction,externalInfo) match {
+                      case Success(()) => moveAttackActionsRev = playerAction :: moveAttackActionsRev
+                      case Failure(_) => delayedToSpawnRev = playerAction :: delayedToSpawnRev
+                    }
+                  }
+                case ActivateAbility(_,_,_) | DiscardSpell(_) =>
                   //When spells or abilities fail, it may be because they are targeting units only placed during spawn
                   newMoveAttackState.doAction(playerAction,externalInfo) match {
                     case Success(()) => moveAttackActionsRev = playerAction :: moveAttackActionsRev

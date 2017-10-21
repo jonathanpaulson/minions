@@ -11,6 +11,7 @@ case object Spells {
     shortDisplayName = "Fester",
     desc = List("Deal 1 damage to target minion", "that was dealt damage this turn."),
     spellType = NormalSpell,
+    spawnPhaseOnly = false,
     tryCanTarget = { (_: Side, piece:Piece, pieceStats:PieceStats) =>
       if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
       else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
@@ -25,6 +26,7 @@ case object Spells {
     shortDisplayName = "Unsumm",
     desc = List("Unsummon target damaged minion."),
     spellType = NormalSpell,
+    spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
       else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
@@ -40,6 +42,7 @@ case object Spells {
     shortDisplayName = "Dismemb",
     desc = List("Deal 3 damage to target minion", "that was dealt damage this turn."),
     spellType = Sorcery,
+    spawnPhaseOnly = false,
     tryCanTarget = { (_: Side, piece:Piece, pieceStats:PieceStats) =>
       if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
       else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
@@ -54,6 +57,7 @@ case object Spells {
     shortDisplayName = "Bolt",
     desc = List("Deal 1 damage to target enemy minion."),
     spellType = Sorcery,
+    spawnPhaseOnly = false,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
@@ -67,6 +71,7 @@ case object Spells {
     shortDisplayName = "UMight",
     desc = List("Target friendly necromancer can", "attack twice this turn."),
     spellType = NormalSpell,
+    spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || !pieceStats.isNecromancer) Failure(new Exception("Can only target friendly necromancers"))
       else Success(())
@@ -82,6 +87,7 @@ case object Spells {
     shortDisplayName = "Shield",
     desc = List("Target friendly minion is persistent.", "Double its defense until the start", "of your next turn."),
     spellType = NormalSpell,
+    spawnPhaseOnly = false,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else Success(())
@@ -95,6 +101,7 @@ case object Spells {
     shortDisplayName = "Protect",
     desc = List("Target friendly minion gets +2 defense until", "the end of your next turn."),
     spellType = Cantrip,
+    spawnPhaseOnly = false,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else Success(())
@@ -108,6 +115,7 @@ case object Spells {
     shortDisplayName = "Freeze",
     desc = List("Target enemy minion cannot attack", "until the start of your next turn"),
     spellType = Sorcery,
+    spawnPhaseOnly = false,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
@@ -121,6 +129,7 @@ case object Spells {
     shortDisplayName = "Weaken",
     desc = List("Target enemy minion has -1 attack", "until the start of your next turn", "(minions with < 1 attack cannot attack)."),
     spellType = Cantrip,
+    spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
@@ -134,6 +143,7 @@ case object Spells {
     shortDisplayName = "Lumber",
     desc = List("Target enemy minion is lumbering", "until the start of your next turn."),
     spellType = NormalSpell,
+    spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
@@ -147,6 +157,7 @@ case object Spells {
     shortDisplayName = "Shackle",
     desc = List("Reduce target enemy minion to move range 1", "and attack range 1 until the start of", "your next turn."),
     spellType = NormalSpell,
+    spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
@@ -162,6 +173,7 @@ case object Spells {
     shortDisplayName = "Spawn",
     desc = List("Target friendly minion can spawn", "until end of turn."),
     spellType = NormalSpell,
+    spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else if(piece.actState == DoneActing) Failure(new Exception("Piece cannot spawn or act this turn"))
@@ -176,6 +188,7 @@ case object Spells {
     shortDisplayName = "Blink",
     desc = List("Unsummon target friendly minion,", "even if it is persistent."),
     spellType = NormalSpell,
+    spawnPhaseOnly = true,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else Success(())
@@ -189,6 +202,7 @@ case object Spells {
     shortDisplayName = "RZombie",
     desc = List("Spawn a free zombie on target location", "next to a friendly unit."),
     spellType = NormalSpell,
+    spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, loc: Loc, board: BoardState) =>
       if(board.pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
       else {
