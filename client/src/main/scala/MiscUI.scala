@@ -192,9 +192,9 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     val gridSizeScale = 1
     val descLoc: HexLoc = hexLoc(Loc(-1,0))
 
-    def getHexLocsAndContents(board: BoardState): Array[(HexLoc,SpellId,Side)] = {
+    def getHexLocsAndContents(board: BoardState): Array[(HexLoc,SpellId,Side,Option[SpellOrAbilityTargets])] = {
       board.spellsPlayedThisTurn.reverse.zipWithIndex.map { case (info, i) =>
-        (hexLoc(Loc(i,0)), info.spellId, info.side)
+        (hexLoc(Loc(i,0)), info.spellId, info.side, info.targets)
       }.toArray
     }
 
@@ -248,10 +248,10 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
 
     val unflippedLocs = Array(
       Loc(-5,8),Loc(-4,8),Loc(-3,8),Loc(-2,8),
-      Loc(-5,9),Loc(-4,9),Loc(-3,9),Loc(-2,9),
+      Loc(-6,9),Loc(-5,9),Loc(-4,9),Loc(-3,9),Loc(-2,9),
       Loc(-6,10),Loc(-5,10),Loc(-4,10),Loc(-3,10),Loc(-2,10),
-      Loc(-6,11),Loc(-5,11),Loc(-4,11),Loc(-3,11),Loc(-2,11),
-      Loc(-7,12),Loc(-6,12),Loc(-5,12),Loc(-4,12),Loc(-3,12),Loc(-2,12),
+      //Loc(-7,11),Loc(-6,11),Loc(-5,11),Loc(-4,11),Loc(-3,11),Loc(-2,11),
+      //Loc(-7,12),Loc(-6,12),Loc(-5,12),Loc(-4,12),Loc(-3,12),Loc(-2,12),
     )
 
     def getLocs(side: Side): Array[Loc] = {
@@ -284,9 +284,9 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
       Loc(-2,2),
       Loc(-3,3),Loc(-2,3),
       Loc(-3,4),Loc(-2,4),
-      Loc(-3,5),Loc(-2,5),
+      Loc(-4,5),Loc(-3,5),Loc(-2,5),
       Loc(-4,6),Loc(-3,6),Loc(-2,6),
-      Loc(-4,7),Loc(-3,7),Loc(-2,7),
+      Loc(-5,7),Loc(-4,7),Loc(-3,7),Loc(-2,7),
     )
 
     def getLocs(side: Side): Array[Loc] = {
@@ -305,9 +305,14 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
         board.reinforcements(side).get(stats.name) match {
           case None => None
           case Some(count) =>
-            val loc = locs(i)
-            i += 1
-            Some((hexLoc(loc),stats.name,count))
+            //If the user has so many types of reinforcements that it overflows, then we just won't draw them all...
+            if(i < locs.length) {
+              val loc = locs(i)
+              i += 1
+              Some((hexLoc(loc),stats.name,count))
+            }
+            else
+              None
         }
       }
     }

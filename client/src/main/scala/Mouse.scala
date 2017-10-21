@@ -360,13 +360,26 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                 mouseState.client.doActionOnCurBoard(PlayerActions(List(DiscardSpell(spellId)),makeActionId()))
             } else {
               curTarget.getLoc().foreach { loc =>
-                val target0 =
-                  curTarget.findPiece(board) match {
-                    case None => PieceSpec.none
-                    case Some(piece) => piece.spec
-                  }
-                val targets = SpellOrAbilityTargets(target0, PieceSpec.none, loc, Loc(-1, -1))
-                mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+                val target0 = curTarget match {
+                  case MouseNone => None
+                  case MouseSpellChoice(_,_,_) => None
+                  case MouseSpellHand(_,_,_) => None
+                  case MouseSpellPlayed(_,_,_,_) => None
+                  case MousePiece(spec,_) => Some(spec)
+                  case MouseTile(_) => None
+                  case MouseTech(_,_) => None
+                  case MouseReinforcement(_,_,_) => None
+                  case MouseDeadPiece(_,_) => None
+                  case MouseExtraTechAndSpell(_) => None
+                  case MouseEndTurn(_) => None
+                  case MouseNextBoard => None
+                  case MousePrevBoard => None
+                  case MouseResignBoard(_) => None
+                }
+                target0.foreach { target0 =>
+                  val targets = SpellOrAbilityTargets(target0, PieceSpec.none, loc, Loc(-1, -1))
+                  mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+                }
               }
             }
           }

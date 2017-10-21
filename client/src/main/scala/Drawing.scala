@@ -13,7 +13,7 @@ object Drawing {
   val tileScale = 31.5 / gridSize
   val pieceScale = 26.0 / gridSize
   val techScale = 31.0 / gridSize
-  val spellScale = 28.0 / gridSize
+  val spellScale = 26.0 / gridSize
   val techInteriorScale = 19.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
@@ -212,7 +212,7 @@ object Drawing {
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
-    def drawSpell(hexLoc: HexLoc, side: Option[Side], spellId: SpellId) : Unit = {
+    def drawSpell(hexLoc: HexLoc, side: Option[Side], spellId: SpellId, subLabel: Option[String] = None) : Unit = {
       val color =
         side match {
           case None => "#aaaaaa"
@@ -227,7 +227,12 @@ object Drawing {
           text("Spell", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
         case Some(spellName) =>
           val spell = Spells.spellMap(spellName)
-          text(spell.shortDisplayName, hexLoc, "black")
+          subLabel match {
+            case None => text(spell.shortDisplayName, hexLoc, "black")
+            case Some(subLabel) =>
+              text(spell.shortDisplayName, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
+              text(subLabel, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
+          }
       }
     }
 
@@ -252,7 +257,14 @@ object Drawing {
       }
     }
 
-    def drawSidebar(piece: Option[Piece], stats: Option[PieceStats], side: Option[Side], tile : Option[Tile], spell : Option[Int]) = {
+    def drawSidebar(
+      piece: Option[Piece] = None,
+      stats: Option[PieceStats] = None,
+      side: Option[Side] = None,
+      tile: Option[Tile] = None,
+      spell: Option[Int] = None,
+      spellTargets: Option[Option[SpellOrAbilityTargets]] = None,
+    ) = {
       val hexLoc = ui.Sidebar.origin
       tile match {
         case None => ()
@@ -489,6 +501,10 @@ object Drawing {
                   case DoubleCantrip => " (Cantrip x2)"
                 }
               show(spell.displayName + typStr)
+              spellTargets.foreach { targets => targets match {
+                case None => show("(discarded)")
+                case Some(_) => show("(played)")
+              }}
               spell.desc.foreach { line =>
                 show(line)
               }
@@ -633,12 +649,15 @@ object Drawing {
       }
     }
 
-    // SpellHand
+    //SpellHand
     Side.foreach { side =>
       val locs = ui.SpellHand.getLocs(side)
       board.spellsInHand(side).zipWithIndex.foreach { case (spellId, idx) =>
-        val hexLoc = ui.SpellHand.hexLoc(locs(idx))
-        drawSpell(hexLoc, Some(side), spellId)
+        //If the user has so many spells that it overflows, then we just won't draw them all...
+        if(idx < locs.length) {
+          val hexLoc = ui.SpellHand.hexLoc(locs(idx))
+          drawSpell(hexLoc, Some(side), spellId)
+        }
       }
     }
 
@@ -654,14 +673,18 @@ object Drawing {
       }
     }
 
-    // Played spells
+    //Used spells
     {
       val locsAndContents = ui.SpellPlayed.getHexLocsAndContents(board)
       if(locsAndContents.length > 0) {
-        text("Played spells", PixelLoc.ofHexLoc(ui.SpellPlayed.descLoc, gridSize), "black")
+        text("Used spells", PixelLoc.ofHexLoc(ui.SpellPlayed.descLoc, gridSize), "black")
       }
-      locsAndContents.foreach { case (hexLoc, spellId, side) =>
-        drawSpell(hexLoc, Some(side), spellId)
+      locsAndContents.foreach { case (hexLoc, spellId, side, targets) =>
+        val subLabel = targets match {
+          case None => "(discard)"
+          case Some(_) => "(played)"
+        }
+        drawSpell(hexLoc, Some(side), spellId, subLabel=Some(subLabel))
       }
     }
 
@@ -1011,17 +1034,17 @@ object Drawing {
         mouseState.hovered match {
           case MouseNone => ()
           case MouseSpellHand(spellId,side,_) =>
-            drawSidebar(None, None, Some(side), None, Some(spellId))
+            drawSidebar(side=Some(side), spell=Some(spellId))
           case MouseSpellChoice(spellId,side,_) =>
-            drawSidebar(None, None, side, None, Some(spellId))
+            drawSidebar(side=side, spell=Some(spellId))
           case MouseSpellPlayed(spellId, side, targets, _) =>
-            drawSidebar(None, None, Some(side), None, Some(spellId))
+            drawSidebar(side=Some(side), spell=Some(spellId), spellTargets=Some(targets))
             targets match {
               case None => highlightUndoneAction(DiscardSpell(spellId))
               case Some(targets) => highlightUndoneAction(PlaySpell(spellId, targets))
             }
           case MouseTile(loc) =>
-            drawSidebar(None, None, None, Some(board.tiles(loc)), None)
+            drawSidebar(tile=Some(board.tiles(loc)))
           case MouseExtraTechAndSpell(_) =>
             strokeHex(ui.ExtraTechAndSpell.origin, "black", tileScale, alpha=0.5)
           case MouseEndTurn(_) =>
@@ -1039,7 +1062,7 @@ object Drawing {
             if(canClickOnTech(techIdx)) {
               strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
             }
-            drawSidebar(None, Some(game.techLine(techIdx).tech.pieceStats), None, None, None)
+            drawSidebar(stats=Some(game.techLine(techIdx).tech.pieceStats))
           case MouseReinforcement(pieceName,side,loc) =>
             strokeHex(ui.Reinforcements.hexLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing) {
@@ -1048,7 +1071,7 @@ object Drawing {
               }
               pieceSpec.foreach { pieceSpec => highlightUndoneActionsForPieceSpec(pieceSpec) }
             }
-            drawSidebar(None, Some(Units.pieceMap(pieceName)), Some(side), None, None)
+            drawSidebar(stats=Some(Units.pieceMap(pieceName)), side=Some(side))
           case MouseDeadPiece(pieceSpec,loc) =>
             strokeHex(ui.DeadPieces.hexLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing)
@@ -1056,7 +1079,7 @@ object Drawing {
             ui.DeadPieces.getSelectedPiece(board, pieceSpec) match {
               case None => ()
               case Some((stats, side)) =>
-                drawSidebar(None, Some(stats), Some(side), None, None)
+                drawSidebar(stats=Some(stats), side=Some(side))
             }
           case MousePiece(spec,_) =>
             board.findPiece(spec) match {
@@ -1064,7 +1087,7 @@ object Drawing {
               case Some(piece) =>
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
                 strokeHex(loc, "black", scale, alpha=0.5)
-                drawSidebar(Some(piece), Some(piece.curStats(board)), Some(piece.side), Some(board.tiles(piece.loc)), None)
+                drawSidebar(piece=Some(piece), stats=Some(piece.curStats(board)), side=Some(piece.side), tile=Some(board.tiles(piece.loc)))
             }
 
             if(undoing)
