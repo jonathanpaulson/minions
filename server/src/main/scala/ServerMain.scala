@@ -353,6 +353,7 @@ object ServerMain extends App {
             val gameAction: GameAction = ChooseSpell(game.curSide,spellId)
             performAndBroadcastGameActionIfLegal(gameAction)
             val boardAction: BoardAction = DoGeneralBoardAction(GainSpell(spellId),"autospell")
+            board.doAction(boardAction)
             boardSequences(boardIdx) += 1
             broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
           }
