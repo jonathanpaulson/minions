@@ -212,7 +212,7 @@ object Drawing {
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
-    def drawSpell(hexLoc: HexLoc, side: Option[Side], spellId: Int) : Unit = {
+    def drawSpell(hexLoc: HexLoc, side: Option[Side], spellId: SpellId) : Unit = {
       val color =
         side match {
           case None => "#aaaaaa"
@@ -1114,7 +1114,7 @@ object Drawing {
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
 
                 if(undoing) {
-                  highlightHex(loc)
+                  highlightHex(loc, scale)
                 }
                 else {
                   if(piece.side == game.curSide) {

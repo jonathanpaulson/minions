@@ -130,6 +130,20 @@ object ServerMain extends App {
 
       //Testing
       {
+       /*state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
+       */
         /*state.tiles.foreachi { (loc, tile) =>
           if (tile.terrain == Graveyard) {
             val _ = state.spawnPieceInitial(S0, Units.fallen_angel.name, loc)
@@ -270,7 +284,7 @@ object ServerMain extends App {
       val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(gameAction)
     }
 
-    private def revealSpellsToSide(side: Side, spellIds: Array[Int], revealToSpectators: Boolean = false): Unit = {
+    private def revealSpellsToSide(side: Side, spellIds: Array[SpellId], revealToSpectators: Boolean = false): Unit = {
       val spellIdsAndNames =
         spellIds.flatMap { spellId =>
           if(revealedSpellIds(side).contains(spellId))

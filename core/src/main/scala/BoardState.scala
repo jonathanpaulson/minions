@@ -93,7 +93,7 @@ sealed trait PlayerAction {
   }
 
   //Does this action directly involve spellId?
-  def involvesSpell(spellId: Int): Boolean = {
+  def involvesSpell(spellId: SpellId): Boolean = {
     this match {
       case Movements(_) => false
       case Attack(_,_) => false
@@ -114,14 +114,14 @@ case class Spawn(spawnLoc: Loc, pieceName: PieceName) extends PlayerAction
 case class ActivateTile(loc: Loc) extends PlayerAction
 case class ActivateAbility(spec: PieceSpec, abilityName: AbilityName, targets: SpellOrAbilityTargets) extends PlayerAction
 case class Teleport(pieceSpec: PieceSpec, src: Loc, dest: Loc) extends PlayerAction
-case class PlaySpell(spellId: Int, targets: SpellOrAbilityTargets) extends PlayerAction
-case class DiscardSpell(spellId: Int) extends PlayerAction
+case class PlaySpell(spellId: SpellId, targets: SpellOrAbilityTargets) extends PlayerAction
+case class DiscardSpell(spellId: SpellId) extends PlayerAction
 
 //Note: path should contain both the start and ending location
 case class Movement(pieceSpec: PieceSpec, path: Vector[Loc])
 
 case class SpellPlayedInfo(
-  val spellId: Int,
+  val spellId: SpellId,
   val side: Side,
   val targets: Option[SpellOrAbilityTargets]
 )
@@ -157,7 +157,7 @@ sealed trait GeneralBoardAction {
   }
 
   //Does this action involve gaining the identified spell?
-  def involvesGainSpell(spellId: Int): Boolean = {
+  def involvesGainSpell(spellId: SpellId): Boolean = {
     this match {
       case GainSpell(id) => spellId == id
       case BuyReinforcement(_) => false
@@ -167,7 +167,7 @@ sealed trait GeneralBoardAction {
 }
 
 case class BuyReinforcement(pieceName: PieceName) extends GeneralBoardAction
-case class GainSpell(spellId: Int) extends GeneralBoardAction
+case class GainSpell(spellId: SpellId) extends GeneralBoardAction
 
 /** Tile:
  *  A single tile on the board

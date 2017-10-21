@@ -43,11 +43,11 @@ case class DoGeneralBoardAction(action: GeneralBoardAction, actionId: String) ex
 //Undo the most recent List[PlayerAction] involving this piece.
 case class LocalPieceUndo(pieceSpec: PieceSpec, actionId: String) extends BoardAction
 //Undo the most recent List[PlayerAction] involving this spell.
-case class SpellUndo(spellId: Int, actionId: String) extends BoardAction
+case class SpellUndo(spellId: SpellId, actionId: String) extends BoardAction
 //Undo the most recent GeneralBoardAction buying this reinforcement.
 case class BuyReinforcementUndo(pieceName: PieceName, actionId: String) extends BoardAction
 //Undo the most recent GeneralBoardAction choosing this spell.
-case class GainSpellUndo(spellId: Int, actionId: String) extends BoardAction
+case class GainSpellUndo(spellId: SpellId, actionId: String) extends BoardAction
 
 
 //Pairs board states together with the legal history of actions that generated those states, after reordering of actions.
