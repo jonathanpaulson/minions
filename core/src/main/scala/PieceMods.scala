@@ -126,7 +126,7 @@ object PieceMods {
     def apply(pieceStats : PieceStats): PieceStats = {
       pieceStats.copy(
         isBaseStats = false,
-        moveRange = Math.max(pieceStats.moveRange, 1)
+        moveRange = Math.min(pieceStats.moveRange, 1)
       )
     }
   }
