@@ -632,12 +632,14 @@ case class BoardState private (
     }
   }
 
-  //pathBias - bias the search to focus on locations in this path first, so as to keep stable a path the user has traced
-  //allowNonMinimalBias - adhere to the pathBias more strongly, possibly returning a nonminimal path
-  private def forEachLegalMoveHelper(piece: Piece, pathBias: List[Loc], allowNonMinimalBias: Boolean)
+  //pathBias - bias the search to focus on locations in this path first, so as to keep stable a path the user has traced.
+  //isRotationPath - adhere to the pathBias more strongly, proceeding down it in a depth-first fashion, therefore possibly
+  //returning a nonminimal path, but allow the path to go anywhere a minimal path could reach. The purpose of this is to
+  //allow the user to draw nonminimal paths to specify lines or loops along with pieces should shuffle, when they want
+  //to do swaps or triangular or higher-order piece shuffles and rotations.
+  private def forEachLegalMoveHelper(piece: Piece, pathBias: List[Loc], isRotationPath: Boolean)
     (f: (Loc,List[Loc],List[(PieceSpec,List[Loc])]) => Unit): Unit
   = {
-    var q = Vector[(Loc, Int, List[Loc])]()
     val passedThrough = scala.collection.mutable.HashSet[Loc]()
     val endedOn = scala.collection.mutable.HashSet[Loc]()
 
@@ -652,22 +654,25 @@ case class BoardState private (
 
     //Attempts to try this location as an ending location, shuffling/rotating existing friendly units on that
     //hex back along the path if already occupied (or if there would be too many, in the case of swarm).
-    def tryEndingLoc(loc: Loc, revPath: List[Loc]): Unit = {
+    def tryEndingLoc(loc: Loc, revPath: List[Loc], shortestRevPath: List[Loc]): Unit = {
       //Make sure the original piece can walk on that tile
       if(canWalkOnTile(pieceStats,tiles(loc)) &&
         pieces(loc).forall { other => other.side == side }) {
         //Find if shuffling works
         canShuffleOnPath(side, List(pieceStats), revPath, numMovingFromZero = 1) match {
           case Some(shuffles) =>
-            f(loc, revPath, (pieceSpec,revPath) :: shuffles)
+            f(loc, revPath, (pieceSpec,shortestRevPath) :: shuffles)
             endedOn += loc
           case None =>
-            //Try sending multiple other pieces down this path as well, if the original piece was part of a swarm
+            //If the original piece was part of a swarm, try sending members of the swarm down this path as well.
+            //For example, a clicking and dragging one of the bone rat in a stack of 3 to swap with a zombie should
+            //perform the swap by moving the dragged rat AND the other two rats along with it.
             val otherPiecesAbleToFollow = pieces(piece.loc).filter { otherPiece =>
               otherPiece.spec != pieceSpec &&
-              canMoveAtLeast(otherPiece,revPath.length-1) &&
-              revPath.forall { pathLoc => canWalkOnTile(otherPiece.curStats(this),tiles(pathLoc)) }
+              canMoveAtLeast(otherPiece,shortestRevPath.length-1) &&
+              shortestRevPath.forall { pathLoc => canWalkOnTile(otherPiece.curStats(this),tiles(pathLoc)) }
             }
+            //Try each number of other pieces that could follow, and see if we get a legal shuffling
             var success = false
             for(numOthers <- 1 to otherPiecesAbleToFollow.length) {
               if(!success) {
@@ -675,8 +680,8 @@ case class BoardState private (
                 val otherStats = others.map { other => other.curStats(this) }
                 canShuffleOnPath(side, pieceStats :: otherStats, revPath, numMovingFromZero = 1 + numOthers) match {
                   case Some(shuffles) =>
-                    val otherMoves = others.map { other => (other.spec,revPath) }
-                    f(loc, revPath, (pieceSpec,revPath) :: (otherMoves ++ shuffles))
+                    val otherMoves = others.map { other => (other.spec,shortestRevPath) }
+                    f(loc, revPath, (pieceSpec,shortestRevPath) :: (otherMoves ++ shuffles))
                     endedOn += loc
                     success = true
                   case None => ()
@@ -687,42 +692,82 @@ case class BoardState private (
       }
     }
 
-    //Breadth first floodfill
-    q = q :+ ((piece.loc, 0, List()))
-    while(!q.isEmpty) {
-      val (loc,d,revPath) = q(0)
-      q = q.drop(1)
-      //Test boundary and also ensure path cannot collide with itself
-      if(tiles.inBounds(loc) && !revPath.contains(loc) && canMoveThroughLoc(piece,loc)) {
-        val nextRevPath = loc :: revPath
-        if(!endedOn.contains(loc))
-          tryEndingLoc(loc,nextRevPath)
+    //If rotating pieces, then first find the set of all locations we can actually reach and minimal paths for reaching them.
+    //That way, we can allow nonminimal rotation paths, but have the moving piece actually take the shortest path to reach
+    //the target loc, rather than the nonminimal path.
+    var shortestRevPathToLoc: Map[Loc,List[Loc]] = Map()
+    if(isRotationPath) {
+      val seen = scala.collection.mutable.HashSet[Loc]()
+      //Breadth first floodfill
+      var q = Vector[(Loc, Int, List[Loc])]()
+      q = q :+ ((piece.loc, 0, List(piece.loc)))
+      while(!q.isEmpty) {
+        val (loc,d,revPath) = q(0)
+        q = q.drop(1)
+        if(!seen.contains(loc)) {
+          seen += loc
+          shortestRevPathToLoc = shortestRevPathToLoc + (loc -> revPath)
 
-        if(!passedThrough.contains(loc)) {
-          passedThrough += loc
           if(d < range) {
-            //In the case where we're adhering more strongly, enqueue the location that's supposed to follow our current
-            //location so that we immediately try that node next
-            if(allowNonMinimalBias) {
-              val idx = pathBias.indexOf(loc)
-              if(idx >= 0 && idx < pathBias.length - 1) {
-                val y = pathBias(idx+1)
-                //TODO allow shrinking d if y is reachable by a shorter path, plus implement path compression in findLegalMoves
-                if(topology.distance(loc,y) == 1)
-                  q = ((y, d+1, nextRevPath)) +: q
+            topology.forEachAdj(loc) { y =>
+              //Test boundary and also ensure path cannot collide with itself
+              if(tiles.inBounds(y) && !revPath.contains(y) && canMoveThroughLoc(piece,y))
+                q = q :+ ((y, d+1, y :: revPath))
+            }
+          }
+        }
+      }
+    }
+
+
+    //Breadth first floodfill
+    var q = Vector[(Loc, Int, List[Loc], List[Loc])]()
+    q = q :+ ((piece.loc, 0, List(piece.loc), List(piece.loc)))
+    while(!q.isEmpty) {
+      val (loc,d,revPath,shortestRevPath) = q(0)
+      q = q.drop(1)
+
+      //Test boundary and also ensure path cannot collide with itself
+      def isNextLocOk(y: Loc): Boolean = {
+        tiles.inBounds(y) && !revPath.contains(y) && canMoveThroughLoc(piece,y)
+      }
+
+      if(!endedOn.contains(loc))
+        tryEndingLoc(loc,revPath,shortestRevPath)
+
+      if(!passedThrough.contains(loc)) {
+        passedThrough += loc
+
+        //Proceed depth-first when doing a rotation path, to allow nonminimal paths.
+        if(isRotationPath) {
+          //Find the location that follows the current location in the given path bias, if any
+          val idx = pathBias.indexOf(loc)
+          if(idx >= 0 && idx < pathBias.length - 1) {
+            val y = pathBias(idx+1)
+            if(topology.distance(loc,y) == 1) {
+              //And make sure we have a shortest path to reach it
+              shortestRevPathToLoc.get(y) match {
+                case None => ()
+                case Some(newShortestRevPath) =>
+                  if(isNextLocOk(y))
+                    q = ((y, newShortestRevPath.length-1, y :: revPath, newShortestRevPath)) +: q
               }
             }
+          }
+        }
 
-            //Enqueue locations that we're biased to prefer first, so that we try those paths first.
-            pathBias.foreach { y =>
-              if(topology.distance(loc,y) == 1)
-                q = q :+ ((y, d+1, nextRevPath))
-            }
-            //Then enqueue all other locations
-            topology.forEachAdj(loc) { y =>
-              if(!pathBias.contains(y))
-                q = q :+ ((y, d+1, nextRevPath))
-            }
+        //Otherwise respect normal movement range
+        if(d < range) {
+          //Enqueue locations that we're biased to prefer first, so that we try those paths first.
+          pathBias.foreach { y =>
+            if(topology.distance(loc,y) == 1)
+              if(isNextLocOk(y))
+                q = q :+ ((y, d+1, y :: revPath, y :: shortestRevPath))
+          }
+          //Then enqueue all other locations
+          topology.forEachAdj(loc) { y =>
+            if(!pathBias.contains(y) && isNextLocOk(y))
+              q = q :+ ((y, d+1, y :: revPath, y :: shortestRevPath))
           }
         }
       }
@@ -733,7 +778,7 @@ case class BoardState private (
   //Does not include teleports.
   def legalMoves(piece : Piece): Map[Loc, Int] = {
     val ans = scala.collection.mutable.HashMap[Loc, Int]()
-    forEachLegalMoveHelper(piece,List(),allowNonMinimalBias=false) { case (loc,revPath,_) =>
+    forEachLegalMoveHelper(piece,List(),isRotationPath=false) { case (loc,revPath,_) =>
       ans(loc) = revPath.length
     }
     Map() ++ ans
@@ -757,10 +802,10 @@ case class BoardState private (
   //May return a nonminimal path in the case that the path is traversing friendly units such that the user could
   //be trying to perform a swap or rotation.
   //Does not include teleports.
-  def findLegalMove(piece : Piece, pathBias: List[Loc], allowNonMinimalBias: Boolean)
+  def findLegalMove(piece : Piece, pathBias: List[Loc], isRotationPath: Boolean)
     (f: (Loc,List[(PieceSpec,List[Loc])]) => Boolean): Option[(List[Loc],List[(PieceSpec,List[Loc])])]
   = {
-    forEachLegalMoveHelper(piece,pathBias,allowNonMinimalBias) { case (loc,revPath,shuffles) =>
+    forEachLegalMoveHelper(piece,pathBias,isRotationPath) { case (loc,revPath,shuffles) =>
       if(f(loc,shuffles)) {
         val reversedShuffles = shuffles.map { case (spec,rpath) => (spec, rpath.reverse) }
         return Some((revPath.reverse, reversedShuffles))
@@ -925,35 +970,46 @@ case class BoardState private (
   //that can move get to shuffle back along the path?
   //numMovingFromZero is the number of pieces moving out of the starting hex on the path simultaneously.
   //Returns all the shuffles needed if possible. Paths returned are reversed.
+  //Precondition: Except for restrictions on friendly pieces/swarming on the final square, it's legal for
+  //all the pieces to move along this path AND they have enough moverange to do so.
   private def canShuffleOnPath(side: Side, pieceStatss: List[PieceStats],
     revPath: List[Loc], numMovingFromZero: Int): Option[List[(PieceSpec,List[Loc])]]
   = {
     val loc = revPath.head
     val remainingPath = revPath.tail
+    //If we can simply move there, then we're done
     if(pieces(loc).isEmpty || (remainingPath.length == 0 && numMovingFromZero == pieces(loc).length))
       Some(List())
     else {
+      //Else it's occupied by friendly pieces. Compute the excess number of friendly pieces based on swarm limits.
       val excess = {
+        //If they can't swarm, then the excess is all of them.
         if(!pieceStatss.forall { pieceStats => pieces(loc).forall { otherStats => canSwarmTogether(otherStats.curStats(this),pieceStats) } })
           pieces(loc).length
+        //Otherwise it's how much they exceed the max.
         else
           pieces(loc).length + pieceStatss.length - pieceStatss.head.swarmMax
       }
+      //If there's no excess, then we're good
       if(excess <= { if(remainingPath.length == 0) numMovingFromZero else 0 })
         Some(List())
+      //Otherwise, if that's the end of the path, then we're stuck.
       else if(remainingPath.length == 0)
         None
       else {
+        //Okay, shuffle down one hex. The next hex in the path must be friendly-occupied or empty.
         val nextLoc = remainingPath.head
         if(!pieces(nextLoc).forall { other => other.side == side })
           None
         else {
+          //Filter to the pieces able to shuffle down, and make sure enough can.
           val piecesAbleToShuffle = pieces(loc).filter { piece =>
             canMoveAtLeast(piece,1) && canWalkOnTile(piece.curStats(this),tiles(nextLoc))
           }
           if(piecesAbleToShuffle.length < excess)
             None
           else {
+            //And recurse!
             val piecesMoving = piecesAbleToShuffle.take(excess)
             val nextStatss = piecesMoving.map { piece => piece.curStats(this) }
             canShuffleOnPath(side, nextStatss, remainingPath, numMovingFromZero) match {
