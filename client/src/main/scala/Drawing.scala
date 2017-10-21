@@ -1109,7 +1109,7 @@ object Drawing {
                 val (loc,scale) = locAndScaleOfPiece(board,piece)
 
                 if(undoing) {
-                  highlightHex(loc)
+                  highlightHex(loc, scale)
                 }
                 else {
                   if(piece.side == game.curSide) {

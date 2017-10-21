@@ -129,6 +129,20 @@ object ServerMain extends App {
 
       //Testing
       {
+       /*state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
+       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
+       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
+       */
         /*state.tiles.foreachi { (loc, tile) =>
           if (tile.terrain == Graveyard) {
             val _ = state.spawnPieceInitial(S0, Units.fallen_angel.name, loc)
