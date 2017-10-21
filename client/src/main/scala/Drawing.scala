@@ -651,8 +651,10 @@ object Drawing {
     //Extra tech and spells hex
     fillHex(ui.ExtraTechAndSpell.origin, "#dddddd", tileScale)
     strokeHex(ui.ExtraTechAndSpell.origin, "#666666", tileScale, lineWidth=1.0)
-    text("Buy Extra", PixelLoc.ofHexLoc(ui.ExtraTechAndSpell.origin, gridSize) + PixelVec(0,-4.0), "black")
-    text("Tech+Spell", PixelLoc.ofHexLoc(ui.ExtraTechAndSpell.origin, gridSize) + PixelVec(0,7.0), "black")
+    val ploc = PixelLoc.ofHexLoc(ui.ExtraTechAndSpell.origin, gridSize)
+    text("Buy Extra", ploc + PixelVec(0,-4.0), "black")
+    text("Tech+Spell", ploc + PixelVec(0,7.0), "black")
+    text("(" + game.extraTechCost + " souls)", ploc + PixelVec(0, 18.0), "black")
 
     //Reinforcements
     Side.foreach { side =>
