@@ -218,9 +218,11 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     val descLoc: HexLoc = hexLoc(Loc(-1,0))
 
     def getHexLocsAndContents(board: BoardState): Array[(HexLoc,PieceSpec,PieceName,Side)] = {
+      // -1 for spells played label
+      val maxSize = (SpellPlayed.origin.x-1-origin.x).toInt
       board.killedThisTurn.reverse.zipWithIndex.map { case ((spec,pieceName,side),i) =>
         (hexLoc(Loc(i,0)),spec,pieceName,side)
-      }.toArray
+      }.toArray.take(maxSize)
     }
     def getSelectedPiece(board: BoardState, pieceSpec: PieceSpec): Option[(PieceStats, Side)] = {
       board.killedThisTurn.findMap { case (spec,pieceName,side) =>
