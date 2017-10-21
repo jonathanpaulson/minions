@@ -741,7 +741,7 @@ object Drawing {
     client.ourSide.foreach { ourSide =>
       var availableLabeled = false
       var upcomingLabeled = false
-      for(i <- 0 until ui.SpellChoice.size) {
+      for(i <- (-1) until ui.SpellChoice.size) {
         val (spellId, spellSide) = game.resolveSpellChoice(i, client.ourSide)
         spellId match {
           case None => ()

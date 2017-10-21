@@ -164,9 +164,9 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
   }
 
   object SpellChoice extends UI.Component with UI.Clickable {
-    val origin = HexLoc(-0.5,-2) + HexVec(0.425,-0.85)
+    val origin = HexLoc(0.5,-2) + HexVec(0.425,-0.85)
     val gridSizeScale = 1
-    val size = 13
+    val size = 12
 
     def getLoc(spellChoiceIdx: Int): Loc = {
       Loc(spellChoiceIdx,0)
