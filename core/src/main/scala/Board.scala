@@ -145,6 +145,25 @@ class Board private (
     }
   }
 
+  //Find the set of actions that would be undone by a spell undo for spellId
+  def findSpellUndoActions(spellId: SpellId): Option[List[PlayerAction]] = {
+    findLastMatch(history.spawnActionsThisTurn) { playerActions => playerActions.exists { _.involvesSpell(spellId) } } match {
+      case Some(actions) => Some(actions)
+      case None =>
+        findLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesSpell(spellId) } }
+    }
+  }
+
+  //Find the set of actions that would be undone by a gain spell undo for spellId
+  def findGainSpellUndoAction(spellId: SpellId): Option[GeneralBoardAction] = {
+    findLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction => generalBoardAction.involvesGainSpell(spellId) }
+  }
+
+  //Find the set of actions that would be undone by a gain spell undo for spellId
+  def findBuyReinforcementUndoAction(pieceName: PieceName): Option[GeneralBoardAction] = {
+    findLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction => generalBoardAction.involvesBuyPiece(pieceName) }
+  }
+
   def tryLegality(action: BoardAction, externalInfo: ExternalInfo): Try[Unit] = {
     action match {
       case PlayerActions(actions,_) => curState().tryLegality(actions,externalInfo)

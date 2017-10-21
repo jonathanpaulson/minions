@@ -135,6 +135,10 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
       (0 until game.techLine.length).map { i => hexLoc(getLoc(i)) }.toArray
     }
 
+    def getHexLocsAndContents(game: Game): Array[(HexLoc,TechState)] = {
+      game.techLine.zipWithIndex.map { case (tech,i) => (hexLoc(getLoc(i)),tech) }.toArray
+    }
+
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
       val _ = (board)
       val (loc,_) = getLocAndDelta(hexLoc)
