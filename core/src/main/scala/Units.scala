@@ -94,7 +94,7 @@ object Units {
     cost = 0,
     rebate = 0,
     attackEffect = Some(Unsummon),
-    defense = Some(7),
+    defense = Some(10),
     moveRange = 1,
     attackRange = 3,
     isPersistent = true,
@@ -109,7 +109,7 @@ object Units {
     cost = 0,
     rebate = 0,
     attackEffect = Some(Unsummon),
-    defense = Some(9),
+    defense = Some(7),
     moveRange = 2,
     attackRange = 1,
     isPersistent = true,
@@ -127,6 +127,7 @@ object Units {
     defense = None,
     moveRange = 1,
     attackRange = 1,
+    isFlying = true,
     isPersistent = true,
     isNecromancer = true,
     spawnRange = 1,
@@ -367,6 +368,7 @@ object Units {
     moveRange = 1,
     attackRange = 3,
     swarmMax = 3,
+    isFlying = true,
   )
 
   val vampire = createPieceStats(
@@ -392,13 +394,13 @@ object Units {
 
   val mummy = createPieceStats(
     name = "mummy",
-    cost = 8,
+    cost = 6,
     rebate = 0,
-    attackEffect = Some(Damage(5)),
-    defense = Some(8),
+    attackEffect = Some(Damage(4)),
+    defense = Some(5),
     moveRange = 1,
     attackRange = 1,
-    deathSpawn = Some(initiate.name),
+    deathSpawn = Some(wight.name),
     spawnRange = 1,
   )
 
