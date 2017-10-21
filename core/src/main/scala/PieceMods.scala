@@ -10,36 +10,40 @@ sealed trait PieceMod {
   def apply(pieceStats: PieceStats): PieceStats
 
   override def toString: String = this match {
-    case PieceMods.Shield => "Shield"
+    case PieceMods.Shielded => "Shielded"
+    case PieceMods.Protected => "Protected"
     case PieceMods.DoubleAttack => "DoubleAttack"
     case PieceMods.UnsummonAttack => "UnsummonAttack"
     case PieceMods.MoveThree => "MoveThree"
     case PieceMods.AirStrike => "AirStrike"
     case PieceMods.Spawner => "Spawner"
-    case PieceMods.Slow => "Slow"
+    case PieceMods.Lumbering => "Lumbering"
     case PieceMods.Shackled => "Shackled"
     case PieceMods.Frozen => "Frozen"
+    case PieceMods.Weakened => "Weakened"
   }
 }
 object PieceMod {
   def ofString(s:String): PieceMod = {
     s match {
-      case "Shield" => PieceMods.Shield
+      case "Shielded" => PieceMods.Shielded
+      case "Protected" => PieceMods.Protected
       case "DoubleAttack" => PieceMods.DoubleAttack
       case "UnsummonAttack" => PieceMods.UnsummonAttack
       case "MoveThree" => PieceMods.MoveThree
       case "AirStrike" => PieceMods.AirStrike
       case "Spawner" => PieceMods.Spawner
-      case "Slow" => PieceMods.Slow
+      case "Lumbering" => PieceMods.Lumbering
       case "Shackled" => PieceMods.Shackled
       case "Frozen" => PieceMods.Frozen
+      case "Weakened" => PieceMods.Weakened
       case _ => throw new Exception("Could not parse PieceMod: " + s)
     }
   }
 }
 
 object PieceMods {
-  case object Shield extends PieceMod {
+  case object Shielded extends PieceMod {
     val displayName = "Shielded"
     val desc = "Doubled defense and persistent"
     def apply(pieceStats: PieceStats): PieceStats = {
@@ -49,6 +53,21 @@ object PieceMods {
         defense = pieceStats.defense match {
           case None => None
           case Some(d) => Some(d*2)
+        }
+      )
+    }
+  }
+
+  case object Protected extends PieceMod {
+    val displayName = "Protected"
+    val desc = "+2 defense"
+    def apply(pieceStats: PieceStats): PieceStats = {
+      pieceStats.copy(
+        isBaseStats = false,
+        isPersistent = true,
+        defense = pieceStats.defense match {
+          case None => None
+          case Some(d) => Some(d+2)
         }
       )
     }
@@ -109,8 +128,8 @@ object PieceMods {
     }
   }
 
-  case object Slow extends PieceMod {
-    val displayName = "Slow"
+  case object Lumbering extends PieceMod {
+    val displayName = "Lumbering"
     val desc = "Becomes lumbering"
     def apply(pieceStats : PieceStats): PieceStats = {
       pieceStats.copy(
@@ -122,11 +141,12 @@ object PieceMods {
 
   case object Shackled extends PieceMod {
     val displayName = "Slow"
-    val desc = "Move range 1"
+    val desc = "Move range 1 and attack range 1"
     def apply(pieceStats : PieceStats): PieceStats = {
       pieceStats.copy(
         isBaseStats = false,
-        moveRange = Math.min(pieceStats.moveRange, 1)
+        moveRange = Math.min(pieceStats.moveRange, 1),
+        attackRange = Math.min(pieceStats.attackRange, 1)
       )
     }
   }
@@ -138,6 +158,24 @@ object PieceMods {
       pieceStats.copy(
         isBaseStats = false,
         attackEffect = None
+      )
+    }
+  }
+
+  case object Weakened extends PieceMod {
+    val displayName = "Weakened"
+    val desc = "-1 attack, cannot attack if < 1"
+    def apply(pieceStats : PieceStats): PieceStats = {
+      pieceStats.copy(
+        isBaseStats = false,
+        attackEffect = pieceStats.attackEffect match {
+          case None => None
+          case Some(Damage(n)) =>
+            if(n <= 1) None
+            else Some(Damage(n-1))
+          case Some(Unsummon) | Some(Kill) | Some(Enchant(_)) | Some(TransformInto(_)) =>
+            pieceStats.attackEffect
+        }
       )
     }
   }

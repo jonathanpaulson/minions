@@ -2,6 +2,9 @@ package minionsgame.core
 import scala.util.{Try,Success,Failure}
 
 case object Spells {
+
+  //OFFENSE---------------------------------------------------------------------------
+
   val fester = TargetedSpell(
     name = "fester",
     displayName = "Fester",
@@ -14,6 +17,21 @@ case object Spells {
       else Success(())
     },
     effect = Damage(1)
+  )
+
+  val unsummon = TargetedSpell(
+    name = "unsummon",
+    displayName = "Unsummon",
+    shortDisplayName = "Unsumm",
+    desc = List("Unsummon target damaged minion."),
+    spellType = NormalSpell,
+    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
+      if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
+      else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
+      else if(pieceStats.isPersistent) Failure(new Exception("Target is persistent"))
+      else Success(())
+    ),
+    effect = Unsummon
   )
 
   val dismember = TargetedSpell(
@@ -43,18 +61,20 @@ case object Spells {
     effect = Damage(1)
   )
 
-  val freeze = TargetedSpell(
-    name = "freeze",
-    displayName = "Freeze",
-    shortDisplayName = "Freeze",
-    desc = List("Target enemy minion cannot attack", "until the start of your next turn"),
-    spellType = Sorcery,
-    tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+  val unholyMight = TargetedSpell(
+    name = "unholy_might",
+    displayName = "Unholy Might",
+    shortDisplayName = "UMight",
+    desc = List("Target friendly necromancer can", "attack twice this turn."),
+    spellType = NormalSpell,
+    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
+      if(piece.side != side || !pieceStats.isNecromancer) Failure(new Exception("Can only target friendly necromancers"))
       else Success(())
-    },
-    effect = Enchant(PieceModWithDuration(PieceMods.Frozen, turnsLeft=Some(2)))
+    ),
+    effect = Enchant(PieceModWithDuration(PieceMods.DoubleAttack, turnsLeft=Some(1)))
   )
+
+  //DEFENSE---------------------------------------------------------------------------
 
   val shield = TargetedSpell(
     name = "shield",
@@ -66,23 +86,75 @@ case object Spells {
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else Success(())
     },
-    effect = Enchant(PieceModWithDuration(PieceMods.Shield, turnsLeft=Some(2)))
+    effect = Enchant(PieceModWithDuration(PieceMods.Shielded, turnsLeft=Some(2)))
   )
 
-  val unsummon = TargetedSpell(
-    name = "unsummon",
-    displayName = "Unsummon",
-    shortDisplayName = "Unsumm",
-    desc = List("Unsummon target damaged minion."),
-    spellType = NormalSpell,
+  val protection = TargetedSpell(
+    name = "protection",
+    displayName = "Protection",
+    shortDisplayName = "Protect",
+    desc = List("Target friendly minion gets +2 defense until", "the end of your next turn."),
+    spellType = Cantrip,
+    tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
+      if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
+      else Success(())
+    },
+    effect = Enchant(PieceModWithDuration(PieceMods.Protected, turnsLeft=Some(2)))
+  )
+
+  val freezeRay = TargetedSpell(
+    name = "freeze_ray",
+    displayName = "Freeze Ray",
+    shortDisplayName = "Freeze",
+    desc = List("Target enemy minion cannot attack", "until the start of your next turn"),
+    spellType = Sorcery,
+    tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
+      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+      else Success(())
+    },
+    effect = Enchant(PieceModWithDuration(PieceMods.Frozen, turnsLeft=Some(2)))
+  )
+
+  val weaken = TargetedSpell(
+    name = "weaken",
+    displayName = "Weaken",
+    shortDisplayName = "Weaken",
+    desc = List("Target enemy minion has -1 attack", "until the start of your next turn", "(minions with < 1 attack cannot attack)."),
+    spellType = Cantrip,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
-      else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
-      else if(pieceStats.isPersistent) Failure(new Exception("Target is persistent"))
+      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
     ),
-    effect = Unsummon
+    effect = Enchant(PieceModWithDuration(PieceMods.Weakened, turnsLeft=Some(2)))
   )
+
+  val lumbering = TargetedSpell(
+    name = "lumbering",
+    displayName = "Lumbering",
+    shortDisplayName = "Lumber",
+    desc = List("Target enemy minion is lumbering", "until the start of your next turn."),
+    spellType = NormalSpell,
+    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
+      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+      else Success(())
+    ),
+    effect = Enchant(PieceModWithDuration(PieceMods.Lumbering, turnsLeft=Some(2)))
+  )
+
+  val shackle = TargetedSpell(
+    name = "shackle",
+    displayName = "Shackle",
+    shortDisplayName = "Shackle",
+    desc = List("Reduce target enemy minion to move range 1", "and attack range 1 until the start of", "your next turn."),
+    spellType = NormalSpell,
+    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
+      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+      else Success(())
+    ),
+    effect = Enchant(PieceModWithDuration(PieceMods.Shackled, turnsLeft=Some(2)))
+  )
+
+  //UTILITY---------------------------------------------------------------------------
 
   val spawn = TargetedSpell(
     name = "spawn",
@@ -98,47 +170,36 @@ case object Spells {
     effect = Enchant(PieceModWithDuration(PieceMods.Spawner, turnsLeft=Some(1)))
   )
 
-  val slow = TargetedSpell(
-    name = "slow",
-    displayName = "Slow",
-    shortDisplayName = "Slow",
-    desc = List("Target enemy minion is lumbering", "until the start of your next turn."),
-    spellType = NormalSpell,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
-      else Success(())
-    ),
-    effect = Enchant(PieceModWithDuration(PieceMods.Slow, turnsLeft=Some(2)))
-  )
-
-  val shackle = TargetedSpell(
-    name = "shackle",
-    displayName = "Shackle",
-    shortDisplayName = "Shackle",
-    desc = List("Target enemy minion has move speed 1", "until the start of your next turn"),
-    spellType = NormalSpell,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
-      else Success(())
-    ),
-    effect = Enchant(PieceModWithDuration(PieceMods.Shackled, turnsLeft=Some(2)))
-  )
-
   val blink = TargetedSpell(
     name = "blink",
     displayName = "Blink",
     shortDisplayName = "Blink",
-    desc = List("Unsummon target friendly minion."),
+    desc = List("Unsummon target friendly minion, even if persistent."),
     spellType = NormalSpell,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
-      else if(pieceStats.isPersistent) Failure(new Exception("Target is persistent"))
       else Success(())
     ),
     effect = Unsummon
   )
 
-  val spells = Array(fester,dismember,lightningBolt,freeze,shield,unsummon,spawn,slow,shackle,blink)
+  val spells = Array(
+    fester,
+    unsummon,
+    dismember,
+    lightningBolt,
+    unholyMight,
+
+    shield,
+    protection,
+    freezeRay,
+    weaken,
+    lumbering,
+    shackle,
+
+    spawn,
+    blink,
+  )
   val spellMap: Map[SpellName,Spell] = spells.groupBy(spell => spell.name).mapValues { spells =>
     assert(spells.length == 1)
     spells.head
@@ -146,16 +207,21 @@ case object Spells {
 
   def createDeck(): List[SpellName] = {
     List(
-      fester,fester,
-      dismember,
-      lightningBolt,
-      freeze,
-      shield,shield,
-      unsummon,unsummon,
-      spawn,spawn,
-      slow,slow,
+      fester,fester,fester,fester,fester,fester,
+      unsummon,unsummon,unsummon,unsummon,unsummon,unsummon,
+      dismember,dismember,
+      lightningBolt,lightningBolt,
+      unholyMight,unholyMight,
+
+      shield,shield,shield,shield,shield,shield,
+      protection,protection,
+      freezeRay,freezeRay,
+      weaken,weaken,
+      lumbering,lumbering,
       shackle,shackle,
-      blink,blink
+
+      spawn,spawn,spawn,
+      blink,blink,blink,
     ).map(_.name)
   }
 }
