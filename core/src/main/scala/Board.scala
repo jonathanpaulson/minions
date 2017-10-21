@@ -159,7 +159,7 @@ class Board private (
     findLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction => generalBoardAction.involvesGainSpell(spellId) }
   }
 
-  //Find the set of actions that would be undone by a gain spell undo for spellId
+  //Find the set of actions that would be undone by a BuyReinforcementUndo for pieceName
   def findBuyReinforcementUndoAction(pieceName: PieceName): Option[GeneralBoardAction] = {
     findLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction => generalBoardAction.involvesBuyPiece(pieceName) }
   }
