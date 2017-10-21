@@ -224,12 +224,12 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     def getHexLocsAndContents(board: BoardState): Array[(HexLoc,PieceSpec,PieceName,Side)] = {
       // -1 for spells played label
       val maxSize = (SpellPlayed.origin.x-1-origin.x).toInt
-      board.killedThisTurn.reverse.zipWithIndex.map { case ((spec,pieceName,side),i) =>
+      board.killedThisTurn.reverse.zipWithIndex.map { case ((spec,pieceName,side,_),i) =>
         (hexLoc(Loc(i,0)),spec,pieceName,side)
       }.toArray.take(maxSize)
     }
     def getSelectedPiece(board: BoardState, pieceSpec: PieceSpec): Option[(PieceStats, Side)] = {
-      board.killedThisTurn.findMap { case (spec,pieceName,side) =>
+      board.killedThisTurn.findMap { case (spec,pieceName,side,_) =>
         if(pieceSpec == spec) Some((Units.pieceMap(pieceName), side)) else None
       }
     }
@@ -240,7 +240,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
       val idx = loc.x
       if(loc.y == 0 && idx >= 0 && idx < board.killedThisTurn.length) {
         val reversed = board.killedThisTurn.reverse
-        val (spec,_,_) = reversed(idx)
+        val (spec,_,_,_) = reversed(idx)
         MouseDeadPiece(spec, loc)
       }
       else

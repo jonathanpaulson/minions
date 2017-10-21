@@ -467,7 +467,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
           if(undo) {
             //Require mouse down and up on the same target
             if(curTarget == dragTarget) {
-              val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
+              val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_,_) =>
                 if(pieceName == name) Some(pieceSpec) else None
               }
               pieceSpec match {

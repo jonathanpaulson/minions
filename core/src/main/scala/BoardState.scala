@@ -319,8 +319,8 @@ case class BoardState private (
   var piecesSpawnedThisTurn: Map[SpawnedThisTurn,Piece],
   var numPiecesSpawnedThisTurnAt: Map[Loc,Int],
   //Pieces killed this turn
-  var killedThisTurn: List[(PieceSpec,PieceName,Side)],
-  var unsummonedThisTurn: List[(PieceSpec,PieceName,Side)],
+  var killedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
+  var unsummonedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
 
   //Number of turns completed
   var turnNumber: Int,
@@ -1430,13 +1430,13 @@ case class BoardState private (
   //Kill a piece, for any reason
   private def killPiece(piece: Piece): Unit = {
     removeFromBoard(piece)
-    killedThisTurn = killedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side))
+    killedThisTurn = killedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side, piece.loc))
     updateAfterPieceKill(piece.side,piece.curStats(this),piece.loc)
   }
 
   private def unsummonPiece(piece: Piece): Unit = {
     removeFromBoard(piece)
-    unsummonedThisTurn = unsummonedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side))
+    unsummonedThisTurn = unsummonedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side, piece.loc))
     addReinforcementInternal(piece.side,piece.baseStats.name)
   }
   private def removeFromBoard(piece: Piece): Unit = {

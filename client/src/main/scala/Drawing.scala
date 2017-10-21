@@ -996,8 +996,17 @@ object Drawing {
       board.findPiece(pieceSpec) match {
         case Some(piece) => Some(piece.loc)
         case None =>
-          //Then try the start of turn board
-          boards(boardIdx).initialStateThisTurn.findPiece(pieceSpec).map { piece => piece.loc }
+          //Then try to see if it was killed or unsummoned
+          board.killedThisTurn.findMap { case (spec,_,_,loc) => if(spec == pieceSpec) Some(loc) else None } match {
+            case Some(loc) => Some(loc)
+            case None =>
+              board.unsummonedThisTurn.findMap { case (spec,_,_,loc) => if(spec == pieceSpec) Some(loc) else None } match {
+                case Some(loc) => Some(loc)
+                case None =>
+                  //Then try the start of turn board
+                  boards(boardIdx).initialStateThisTurn.findPiece(pieceSpec).map { piece => piece.loc }
+              }
+          }
       }
     }
 
@@ -1131,7 +1140,7 @@ object Drawing {
           case MouseReinforcement(pieceName,side,loc) =>
             strokeHex(ui.Reinforcements.hexLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing) {
-              val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
+              val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_,_) =>
                 if(pieceName == name) Some(pieceSpec) else None
               }
               pieceSpec match {
