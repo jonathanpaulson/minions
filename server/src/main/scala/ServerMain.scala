@@ -351,10 +351,18 @@ object ServerMain extends App {
       game.addMana(newSide,mana)
 
       //Automatically tech if it hasn't happened yet, as a convenience
-      if(game.numTechsThisTurn <= 0) {
+      var moreAutoTechsToBuy = true
+      while(moreAutoTechsToBuy && game.numTechsThisTurn < game.extraTechsAndSpellsThisTurn + 1) {
         val idx = game.techLine.indexWhere { techState => techState.level(oldSide) == TechLocked}
         if(idx >= 0) { //-1 if not found
-          val (_: Try[Unit]) = performAndBroadcastGameActionIfLegal(PerformTech(oldSide,idx))
+          performAndBroadcastGameActionIfLegal(PerformTech(oldSide,idx)) match {
+            case Success(()) => ()
+            case Failure(_) =>
+              moreAutoTechsToBuy = false
+          }
+        }
+        else {
+          moreAutoTechsToBuy = false
         }
       }
 
