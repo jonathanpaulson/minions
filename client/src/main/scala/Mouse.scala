@@ -242,7 +242,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
             targetPiece match {
               case None =>
                 //Ordinary move to location
-                board.findLegalMove(dragPiece,pathBias=pathBias,allowNonMinimalBias=false) { case (loc,_) => loc == curLoc }
+                board.findLegalMove(dragPiece,pathBias=pathBias,isRotationPath=false) { case (loc,_) => loc == curLoc }
               case Some(targetPiece) =>
                 //Merge into friendly swarm
                 if(targetPiece.side == dragPiece.side) {
@@ -250,10 +250,10 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                   //even if the path becomes nonminimal
                   val dpStats = dragPiece.curStats(board)
                   val tpStats = targetPiece.curStats(board)
-                  val allowNonMinimalBias = {
+                  val isRotationPath = {
                     !board.canSwarmTogether(dpStats,tpStats) || dpStats.swarmMax < board.pieces(curLoc).length + 1
                   }
-                  board.findLegalMove(dragPiece,pathBias=pathBias,allowNonMinimalBias) { case (loc,_) => loc == curLoc }
+                  board.findLegalMove(dragPiece,pathBias=pathBias,isRotationPath) { case (loc,_) => loc == curLoc }
                 }
                 //Attack enemy piece
                 else {
@@ -263,7 +263,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                     None
                   else {
                     val attackRange = { if(tpStats.isFlying) dpStats.attackRangeVsFlying else dpStats.attackRange }
-                    board.findLegalMove(dragPiece,pathBias=pathBias,allowNonMinimalBias=false) { case (loc,shuffles) =>
+                    board.findLegalMove(dragPiece,pathBias=pathBias,isRotationPath=false) { case (loc,shuffles) =>
                       shuffles.length <= 1 &&
                       board.topology.distance(loc, curLoc) <= attackRange &&
                       (loc == dragPiece.loc || !dpStats.isLumbering)
