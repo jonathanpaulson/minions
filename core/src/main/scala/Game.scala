@@ -225,7 +225,9 @@ case class Game (
     }
   }
 
-  def resolveSpellChoice(idx : Int, side : Option[Side]) : (Option[Int], Option[Side]) = {
+  // Given an index into the spell choice row, return the spell chosen and which side it belongs to
+  // (or None if it hasn't been drawn yet)
+  def resolveSpellChoice(idx : Int, side : Option[Side]) : (Option[SpellId], Option[Side]) = {
     side match {
       case None => (None, None)
       case Some(ourSide) =>
