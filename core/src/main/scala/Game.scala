@@ -268,7 +268,7 @@ case class Game (
     curSide = curSide.opp
     turnNumber += 1
     numTechsThisTurn = 0
-    extraTechAndSpellsThisTurn = 0
+    extraTechsAndSpellsThisTurn = 0
 
     mana(curSide) += extraManaPerTurn
 
