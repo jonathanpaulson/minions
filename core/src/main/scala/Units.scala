@@ -535,7 +535,7 @@ object Units {
     immortal_necromancer,
     deadly_necromancer,
     swarm_necromancer,
-    summoner_necromancer,
+    //summoner_necromancer,
     zombie, acolyte, spire,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
     warg, dark_tower, witch, vampire, mummy, lich, bone_rat, void, hell_hound,
@@ -550,7 +550,7 @@ object Units {
     immortal_necromancer,
     deadly_necromancer,
     swarm_necromancer,
-    summoner_necromancer,
+    //summoner_necromancer,
   )
 
   //Pieces that start off buyable
