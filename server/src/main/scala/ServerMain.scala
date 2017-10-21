@@ -108,6 +108,7 @@ object ServerMain extends App {
   var nextSpellId: Int = 0
   var spellMap: Map[Int,SpellName] = Map()
   val revealedSpellIds: SideArray[Set[Int]] = SideArray.create(Set())
+  val externalInfo: ExternalInfo = ExternalInfo()
 
   val (boards,boardNames): (Array[Board],Array[String]) = {
     val availableMaps = {
@@ -282,9 +283,7 @@ object ServerMain extends App {
         revealedSpellIds(side) = revealedSpellIds(side) + spellId
       }
 
-      for(boardIdx <- 0 until numBoards) {
-        boards(boardIdx).revealSpells(spellIdsAndNames)
-      }
+      externalInfo.revealSpells(spellIdsAndNames)
       broadcastToSide(Protocol.ReportRevealSpells(spellIdsAndNames),side)
       if(revealToSpectators)
         broadcastToSpectators(Protocol.ReportRevealSpells(spellIdsAndNames))
@@ -353,7 +352,7 @@ object ServerMain extends App {
             val gameAction: GameAction = ChooseSpell(game.curSide,spellId)
             performAndBroadcastGameActionIfLegal(gameAction)
             val boardAction: BoardAction = DoGeneralBoardAction(GainSpell(spellId),"autospell")
-            board.doAction(boardAction)
+            board.doAction(boardAction,externalInfo)
             boardSequences(boardIdx) += 1
             broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
           }
@@ -455,14 +454,14 @@ object ServerMain extends App {
                   case (_: SpellUndo) => Success(())
                   case BuyReinforcementUndo(pieceName,_) =>
                     //Check ahead of time if it's legal
-                    boards(boardIdx).tryLegality(boardAction).flatMap { case () =>
+                    boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
                       //And if so, go ahead and recover the cost of the unit
                       val gameAction: GameAction = UnpayForReinforcement(side,pieceName)
                       performAndBroadcastGameActionIfLegal(gameAction)
                     }
                   case GainSpellUndo(spellId,_) =>
                     //Check ahead of time if it's legal
-                    boards(boardIdx).tryLegality(boardAction).flatMap { case () =>
+                    boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
                       //And if so, go ahead and recover the cost of the unit
                       val gameAction: GameAction = UnchooseSpell(side,spellId)
                       performAndBroadcastGameActionIfLegal(gameAction)
@@ -475,7 +474,7 @@ object ServerMain extends App {
                         performAndBroadcastGameActionIfLegal(gameAction)
                       case GainSpell(spellId) =>
                         //Check ahead of time if it's legal
-                        boards(boardIdx).tryLegality(boardAction).flatMap { case () =>
+                        boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
                           //Make sure the spell can be chosen
                           val gameAction: GameAction = ChooseSpell(side,spellId)
                           performAndBroadcastGameActionIfLegal(gameAction)
@@ -483,7 +482,7 @@ object ServerMain extends App {
                     }
                 }
 
-                specialResult.flatMap { case () => boards(boardIdx).doAction(boardAction) } match {
+                specialResult.flatMap { case () => boards(boardIdx).doAction(boardAction,externalInfo) } match {
                   case Failure(e) =>
                     out ! Protocol.QueryError("Illegal action: " + e.getLocalizedMessage)
                   case Success(()) =>
@@ -595,6 +594,14 @@ object ServerMain extends App {
 
         out ! Protocol.Version(CurrentVersion.version)
         out ! Protocol.ClientHeartbeatRate(periodInSeconds=clientHeartbeatPeriodInSeconds)
+
+        val spellIds = side match {
+          case None => revealedSpellIds(S0).intersect(revealedSpellIds(S1))
+          case Some(side) => revealedSpellIds(side)
+        }
+        val spellIdsAndNames = spellIds.toArray.map { spellId => (spellId,spellMap(spellId)) }
+        out ! Protocol.ReportRevealSpells(spellIdsAndNames)
+
         out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
         getTimeLeftEvent().foreach { response => out ! response }
         broadcastAll(Protocol.UserJoined(username,side))

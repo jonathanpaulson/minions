@@ -106,6 +106,7 @@ class Client() {
   var serverSequence: Array[Int] = Array()
   var serverActionSequence: Array[Vector[BoardAction]] = Array()
   var serverBoardNames: Array[String] = Array()
+  var externalInfo: ExternalInfo = ExternalInfo()
 
   var numBoards: Int = 0 //Length of the boards arrays
   var curBoardIdx: Int = 0 //Currently selected board
@@ -184,7 +185,7 @@ class Client() {
 
       localActionsToReplay.foreach { action =>
         val result = action match {
-          case (a: BoardAction) => localBoards(boardIdx).doAction(a)
+          case (a: BoardAction) => localBoards(boardIdx).doAction(a,externalInfo)
         }
         result match {
           case Failure(err) => reportError(err.getLocalizedMessage)
@@ -238,7 +239,7 @@ class Client() {
         numBoards = summaries.length
         curBoardIdx = 0
         game = Some(startGame)
-        serverBoards = summaries.map { summary => Board.ofSummary(summary) }
+        serverBoards = summaries.map { summary => Board.ofSummary(summary,externalInfo) }
         serverSequence = boardSequences.clone()
         serverActionSequence = Array.fill(summaries.length)(Vector())
         serverBoardNames = boardNames.clone()
@@ -260,7 +261,7 @@ class Client() {
 
       case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
         println("Received board " + boardIdx + " action " + boardAction)
-        serverBoards(boardIdx).doAction(boardAction) match {
+        serverBoards(boardIdx).doAction(boardAction,externalInfo) match {
           case Failure(exn) => reportFatalError("Server sent illegal action: " + boardAction + " error: " + exn)
           case Success(()) => ()
         }
@@ -269,7 +270,7 @@ class Client() {
         syncLocalAndServerBoards(boardIdx)
 
       case Protocol.ReportBoardHistory(boardIdx,boardSummary,newBoardSequence) =>
-        serverBoards(boardIdx) = Board.ofSummary(boardSummary)
+        serverBoards(boardIdx) = Board.ofSummary(boardSummary,externalInfo)
         serverSequence(boardIdx) = newBoardSequence
         serverActionSequence(boardIdx) = Vector()
         resetLocalBoards(boardIdx)
@@ -302,8 +303,7 @@ class Client() {
         estimatedTurnEndTime = None
 
       case Protocol.ReportRevealSpells(spellIdsAndNames) =>
-        serverBoards.foreach { board => board.revealSpells(spellIdsAndNames) }
-        localBoards.foreach { board => board.revealSpells(spellIdsAndNames) }
+        externalInfo.revealSpells(spellIdsAndNames)
 
       case Protocol.ReportTimeLeft(timeLeft) =>
         updateEstimatedTurnEndTime(timeLeft)
@@ -339,7 +339,7 @@ class Client() {
         case (_: PlayerActions) | (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: GainSpellUndo) =>
           if(game.exists { game => game.winner.nonEmpty })
             reportError("Game is over")
-          localBoards(curBoardIdx).doAction(action) match {
+          localBoards(curBoardIdx).doAction(action,externalInfo) match {
             case Failure(error) => reportError(error.getLocalizedMessage)
             case Success(()) =>
               localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
@@ -368,7 +368,7 @@ class Client() {
       withBoardForMouse { case (mouseState, board) =>
         mouseState.refresh(game.get,board.curState)
         val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
-        Drawing.drawEverything(canvas, ctx, game.get, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
+        Drawing.drawEverything(canvas, ctx, game.get, externalInfo, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
           mouseState.undoing, showCoords, timeLeft, this)
       }
     }

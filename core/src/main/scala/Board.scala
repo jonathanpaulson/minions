@@ -93,10 +93,10 @@ object Board {
     )
   }
 
-  def ofSummary(summary: BoardSummary): Board = {
+  def ofSummary(summary: BoardSummary, externalInfo: ExternalInfo): Board = {
     val board = create(summary.initialStateThisTurn)
     summary.actionsThisTurn.foreach { action =>
-      board.doAction(action).get
+      board.doAction(action,externalInfo).get
     }
     board
   }
@@ -145,9 +145,9 @@ class Board private (
     }
   }
 
-  def tryLegality(action: BoardAction): Try[Unit] = {
+  def tryLegality(action: BoardAction, externalInfo: ExternalInfo): Try[Unit] = {
     action match {
-      case PlayerActions(actions,_) => curState().tryLegality(actions)
+      case PlayerActions(actions,_) => curState().tryLegality(actions,externalInfo)
       case DoGeneralBoardAction(action,_) => curState().tryGeneralLegality(action)
       case LocalPieceUndo(pieceSpec,_) =>
         val anyActionInvolvesPiece = {
@@ -210,8 +210,8 @@ class Board private (
 
   //Due to action reordering, might also report some actions illegal that aren't reported as illegal by tryLegality,
   //but this should be extremely rare.
-  def doAction(action: BoardAction): Try[Unit] = {
-    tryLegality(action) match {
+  def doAction(action: BoardAction, externalInfo: ExternalInfo): Try[Unit] = {
+    tryLegality(action,externalInfo) match {
       case Failure(err) => Failure(err)
       case Success(()) => Try {
         val newHistory = action match {
@@ -225,7 +225,7 @@ class Board private (
               playerAction match {
                 case Movements(_) | Attack(_,_) | Teleport(_,_,_) =>
                   //If move/attacks fail, then they're flat-out illegal
-                  newMoveAttackState.doAction(playerAction).get
+                  newMoveAttackState.doAction(playerAction,externalInfo).get
                   moveAttackActionsRev = playerAction :: moveAttackActionsRev
                 case Spawn(_,_) =>
                   delayedToSpawnRev = playerAction :: delayedToSpawnRev
@@ -237,7 +237,7 @@ class Board private (
                   }
                 case ActivateAbility(_,_,_) | PlaySpell(_,_) | DiscardSpell(_) =>
                   //When spells or abilities fail, it may be because they are targeting units only placed during spawn
-                  newMoveAttackState.doAction(playerAction) match {
+                  newMoveAttackState.doAction(playerAction,externalInfo) match {
                     case Success(()) => moveAttackActionsRev = playerAction :: moveAttackActionsRev
                     case Failure(_) => delayedToSpawnRev = playerAction :: delayedToSpawnRev
                   }
@@ -247,12 +247,12 @@ class Board private (
             //Reapply all the spawn actions so far
             val newSpawnState = newMoveAttackState.copy()
             val reappliedSpawnActionsThisTurn = reapplyLegal(history.spawnActionsThisTurn) { playerActions =>
-              newSpawnState.doActions(playerActions)
+              newSpawnState.doActions(playerActions,externalInfo)
             }
 
             //And now apply all the deferred actions
             val spawnActions = delayedToSpawnRev.reverse
-            newSpawnState.doActions(spawnActions).get
+            newSpawnState.doActions(spawnActions,externalInfo).get
 
             BoardHistory(
               moveAttackState = newMoveAttackState,
@@ -294,10 +294,10 @@ class Board private (
 
             //And then reapply the actions, dropping any illegal ones.
             val newMoveAttackActionsThisTurn =
-              reapplyLegal(keptMoveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions) }
+              reapplyLegal(keptMoveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
             val newSpawnState = newMoveAttackState.copy()
             val newSpawnActionsThisTurn =
-              reapplyLegal(keptSpawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions) }
+              reapplyLegal(keptSpawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
             BoardHistory(
               moveAttackState = newMoveAttackState,
               spawnState = newSpawnState,
@@ -325,10 +325,10 @@ class Board private (
 
             //And then reapply the actions, dropping any illegal ones.
             val newMoveAttackActionsThisTurn =
-              reapplyLegal(keptMoveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions) }
+              reapplyLegal(keptMoveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
             val newSpawnState = newMoveAttackState.copy()
             val newSpawnActionsThisTurn =
-              reapplyLegal(keptSpawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions) }
+              reapplyLegal(keptSpawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
             BoardHistory(
               moveAttackState = newMoveAttackState,
               spawnState = newSpawnState,
@@ -351,10 +351,10 @@ class Board private (
             }
 
             val newMoveAttackActionsThisTurn =
-              reapplyLegal(history.moveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions) }
+              reapplyLegal(history.moveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
             val newSpawnState = newMoveAttackState.copy()
             val newSpawnActionsThisTurn =
-              reapplyLegal(history.spawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions) }
+              reapplyLegal(history.spawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
 
             BoardHistory(
               moveAttackState = newMoveAttackState,
@@ -378,10 +378,10 @@ class Board private (
             }
 
             val newMoveAttackActionsThisTurn =
-              reapplyLegal(history.moveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions) }
+              reapplyLegal(history.moveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
             val newSpawnState = newMoveAttackState.copy()
             val newSpawnActionsThisTurn =
-              reapplyLegal(history.spawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions) }
+              reapplyLegal(history.spawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
 
             BoardHistory(
               moveAttackState = newMoveAttackState,
@@ -421,22 +421,6 @@ class Board private (
     //TODO loses history information for recording purposes into playerGeneralBoardActionsPrevTurns
     //on endTurn()
     history = BoardHistory.initial(initialStateThisTurn)
-  }
-
-  def revealSpells(spellIdsAndNames: Array[(Int,SpellName)]) = {
-    initialStateThisTurn = initialStateThisTurn.copy()
-    initialStateThisTurn.revealSpells(spellIdsAndNames)
-    val newMoveAttackState = history.moveAttackState.copy()
-    val newSpawnState = history.spawnState.copy()
-    newMoveAttackState.revealSpells(spellIdsAndNames)
-    newSpawnState.revealSpells(spellIdsAndNames)
-    history = BoardHistory(
-      moveAttackState = newMoveAttackState,
-      spawnState = newSpawnState,
-      moveAttackActionsThisTurn = history.moveAttackActionsThisTurn,
-      spawnActionsThisTurn = history.spawnActionsThisTurn,
-      generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
-    )
   }
 
   def toSummary(): BoardSummary = {
