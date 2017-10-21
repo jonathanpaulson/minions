@@ -212,27 +212,35 @@ object Drawing {
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
-    def drawSpell(hexLoc: HexLoc, side: Option[Side], spellId: SpellId, subLabel: Option[String] = None) : Unit = {
+    def drawSpell(hexLoc: HexLoc, scale : Double, side: Option[Side], spellId: Option[SpellId], subLabel: Option[String] = None) : Unit = {
       val color =
         side match {
           case None => "#aaaaaa"
-          case Some(S0) => "#bbbbff"
-          case Some(S1) => "#ffbbbb"
+          case Some(S0) => "#aaccff"
+          case Some(S1) => "#ffccaa"
         }
-      fillHex(hexLoc, color, spellScale)
-      strokeHex(hexLoc, "black", spellScale, alpha=0.2)
-      externalInfo.spellsRevealed.get(spellId) match {
-        case None =>
-          text("Unknown", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
-          text("Spell", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
-        case Some(spellName) =>
-          val spell = Spells.spellMap(spellName)
-          subLabel match {
-            case None => text(spell.shortDisplayName, hexLoc, "black")
-            case Some(subLabel) =>
-              text(spell.shortDisplayName, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
-              text(subLabel, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
-          }
+      val strokeColor =
+        side match {
+          case None => "#aaaaaa"
+          case Some(S0) => "#0000bb"
+          case Some(S1) => "#bb0000"
+        }
+      fillHex(hexLoc, color, scale)
+      strokeHex(hexLoc, strokeColor, scale, alpha=0.3)
+      spellId.foreach { spellId =>
+        externalInfo.spellsRevealed.get(spellId) match {
+          case None =>
+            text("Unknown", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
+            text("Spell", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
+          case Some(spellName) =>
+            val spell = Spells.spellMap(spellName)
+            subLabel match {
+              case None => text(spell.shortDisplayName, hexLoc, "black")
+              case Some(subLabel) =>
+                text(spell.shortDisplayName, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
+                text(subLabel, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
+            }
+        }
       }
     }
 
@@ -276,7 +284,7 @@ object Drawing {
       }
       spell match {
         case None => ()
-        case Some(_) => drawPiece(hexLoc, spellScale*6.0, side, "")
+        case Some(_) => drawSpell(hexLoc, spellScale*6.0, side, spellId=None)
       }
       var row_idx = 0
       def row(n:Int) : PixelLoc = {
@@ -599,10 +607,11 @@ object Drawing {
     }
 
     //Clock
-    val clockStr = {
-      if(client.gotFatalError)
-        "Connection error"
-      else timeLeft match {
+    if(client.gotFatalError) {
+      text("Connection error", ui.Clock.origin, "red", textAlign="left", style = "bold", fontSize=24)
+    }
+    else {
+      val clockStr = timeLeft match {
         case None => ""
         case Some(timeLeft) =>
           val seconds: Int = Math.floor(timeLeft).toInt
@@ -612,8 +621,8 @@ object Drawing {
           }
           board.side.toColorName + " Team Time left: " + timeStr
       }
+      text(clockStr, ui.Clock.origin, textColorOfSide(board.side), textAlign="left", style = "bold", fontSize=16)
     }
-    text(clockStr, ui.Clock.origin, textColorOfSide(board.side), textAlign="left", style = "bold", fontSize=16)
 
     //End turn hex
     if(game.isBoardDone(boardIdx)) {
@@ -656,7 +665,7 @@ object Drawing {
         //If the user has so many spells that it overflows, then we just won't draw them all...
         if(idx < locs.length) {
           val hexLoc = ui.SpellHand.hexLoc(locs(idx))
-          drawSpell(hexLoc, Some(side), spellId)
+          drawSpell(hexLoc, spellScale, Some(side), Some(spellId))
         }
       }
     }
@@ -684,7 +693,7 @@ object Drawing {
           case None => "(discard)"
           case Some(_) => "(played)"
         }
-        drawSpell(hexLoc, Some(side), spellId, subLabel=Some(subLabel))
+        drawSpell(hexLoc, spellScale, Some(side), Some(spellId), subLabel=Some(subLabel))
       }
     }
 
@@ -746,7 +755,7 @@ object Drawing {
               }
             }
           val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
-          drawSpell(hexLoc, spellSide, spellId)
+          drawSpell(hexLoc, spellScale, spellSide, Some(spellId))
         }
       }
     }
