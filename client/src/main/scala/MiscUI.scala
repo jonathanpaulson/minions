@@ -91,7 +91,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
 
   //Positioning for end turn hex button
   object EndTurn extends UI.Component with UI.Clickable {
-    val origin = HexLoc(14.5,-2)
+    val origin = HexLoc(14.5,-3)
     val gridSizeScale = 1
 
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
@@ -102,7 +102,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     }
   }
   object ResignBoard extends UI.Component with UI.Clickable {
-    val origin = HexLoc(15.5,-1)
+    val origin = HexLoc(15.5,-3)
     val gridSizeScale = 1
 
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
@@ -249,6 +249,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     val gridSizeScale = 1
 
     val unflippedLocs = Array(
+      Loc(-5,7),Loc(-4,7),Loc(-3,7),Loc(-2,7),
       Loc(-5,8),Loc(-4,8),Loc(-3,8),Loc(-2,8),
       Loc(-6,9),Loc(-5,9),Loc(-4,9),Loc(-3,9),Loc(-2,9),
       Loc(-6,10),Loc(-5,10),Loc(-4,10),Loc(-3,10),Loc(-2,10),
@@ -288,7 +289,6 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
       Loc(-3,4),Loc(-2,4),
       Loc(-4,5),Loc(-3,5),Loc(-2,5),
       Loc(-4,6),Loc(-3,6),Loc(-2,6),
-      Loc(-5,7),Loc(-4,7),Loc(-3,7),Loc(-2,7),
     )
 
     def getLocs(side: Side): Array[Loc] = {
