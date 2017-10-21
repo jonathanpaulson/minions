@@ -610,7 +610,7 @@ object Drawing {
             if(seconds < 0) "-" + ((-seconds) / 60).toString + ":" + "%02d".format((-seconds) % 60)
             else (seconds / 60).toString + ":" + "%02d".format(seconds % 60)
           }
-          board.side.toColorName + "Team Time left: " + timeStr
+          board.side.toColorName + " Team Time left: " + timeStr
       }
     }
     text(clockStr, ui.Clock.origin, textColorOfSide(board.side), textAlign="left", style = "bold", fontSize=16)
