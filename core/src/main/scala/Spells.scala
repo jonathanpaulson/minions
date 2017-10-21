@@ -80,7 +80,7 @@ case object Spells {
     name = "shield",
     displayName = "Shield",
     shortDisplayName = "Shield",
-    desc = List("Target friendly minion's defense is doubled", "and is persistent until the start of your next turn."),
+    desc = List("Target friendly minion is persistent.", "Double its defense until the start", "of your next turn."),
     spellType = NormalSpell,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
@@ -174,7 +174,7 @@ case object Spells {
     name = "blink",
     displayName = "Blink",
     shortDisplayName = "Blink",
-    desc = List("Unsummon target friendly minion, even if persistent."),
+    desc = List("Unsummon target friendly minion,", "even if it is persistent."),
     spellType = NormalSpell,
     tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
       if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))

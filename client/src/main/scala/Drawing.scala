@@ -516,6 +516,12 @@ object Drawing {
               spell.desc.foreach { line =>
                 show(line)
               }
+              spell.spellType match {
+                case NormalSpell => ""
+                case Sorcery => show(""); show("Sorcery (costs 1 sorcery power to play)")
+                case Cantrip => show(""); show("Cantrip (gain 1 sorcery power when played)")
+                case DoubleCantrip => show(""); show("Cantrip x 2 (gain 2 sorcery power when played or discarded)")
+              }
           }
       }
     }
