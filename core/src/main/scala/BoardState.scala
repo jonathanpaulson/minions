@@ -120,6 +120,12 @@ case class DiscardSpell(spellId: Int) extends PlayerAction
 //Note: path should contain both the start and ending location
 case class Movement(pieceSpec: PieceSpec, path: Vector[Loc])
 
+case class SpellPlayedInfo(
+  val spellId: Int,
+  val side: Side,
+  val targets: Option[SpellOrAbilityTargets]
+)
+
 //Data for the targets of a played spell or piece ability.
 //Since different spells and abilities affect different things and have different numbers
 //of targets, not all fields may be applicable.
@@ -264,6 +270,7 @@ object BoardState {
       reinforcements = SideArray.create(Map()),
       spellsRevealed = Map(),
       spellsInHand = SideArray.create(List()),
+      spellsPlayedThisTurn = Nil,
       sorceryPower = 0,
       hasUsedSpawnerTile = false,
       hasGainedSpell = false,
@@ -324,6 +331,8 @@ case class BoardState private (
   var spellsRevealed: Map[Int,SpellName],
   //List of all spells in hand, indexed by spellID
   val spellsInHand: SideArray[List[Int]],
+  // List of all spellIDs played this turn
+  var spellsPlayedThisTurn: List[SpellPlayedInfo],
 
   //How many units of sorcery power the side to move has (from cantrips and spell discards)
   var sorceryPower: Int,
@@ -366,6 +375,7 @@ case class BoardState private (
       reinforcements = reinforcements.copy(),
       spellsRevealed = spellsRevealed,
       spellsInHand = spellsInHand.copy(),
+      spellsPlayedThisTurn = spellsPlayedThisTurn,
       sorceryPower = sorceryPower,
       hasUsedSpawnerTile = hasUsedSpawnerTile,
       hasGainedSpell = hasGainedSpell,
@@ -507,6 +517,7 @@ case class BoardState private (
     numPiecesSpawnedThisTurnAt = Map()
     killedThisTurn = Nil
     unsummonedThisTurn = Nil
+    spellsPlayedThisTurn = Nil
     hasUsedSpawnerTile = false
     hasGainedSpell = false
 
@@ -533,6 +544,7 @@ case class BoardState private (
     pieceById = Map()
     piecesSpawnedThisTurn = Map()
     numPiecesSpawnedThisTurnAt = Map()
+    spellsPlayedThisTurn = Nil
     Side.foreach { side =>
       reinforcements(side) = Map()
     }
@@ -1351,6 +1363,7 @@ case class BoardState private (
             piecesOnTile.foreach { piece => killIfEnoughDamage(piece) }
         }
         spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
+        spellsPlayedThisTurn = spellsPlayedThisTurn :+ SpellPlayedInfo(spellId, side, Some(targets))
 
       case DiscardSpell(spellId) =>
         val spell = Spells.spellMap(spellsRevealed(spellId))
@@ -1361,6 +1374,7 @@ case class BoardState private (
           case DoubleCantrip => sorceryPower += 2
         }
         spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
+        spellsPlayedThisTurn = spellsPlayedThisTurn :+ SpellPlayedInfo(spellId, side, None)
     }
   }
 

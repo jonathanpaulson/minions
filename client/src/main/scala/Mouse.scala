@@ -11,6 +11,8 @@ sealed trait MouseTarget {
     this match {
       case MouseNone => None
       case MouseSpellChoice(_,_) => None
+      case MouseSpellHand(_,_,_) => None
+      case MouseSpellPlayed(_,_,_,_) => None
       case MousePiece(spec,_) => board.findPiece(spec)
       case MouseTile(_) => None
       case MouseTech(_,_) => None
@@ -27,6 +29,8 @@ sealed trait MouseTarget {
     this match {
       case MouseNone => None
       case MouseSpellChoice(_,loc) => Some(loc)
+      case MouseSpellHand(_,_,loc) => Some(loc)
+      case MouseSpellPlayed(_,_,_,loc) => Some(loc)
       case MousePiece(_,loc) => Some(loc)
       case MouseTile(loc) => Some(loc)
       case MouseTech(_,loc) => Some(loc)
@@ -42,6 +46,8 @@ sealed trait MouseTarget {
 }
 case object MouseNone extends MouseTarget
 case class MouseSpellChoice(idx: Int, loc: Loc) extends MouseTarget
+case class MouseSpellHand(spellId: Int, side: Side, loc: Loc) extends MouseTarget
+case class MouseSpellPlayed(spellId: Int, side: Side, targets: Option[SpellOrAbilityTargets], loc: Loc) extends MouseTarget
 case class MousePiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int, loc: Loc) extends MouseTarget
@@ -345,6 +351,35 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
             } else {
               mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(GainSpell(spellId),makeActionId()))
             }
+        }
+
+      case MouseSpellHand(spellId,side,_) =>
+        if(side == game.curSide) {
+          if(undo) {
+            //Require mouse down and up on the same target
+            if(curTarget == dragTarget) {
+              mouseState.client.doActionOnCurBoard(GainSpellUndo(spellId, makeActionId()))
+            }
+          } else {
+            if(curTarget == dragTarget && didDoubleClick) {
+                mouseState.client.doActionOnCurBoard(PlayerActions(List(DiscardSpell(spellId)),makeActionId()))
+            } else {
+              curTarget.getLoc().foreach { loc =>
+                val target0 =
+                  curTarget.findPiece(board) match {
+                    case None => PieceSpec.none
+                    case Some(piece) => piece.spec
+                  }
+                val targets = SpellOrAbilityTargets(target0, PieceSpec.none, loc, Loc(-1, -1))
+                mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+              }
+            }
+          }
+        }
+
+      case MouseSpellPlayed(spellId,side,_,_) =>
+        if(undo && side == game.curSide && curTarget == dragTarget) {
+          mouseState.client.doActionOnCurBoard(SpellUndo(spellId, makeActionId()))
         }
 
       case MouseExtraTechAndSpell(_) =>

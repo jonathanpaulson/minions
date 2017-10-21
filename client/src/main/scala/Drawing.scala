@@ -211,6 +211,22 @@ object Drawing {
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
     }
 
+    def drawSpell(hexLoc: HexLoc, side: Option[Side], spellId: Int) : Unit = {
+      val color =
+        side match {
+          case None => "#aaaaaa"
+          case Some(S0) => "#bbbbff"
+          case Some(S1) => "#ffbbbb"
+        }
+      fillHex(hexLoc, color, spellScale)
+      strokeHex(hexLoc, "black", spellScale, alpha=0.2)
+      board.spellsRevealed.get(spellId).foreach { spellName =>
+        val spell = Spells.spellMap(spellName)
+        text(spell.shortDisplayName, hexLoc, "black")
+      }
+    }
+
+
     def locAndScaleOfPiece(board: BoardState, piece: Piece) : (HexLoc,Double) = {
       val loc = piece.loc
       board.pieces(loc) match {
@@ -231,7 +247,7 @@ object Drawing {
       }
     }
 
-    def drawSidebar(piece: Option[Piece], stats: Option[PieceStats], side: Option[Side], tile : Option[Tile], spell : Option[Spell]) = {
+    def drawSidebar(piece: Option[Piece], stats: Option[PieceStats], side: Option[Side], tile : Option[Tile], spell : Option[Int]) = {
       val hexLoc = ui.Sidebar.origin
       tile match {
         case None => ()
@@ -243,7 +259,7 @@ object Drawing {
       }
       spell match {
         case None => ()
-        case Some(_) => drawPiece(hexLoc, pieceScale*6.0, side, "")
+        case Some(_) => drawPiece(hexLoc, spellScale*6.0, side, "")
       }
       var row_idx = 0
       def row(n:Int) : PixelLoc = {
@@ -454,17 +470,23 @@ object Drawing {
       }
       spell match {
         case None => ()
-        case Some(spell) =>
-          val typStr =
-            spell.spellType match {
-              case NormalSpell => ""
-              case Sorcery => " (Sorcery)"
-              case Cantrip => " (Cantrip)"
-              case DoubleCantrip => " (Cantrip x2)"
-            }
-          show(spell.displayName + typStr)
-          spell.desc.foreach { line =>
-            show(line)
+        case Some(spellId) =>
+          board.spellsRevealed.get(spellId) match {
+            case None =>
+              show("Unknown Spell")
+            case Some(spellName) =>
+              val spell = Spells.spellMap(spellName)
+              val typStr =
+                spell.spellType match {
+                  case NormalSpell => ""
+                  case Sorcery => " (Sorcery)"
+                  case Cantrip => " (Cantrip)"
+                  case DoubleCantrip => " (Cantrip x2)"
+                }
+              show(spell.displayName + typStr)
+              spell.desc.foreach { line =>
+                show(line)
+              }
           }
       }
     }
@@ -606,6 +628,15 @@ object Drawing {
       }
     }
 
+    // SpellHand
+    Side.foreach { side =>
+      val locs = ui.SpellHand.getLocs(side)
+      board.spellsInHand(side).zipWithIndex.foreach { case (spellId, idx) =>
+        val hexLoc = ui.SpellHand.hexLoc(locs(idx))
+        drawSpell(hexLoc, Some(side), spellId)
+      }
+    }
+
     //Dead pieces
     {
       val locsAndContents = ui.DeadPieces.getHexLocsAndContents(board)
@@ -617,6 +648,18 @@ object Drawing {
         drawPiece(hexLoc, pieceScale, Some(side), label)
       }
     }
+
+    // Played spells
+    {
+      val locsAndContents = ui.SpellPlayed.getHexLocsAndContents(board)
+      if(locsAndContents.length > 0) {
+        text("Played spells", PixelLoc.ofHexLoc(ui.SpellPlayed.descLoc, gridSize), "black")
+      }
+      locsAndContents.foreach { case (hexLoc, spellId, side) =>
+        drawSpell(hexLoc, Some(side), spellId)
+      }
+    }
+
 
     //Techs
     val techLocs = ui.Tech.getHexLocs(game)
@@ -665,24 +708,13 @@ object Drawing {
 
       for(i <- 0 until ui.SpellChoice.size) {
         val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
-        val (spellId, isDrawn) = game.resolveSpellChoice(i, client.ourSide)
+        val (spellId, spellSide) = game.resolveSpellChoice(i, client.ourSide)
         spellId.foreach { spellId =>
-          board.spellsRevealed.get(spellId).foreach { spellName =>
-            val color = {
-              if(!isDrawn) "#aaaaaa"
-              else ourSide match {
-                case S0 => "#bbbbff"
-                case S1 => "#ffbbbb"
-              }
-            }
-            val spell = Spells.spellMap(spellName)
-            fillHex(hexLoc, color, spellScale)
-            strokeHex(hexLoc, "black", spellScale, alpha=0.2)
-            text(spell.shortDisplayName, hexLoc, "black")
-          }
+          drawSpell(hexLoc, spellSide, spellId)
         }
       }
     }
+
 
     //Terrain
     board.tiles.foreachi {case (loc, tile) =>
@@ -965,12 +997,16 @@ object Drawing {
         //Highlight mouse's target on mouse hover
         mouseState.hovered match {
           case MouseNone => ()
+          case MouseSpellHand(spellId,side,_) =>
+            drawSidebar(None, None, Some(side), None, Some(spellId))
           case MouseSpellChoice(idx,_) =>
-            val (spellId, isDrawn) = game.resolveSpellChoice(idx, client.ourSide)
-            spellId.foreach { spellId =>
-              board.spellsRevealed.get(spellId).foreach { spellName =>
-                drawSidebar(None, None, if(isDrawn) Some(game.curSide) else None, None, Some(Spells.spellMap(spellName)))
-              }
+            val (spellId, side) = game.resolveSpellChoice(idx, client.ourSide)
+            drawSidebar(None, None, side, None, spellId)
+          case MouseSpellPlayed(spellId, side, targets, _) =>
+            drawSidebar(None, None, Some(side), None, Some(spellId))
+            targets match {
+              case None => highlightUndoneAction(DiscardSpell(spellId))
+              case Some(targets) => highlightUndoneAction(PlaySpell(spellId, targets))
             }
           case MouseTile(loc) =>
             drawSidebar(None, None, None, Some(board.tiles(loc)), None)
@@ -1026,8 +1062,14 @@ object Drawing {
         //Draw highlights based on piece selected by mouse click
         mouseState.dragTarget match {
           case MouseNone => ()
+          case MouseSpellHand(_,_,loc) =>
+            highlightHex(ui.SpellHand.hexLoc(loc))
           case MouseSpellChoice(_,loc) =>
             highlightHex(ui.SpellChoice.hexLoc(loc))
+          case MouseSpellPlayed(_,_,_,loc) =>
+            if(undoing) {
+              highlightHex(ui.SpellPlayed.hexLoc(loc))
+            }
           case MouseTile(_) => ()
           case MouseExtraTechAndSpell(_) =>
             highlightHex(ui.ExtraTechAndSpell.origin)
@@ -1176,6 +1218,8 @@ object Drawing {
       val component = mouseState.hovered match {
         case MouseNone => ui.MainBoard
         case MouseSpellChoice(_,_) => ui.SpellChoice
+        case MouseSpellHand(_,_,_) => ui.SpellHand
+        case MouseSpellPlayed(_,_,_,_) => ui.SpellPlayed
         case MousePiece(_,_) => ui.MainBoard
         case MouseTile(_) => ui.MainBoard
         case MouseTech(_,_) => ui.Tech

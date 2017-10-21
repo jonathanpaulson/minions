@@ -233,6 +233,7 @@ object Protocol {
   implicit val attackFormat = Json.format[Attack]
   implicit val spawnFormat = Json.format[Spawn]
   implicit val spellOrAbilityTargetsFormat = Json.format[SpellOrAbilityTargets]
+  implicit val spellPlayedInfoFormat = Json.format[SpellPlayedInfo]
   implicit val activateTileFormat = Json.format[ActivateTile]
   implicit val activateAbilityFormat = Json.format[ActivateAbility]
   implicit val teleportFormat = Json.format[Teleport]

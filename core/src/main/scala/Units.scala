@@ -70,9 +70,7 @@ object Units {
     isPersistent = true,
     isNecromancer = true,
     spawnRange = 1,
-    extraMana = 3,
-    //TODO while there are no spells, we'll just have necromancers power unit ability sorceries
-    extraSorceryPower = 2
+    extraMana = 3
   )
   val arcane_necromancer = createPieceStats(
     name = "arcane_necromancer",
@@ -88,7 +86,6 @@ object Units {
     isNecromancer = true,
     spawnRange = 1,
     extraMana = 5,
-    extraSorceryPower = 2
   )
   val ranged_necromancer = createPieceStats(
     name = "ranged_necromancer",
@@ -104,7 +101,6 @@ object Units {
     isNecromancer = true,
     spawnRange = 1,
     extraMana = 3,
-    extraSorceryPower = 2
   )
   val mounted_necromancer = createPieceStats(
     name = "mounted_necromancer",
@@ -120,7 +116,6 @@ object Units {
     isNecromancer = true,
     spawnRange = 1,
     extraMana = 3,
-    extraSorceryPower = 2
   )
   val immortal_necromancer = createPieceStats(
     name = "immortal_necromancer",
@@ -136,7 +131,6 @@ object Units {
     isNecromancer = true,
     spawnRange = 1,
     extraMana = 3,
-    extraSorceryPower = 2
   )
   val deadly_necromancer = createPieceStats(
     name = "deadly_necromancer",
@@ -152,7 +146,6 @@ object Units {
     isNecromancer = true,
     spawnRange = 1,
     extraMana = 3,
-    extraSorceryPower = 2
   )
   val swarm_necromancer = createPieceStats(
     name = "swarm_necromancer",
@@ -169,7 +162,6 @@ object Units {
     swarmMax = 3,
     spawnRange = 1,
     extraMana = 1,
-    extraSorceryPower = 1
   )
   val summoner_necromancer = createPieceStats(
     name = "summoner_necromancer",
@@ -185,7 +177,6 @@ object Units {
     isNecromancer = true,
     spawnRange = 2,
     extraMana = 3,
-    extraSorceryPower = 2
   )
 
 

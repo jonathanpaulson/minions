@@ -353,6 +353,7 @@ object ServerMain extends App {
             val gameAction: GameAction = ChooseSpell(game.curSide,spellId)
             performAndBroadcastGameActionIfLegal(gameAction)
             val boardAction: BoardAction = DoGeneralBoardAction(GainSpell(spellId),"autospell")
+            board.doAction(boardAction)
             boardSequences(boardIdx) += 1
             broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
           }
@@ -473,9 +474,12 @@ object ServerMain extends App {
                         val gameAction: GameAction = PayForReinforcement(side,pieceName)
                         performAndBroadcastGameActionIfLegal(gameAction)
                       case GainSpell(spellId) =>
-                        //Make sure the spell can be chosen
-                        val gameAction: GameAction = ChooseSpell(side,spellId)
-                        performAndBroadcastGameActionIfLegal(gameAction)
+                        //Check ahead of time if it's legal
+                        boards(boardIdx).tryLegality(boardAction).flatMap { case () =>
+                          //Make sure the spell can be chosen
+                          val gameAction: GameAction = ChooseSpell(side,spellId)
+                          performAndBroadcastGameActionIfLegal(gameAction)
+                        }
                     }
                 }
 
