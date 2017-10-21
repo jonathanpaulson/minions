@@ -10,7 +10,7 @@ sealed trait MouseTarget {
   def findPiece(board: BoardState): Option[Piece] = {
     this match {
       case MouseNone => None
-      case MouseSpellChoice(_,_) => None
+      case MouseSpellChoice(_,_,_) => None
       case MouseSpellHand(_,_,_) => None
       case MouseSpellPlayed(_,_,_,_) => None
       case MousePiece(spec,_) => board.findPiece(spec)
@@ -28,7 +28,7 @@ sealed trait MouseTarget {
   def getLoc(): Option[Loc] = {
     this match {
       case MouseNone => None
-      case MouseSpellChoice(_,loc) => Some(loc)
+      case MouseSpellChoice(_,_,loc) => Some(loc)
       case MouseSpellHand(_,_,loc) => Some(loc)
       case MouseSpellPlayed(_,_,_,loc) => Some(loc)
       case MousePiece(_,loc) => Some(loc)
@@ -45,7 +45,7 @@ sealed trait MouseTarget {
   }
 }
 case object MouseNone extends MouseTarget
-case class MouseSpellChoice(idx: Int, loc: Loc) extends MouseTarget
+case class MouseSpellChoice(spellId: SpellId, side: Option[Side], loc: Loc) extends MouseTarget
 case class MouseSpellHand(spellId: SpellId, side: Side, loc: Loc) extends MouseTarget
 case class MouseSpellPlayed(spellId: SpellId, side: Side, targets: Option[SpellOrAbilityTargets], loc: Loc) extends MouseTarget
 case class MousePiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
@@ -341,16 +341,11 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
     dragTarget match {
       case MouseNone => ()
 
-      case MouseSpellChoice(idx, _) =>
-        val (spellId, _) = game.resolveSpellChoice(idx, mouseState.client.ourSide)
-        spellId match {
-          case None => ()
-          case Some(spellId) =>
-            if(undo) {
-              mouseState.client.doActionOnCurBoard(GainSpellUndo(spellId, makeActionId()))
-            } else {
-              mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(GainSpell(spellId),makeActionId()))
-            }
+      case MouseSpellChoice(spellId, _, _) =>
+        if(undo) {
+          mouseState.client.doActionOnCurBoard(GainSpellUndo(spellId, makeActionId()))
+        } else {
+          mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(GainSpell(spellId),makeActionId()))
         }
 
       case MouseSpellHand(spellId,side,_) =>

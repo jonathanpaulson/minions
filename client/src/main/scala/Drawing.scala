@@ -696,20 +696,28 @@ object Drawing {
 
     //Spells
     client.ourSide.foreach { ourSide =>
-      val labelLoc = PixelLoc.ofHexLoc(ui.SpellChoice.origin + HexVec(-1,0), gridSize)
-      if(ourSide == game.curSide) {
-        text("Available", labelLoc + PixelVec(0,-4.0), "black")
-        text("Spells", labelLoc + PixelVec(0,7.0), "black")
-      }
-      else {
-        text("Upcoming", labelLoc + PixelVec(0,-4.0), "black")
-        text("Spells", labelLoc + PixelVec(0,7.0), "black")
-      }
-
+      var availableLabeled = false
+      var upcomingLabeled = false
       for(i <- 0 until ui.SpellChoice.size) {
-        val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
         val (spellId, spellSide) = game.resolveSpellChoice(i, client.ourSide)
-        spellId.foreach { spellId =>
+        spellId match {
+          case None => ()
+          case Some(spellId) =>
+            val labelLoc = PixelLoc.ofHexLoc(ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i-1)), gridSize)
+            if(game.spellsToChoose.contains(spellId)) {
+              if(!availableLabeled) {
+                text("Available", labelLoc + PixelVec(0,-4.0), "black")
+                text("Spells", labelLoc + PixelVec(0,7.0), "black")
+                availableLabeled = true
+              }
+            } else {
+              if(!upcomingLabeled) {
+                text("Upcoming", labelLoc + PixelVec(0,-4.0), "black")
+                text("Spells", labelLoc + PixelVec(0,7.0), "black")
+                upcomingLabeled = true
+              }
+            }
+          val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
           drawSpell(hexLoc, spellSide, spellId)
         }
       }
@@ -999,9 +1007,8 @@ object Drawing {
           case MouseNone => ()
           case MouseSpellHand(spellId,side,_) =>
             drawSidebar(None, None, Some(side), None, Some(spellId))
-          case MouseSpellChoice(idx,_) =>
-            val (spellId, side) = game.resolveSpellChoice(idx, client.ourSide)
-            drawSidebar(None, None, side, None, spellId)
+          case MouseSpellChoice(spellId,side,_) =>
+            drawSidebar(None, None, side, None, Some(spellId))
           case MouseSpellPlayed(spellId, side, targets, _) =>
             drawSidebar(None, None, Some(side), None, Some(spellId))
             targets match {
@@ -1064,7 +1071,7 @@ object Drawing {
           case MouseNone => ()
           case MouseSpellHand(_,_,loc) =>
             highlightHex(ui.SpellHand.hexLoc(loc))
-          case MouseSpellChoice(_,loc) =>
+          case MouseSpellChoice(_,_,loc) =>
             highlightHex(ui.SpellChoice.hexLoc(loc))
           case MouseSpellPlayed(_,_,_,loc) =>
             if(undoing) {
@@ -1217,7 +1224,7 @@ object Drawing {
     mouseState.hovered.getLoc().foreach { hoverLoc =>
       val component = mouseState.hovered match {
         case MouseNone => ui.MainBoard
-        case MouseSpellChoice(_,_) => ui.SpellChoice
+        case MouseSpellChoice(_,_,_) => ui.SpellChoice
         case MouseSpellHand(_,_,_) => ui.SpellHand
         case MouseSpellPlayed(_,_,_,_) => ui.SpellPlayed
         case MousePiece(_,_) => ui.MainBoard

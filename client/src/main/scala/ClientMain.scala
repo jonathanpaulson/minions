@@ -247,7 +247,7 @@ class Client() {
         localActionSequence = Array.fill(summaries.length)(Vector())
         numActionsLocalAhead = 0
 
-        ui = Some(UI(flipDisplay,serverBoards(0).initialState.tiles.xSize,serverBoards(0).initialState.tiles.ySize))
+        ui = Some(UI(flipDisplay,ourSide,serverBoards(0).initialState.tiles.xSize,serverBoards(0).initialState.tiles.ySize))
         mouseState = Some(MouseState(ourSide,ui.get,this))
 
       case Protocol.ReportGameAction(gameAction,_) =>

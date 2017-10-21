@@ -231,10 +231,29 @@ case class Game (
     side match {
       case None => (None, None)
       case Some(ourSide) =>
-        val chooseLen = { if(ourSide == curSide) spellsToChoose.length else 0 }
-        if(idx < chooseLen) (Some(spellsToChoose(idx)), Some(ourSide))
-        else if(idx - chooseLen < upcomingSpells(ourSide).length) (Some(upcomingSpells(ourSide)(idx - chooseLen)), None)
-        else (None, None)
+        if(ourSide == curSide) {
+          if(idx == 0) {
+            (None, None) // Available spells label
+          } else if(idx-1 < spellsToChoose.length) {
+            val spellId = spellsToChoose(idx-1)
+            val side = if(spellsChosen.contains(spellId)) None else Some(ourSide)
+            (Some(spellId), side)
+          } else if(idx-1-spellsToChoose.length == 0) {
+            (None, None) // Upcoming spells label
+          } else if(idx-1-spellsToChoose.length-1 < upcomingSpells(ourSide).length) {
+            (Some(upcomingSpells(ourSide)(idx-1-spellsToChoose.length-1)), None)
+          } else {
+            (None, None) // Too far to the right
+          }
+        } else {
+          if(idx == 0) { // Upcoming spells label
+            (None, None)
+          } else if(idx-1 < upcomingSpells(ourSide).length) {
+            (Some(upcomingSpells(ourSide)(idx-1)), None)
+          } else {
+            (None, None) // Too far to the right
+          }
+        }
     }
   }
 

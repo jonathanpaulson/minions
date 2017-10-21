@@ -26,7 +26,7 @@ object UI {
   }
 }
 
-case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int)
+case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSize: Int, val boardYSize: Int)
 {
   object TopInfo extends UI.Component {
     val origin = HexLoc(0,0)
@@ -164,9 +164,9 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
   }
 
   object SpellChoice extends UI.Component with UI.Clickable {
-    val origin = HexLoc(0.5,-2) + HexVec(0.425,-0.85)
+    val origin = HexLoc(-0.5,-2) + HexVec(0.425,-0.85)
     val gridSizeScale = 1
-    val size = 12
+    val size = 13
 
     def getLoc(spellChoiceIdx: Int): Loc = {
       Loc(spellChoiceIdx,0)
@@ -176,7 +176,13 @@ case class UI(val flipDisplay: Boolean, val boardXSize: Int, val boardYSize: Int
       val _ = (game,board)
       val (loc,_) = getLocAndDelta(hexLoc)
       val idx = loc.x
-      if(loc.y == 0 && idx >= 0 && idx < 12) MouseSpellChoice(idx, loc)
+      if(loc.y == 0 && idx >= 0 && idx < size) {
+        val (spellId, side) = game.resolveSpellChoice(idx, ourSide)
+        spellId match {
+          case None => MouseNone
+          case Some(spellId) => MouseSpellChoice(spellId, side, loc)
+        }
+      }
       else MouseNone
     }
   }
