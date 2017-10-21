@@ -139,6 +139,8 @@ object SpellOrAbilityTargets {
   val none = new SpellOrAbilityTargets(PieceSpec.none,PieceSpec.none,Loc(-1,-1),Loc(-1,-1))
   def singlePiece(pieceSpec: PieceSpec) =
     new SpellOrAbilityTargets(pieceSpec,PieceSpec.none,Loc(-1,-1),Loc(-1,-1))
+  def singleLoc(loc: Loc) =
+    new SpellOrAbilityTargets(PieceSpec.none,PieceSpec.none,loc,Loc(-1,-1))
 }
 
 /** GeneralBoardAction:
@@ -1055,7 +1057,7 @@ case class BoardState private (
         }
       case (spell: TileSpell) =>
         if(!tiles.inBounds(targets.loc0)) failed("Target location not in bounds")
-        else spell.tryCanTarget(side,tiles(targets.loc0),pieces(targets.loc0))
+        else spell.tryCanTarget(side,targets.loc0,this)
       case (_: NoEffectSpell) =>
         Success(())
     }
@@ -1072,7 +1074,7 @@ case class BoardState private (
         canEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnLoc, Nil)
     }
   }
-  private def trySpawnIsLegal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Try[Unit] = {
+  def trySpawnIsLegal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Try[Unit] = {
     Units.pieceMap.get(spawnName) match {
       case None => failed("Unknown spawned piece name")
       case Some(spawnStats) =>
@@ -1348,7 +1350,7 @@ case class BoardState private (
             val target = findPiece(targets.target0).get
             applyEffect(spell.effect,target)
           case (spell: TileSpell) =>
-            tiles(targets.loc0) = spell.effect(tiles(targets.loc0))
+            spell.effect(this,targets.loc0)
             val piecesOnTile = pieces(targets.loc0)
             piecesOnTile.foreach { piece => killIfEnoughDamage(piece) }
         }
@@ -1448,7 +1450,7 @@ case class BoardState private (
   }
 
   //Does check for legality of spawn, returning the piece on success
-  private def spawnPieceInternal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Option[Piece] = {
+  def spawnPieceInternal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Option[Piece] = {
     if(!spawnIsLegal(spawnSide, spawnName, spawnLoc))
       None
     else {
