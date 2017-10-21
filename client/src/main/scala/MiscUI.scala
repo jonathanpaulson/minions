@@ -135,6 +135,10 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
       (0 until game.techLine.length).map { i => hexLoc(getLoc(i)) }.toArray
     }
 
+    def getHexLocsAndContents(game: Game): Array[(HexLoc,TechState)] = {
+      game.techLine.zipWithIndex.map { case (tech,i) => (hexLoc(getLoc(i)),tech) }.toArray
+    }
+
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
       val _ = (board)
       val (loc,_) = getLocAndDelta(hexLoc)
@@ -164,9 +168,9 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
   }
 
   object SpellChoice extends UI.Component with UI.Clickable {
-    val origin = HexLoc(-0.5,-2) + HexVec(0.425,-0.85)
+    val origin = HexLoc(0.5,-2) + HexVec(0.425,-0.85)
     val gridSizeScale = 1
-    val size = 13
+    val size = 12
 
     def getLoc(spellChoiceIdx: Int): Loc = {
       Loc(spellChoiceIdx,0)

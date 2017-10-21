@@ -3,6 +3,7 @@ package minionsgame.jsclient
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.html.Canvas
 import org.scalajs.dom.raw.HTMLImageElement
+import scala.util.{Try,Success,Failure}
 
 import minionsgame.core._
 import RichImplicits._
@@ -743,7 +744,7 @@ object Drawing {
     client.ourSide.foreach { ourSide =>
       var availableLabeled = false
       var upcomingLabeled = false
-      for(i <- 0 until ui.SpellChoice.size) {
+      for(i <- (-1) until ui.SpellChoice.size) {
         val (spellId, spellSide) = game.resolveSpellChoice(i, client.ourSide)
         spellId match {
           case None => ()
@@ -972,6 +973,16 @@ object Drawing {
       }
     }
 
+    def highlightHex(hexLoc: HexLoc, scale: Double = tileScale, fillColor: String = "yellow", strokeColor: String = "black") = {
+      fillHex(hexLoc, fillColor, scale, alpha=0.15)
+      strokeHex(hexLoc, strokeColor, scale, alpha=0.5, lineWidth=1.5)
+    }
+    def highlightPiece(piece: Piece, fillColor: String = "yellow", strokeColor: String = "black") = {
+      val (targetLoc,targetScale) = locAndScaleOfPiece(board,piece)
+      fillHex(targetLoc, fillColor, targetScale, alpha=0.15)
+      strokeHex(targetLoc, strokeColor, targetScale, alpha=0.5, lineWidth=1.5)
+    }
+
     def findLocOfPiece(pieceSpec: PieceSpec): Option[Loc] = {
       //First try the initial board
       board.findPiece(pieceSpec) match {
@@ -1025,21 +1036,50 @@ object Drawing {
       }
     }
 
+    def highlightUndoneGeneralAction(action: GeneralBoardAction): Unit = {
+      action match {
+        case BuyReinforcement(pieceName) =>
+          ui.Reinforcements.getHexLocsAndContents(board.side,board).foreach { case (hexLoc,name,_) =>
+            if(name == pieceName)
+              strokeHex(hexLoc, "black", tileScale, alpha=0.5)
+          }
+          ui.Tech.getHexLocsAndContents(game).foreach { case (hexLoc,techState) =>
+            techState.tech match {
+              case PieceTech(name) =>
+                if(name == pieceName)
+                  highlightHex(hexLoc,scale=techScale)
+            }
+          }
+        case GainSpell(spellId) =>
+          val idx = game.spellsToChoose.indexOf(spellId)
+          if(idx >= 0) {
+            val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(idx))
+            strokeHex(hexLoc, "black", tileScale, alpha=0.5)
+            highlightHex(hexLoc,scale=spellScale)
+          }
+      }
+    }
+
     def highlightUndoneActionsForPieceSpec(pieceSpec: PieceSpec): Unit = {
       boards(boardIdx).findLocalPieceUndoActions(pieceSpec) match {
         case None => ()
         case Some(actions) => actions.foreach(highlightUndoneAction)
       }
     }
+    def highlightUndoneActionsForSpell(spellId: SpellId): Unit = {
+      boards(boardIdx).findSpellUndoActions(spellId) match {
+        case Some(actions) => actions.foreach(highlightUndoneAction)
+        case None =>
+          boards(boardIdx).findGainSpellUndoAction(spellId) match {
+            case Some(action) => highlightUndoneGeneralAction(action)
+            case None => ()
+          }
+      }
+    }
 
     def canClickOnTech(techIdx: Int): Boolean = {
       game.tryIsLegal(PerformTech(game.curSide,techIdx)).isSuccess ||
       game.techLine(techIdx).startingLevelThisTurn(game.curSide) == TechAcquired
-    }
-
-    def highlightHex(hexLoc: HexLoc, scale: Double = tileScale) = {
-      fillHex(hexLoc, "yellow", scale, alpha=0.15)
-      strokeHex(hexLoc, "black", scale, alpha=0.5, lineWidth=1.5)
     }
 
     mouseState.mode match {
@@ -1086,7 +1126,14 @@ object Drawing {
               val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_) =>
                 if(pieceName == name) Some(pieceSpec) else None
               }
-              pieceSpec.foreach { pieceSpec => highlightUndoneActionsForPieceSpec(pieceSpec) }
+              pieceSpec match {
+                case Some(pieceSpec) => highlightUndoneActionsForPieceSpec(pieceSpec)
+                case None =>
+                  boards(boardIdx).findBuyReinforcementUndoAction(pieceName) match {
+                    case Some(action) => highlightUndoneGeneralAction(action)
+                    case None => ()
+                  }
+              }
             }
             drawSidebar(stats=Some(Units.pieceMap(pieceName)), side=Some(side))
           case MouseDeadPiece(pieceSpec,loc) =>
@@ -1114,8 +1161,35 @@ object Drawing {
         //Draw highlights based on piece selected by mouse click
         mouseState.dragTarget match {
           case MouseNone => ()
-          case MouseSpellHand(_,_,loc) =>
+          case MouseSpellHand(spellId,_,loc) =>
             highlightHex(ui.SpellHand.hexLoc(loc))
+            if(undoing)
+              highlightUndoneActionsForSpell(spellId)
+            else {
+              externalInfo.spellsRevealed.get(spellId).foreach { spellName =>
+                val spell = Spells.spellMap(spellName)
+                spell match {
+                  case (spell: TargetedSpell) =>
+                    board.pieceById.values.foreach { piece =>
+                      val stats = piece.curStats(board)
+                      spell.tryCanTarget(board.side,piece,stats) match {
+                        case Failure(_) => ()
+                        case Success(()) => highlightPiece(piece)
+                      }
+                    }
+                  case (spell: TileSpell) =>
+                    board.tiles.foreachLoc { loc =>
+                      spell.tryCanTarget(board.side,loc,board) match {
+                        case Failure(_) => ()
+                        case Success(()) => highlightHex(ui.MainBoard.hexLoc(loc))
+                      }
+                    }
+                  case (_: NoEffectSpell) =>
+                    ()
+                }
+              }
+            }
+
           case MouseSpellChoice(_,_,loc) =>
             highlightHex(ui.SpellChoice.hexLoc(loc))
           case MouseSpellPlayed(_,_,_,loc) =>
@@ -1136,8 +1210,20 @@ object Drawing {
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", ui.NextBoard.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
           case MouseTech(techIdx,loc) =>
-            if(canClickOnTech(techIdx)) {
-              highlightHex(ui.Tech.hexLoc(loc))
+            if(undoing) {
+              val techState = game.techLine(techIdx)
+              techState.tech match {
+                case PieceTech(pieceName) =>
+                  boards(boardIdx).findBuyReinforcementUndoAction(pieceName) match {
+                    case Some(action) => highlightUndoneGeneralAction(action)
+                    case None => ()
+                  }
+              }
+            }
+            else {
+              if(canClickOnTech(techIdx)) {
+                highlightHex(ui.Tech.hexLoc(loc))
+              }
             }
           case MouseReinforcement(pieceName,side,loc) =>
             if(side == game.curSide) {
@@ -1221,11 +1307,8 @@ object Drawing {
                     //Highlight all legal pieces to attack
                     board.pieces.foreach { pieces =>
                       pieces.foreach { targetPiece =>
-                        if(canAttack(targetPiece)) {
-                          val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
-                          fillHex(targetLoc, "magenta", targetScale, alpha=0.15)
-                          strokeHex(targetLoc, "magenta", targetScale, alpha=0.5, lineWidth=1.5)
-                        }
+                        if(canAttack(targetPiece))
+                          highlightPiece(targetPiece, fillColor="magenta", strokeColor="magenta")
                       }
                     }
 
@@ -1233,11 +1316,8 @@ object Drawing {
                     mouseState.hovered.findPiece(board) match {
                       case None => ()
                       case Some(targetPiece) =>
-                        if(canAttack(targetPiece)) {
-                          val (targetLoc,targetScale) = locAndScaleOfPiece(board,targetPiece)
-                          fillHex(targetLoc, "magenta", targetScale, alpha=0.1)
-                          strokeHex(targetLoc, "magenta", targetScale, alpha=0.5)
-                        }
+                        if(canAttack(targetPiece))
+                          highlightPiece(targetPiece, fillColor="magenta", strokeColor="magenta")
                     }
                   } else {
                     val stats = piece.curStats(board)
@@ -1256,12 +1336,10 @@ object Drawing {
                     }
                     (attackLocs ++ moveLocs).foreach { loc =>
                       val hexLoc = ui.MainBoard.hexLoc(loc)
-                      if(moveLocs.contains(loc)) {
+                      if(moveLocs.contains(loc))
                         highlightHex(hexLoc)
-                      } else {
-                        fillHex(hexLoc, "magenta", tileScale, alpha=0.15)
-                        strokeHex(hexLoc, "magenta", tileScale, alpha=0.5, lineWidth=1.5)
-                      }
+                       else
+                        highlightHex(hexLoc,tileScale,fillColor="magenta", strokeColor="magenta")
                     }
                   }
                 }

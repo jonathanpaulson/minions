@@ -357,28 +357,23 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
             }
           } else {
             if(curTarget == dragTarget && didDoubleClick) {
-                mouseState.client.doActionOnCurBoard(PlayerActions(List(DiscardSpell(spellId)),makeActionId()))
+              mouseState.client.doActionOnCurBoard(PlayerActions(List(DiscardSpell(spellId)),makeActionId()))
             } else {
-              curTarget.getLoc().foreach { loc =>
-                val target0 = curTarget match {
-                  case MouseNone => None
-                  case MouseSpellChoice(_,_,_) => None
-                  case MouseSpellHand(_,_,_) => None
-                  case MouseSpellPlayed(_,_,_,_) => None
-                  case MousePiece(spec,_) => Some(spec)
-                  case MouseTile(_) => None
-                  case MouseTech(_,_) => None
-                  case MouseReinforcement(_,_,_) => None
-                  case MouseDeadPiece(_,_) => None
-                  case MouseExtraTechAndSpell(_) => None
-                  case MouseEndTurn(_) => None
-                  case MouseNextBoard => None
-                  case MousePrevBoard => None
-                  case MouseResignBoard(_) => None
-                }
-                target0.foreach { target0 =>
-                  val targets = SpellOrAbilityTargets(target0, PieceSpec.none, loc, Loc(-1, -1))
-                  mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+              mouseState.client.externalInfo.spellsRevealed.get(spellId).foreach { spellName =>
+                val spell = Spells.spellMap(spellName)
+                spell match {
+                  case (_: TargetedSpell) =>
+                    curTarget.findPiece(board).foreach { piece =>
+                      val targets = SpellOrAbilityTargets.singlePiece(piece.spec)
+                      mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+                    }
+                  case (_: TileSpell) =>
+                    curTarget.getLoc().foreach { loc =>
+                      val targets = SpellOrAbilityTargets.singleLoc(loc)
+                      mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+                    }
+                  case (_: NoEffectSpell) =>
+                    ()
                 }
               }
             }

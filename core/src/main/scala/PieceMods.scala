@@ -64,7 +64,6 @@ object PieceMods {
     def apply(pieceStats: PieceStats): PieceStats = {
       pieceStats.copy(
         isBaseStats = false,
-        isPersistent = true,
         defense = pieceStats.defense match {
           case None => None
           case Some(d) => Some(d+2)

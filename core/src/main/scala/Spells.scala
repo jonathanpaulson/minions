@@ -183,6 +183,27 @@ case object Spells {
     effect = Unsummon
   )
 
+  val raiseZombie = TileSpell(
+    name = "raise_zombie",
+    displayName = "Raise Zombie",
+    shortDisplayName = "RZombie",
+    desc = List("Spawn a free zombie on target location", "next to a friendly unit."),
+    spellType = NormalSpell,
+    tryCanTarget = ((side: Side, loc: Loc, board: BoardState) =>
+      if(board.pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
+      else {
+        val adjacentToFriendly = board.pieceById.values.exists { piece =>
+          piece.side == side && board.topology.distance(loc,piece.loc) == 1
+        }
+        if(!adjacentToFriendly) Failure(new Exception("Target location is not adjacent to a friendly unit"))
+        else board.trySpawnIsLegal(side, Units.zombie.name, loc)
+      }
+    ),
+    effect = { (board: BoardState, loc: Loc) =>
+      val (_: Option[Piece]) = board.spawnPieceInternal(board.side, Units.zombie.name, loc)
+    }
+  )
+
   val spells = Array(
     fester,
     unsummon,
@@ -199,6 +220,7 @@ case object Spells {
 
     spawn,
     blink,
+    raiseZombie,
   )
   val spellMap: Map[SpellName,Spell] = spells.groupBy(spell => spell.name).mapValues { spells =>
     assert(spells.length == 1)
@@ -222,6 +244,7 @@ case object Spells {
 
       spawn,spawn,spawn,
       blink,blink,blink,
+      raiseZombie,raiseZombie,raiseZombie,
     ).map(_.name)
   }
 }

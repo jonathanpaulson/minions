@@ -282,8 +282,8 @@ case class TileSpell(
   val shortDisplayName: String,
   val desc: List[String],
   val spellType: SpellType,
-  val tryCanTarget: (Side, Tile, List[Piece]) => Try[Unit], //(spell caster side, tile, pieces on tile)
-  val effect: Tile => Tile
+  val tryCanTarget: (Side, Loc, BoardState) => Try[Unit], //(spell caster side, tile, pieces on tile)
+  val effect: ((BoardState,Loc) => Unit)
 ) extends Spell {
   override def equals(o: Any): Boolean = super.equals(o)
   override def hashCode: Int = super.hashCode
@@ -417,6 +417,14 @@ class Plane[T:ClassTag] (
     val idx = arr.indexWhere(f)
     if(idx == -1) None
     else Some(Loc(idx % xSize, idx/xSize))
+  }
+
+  def foreachLoc(f: Loc => Unit): Unit = {
+    for(y <- 0 until ySize) {
+      for (x <- 0 until xSize) {
+        f(Loc(x,y))
+      }
+    }
   }
 
   def foreachi(f: (Loc, T) => Unit): Unit = {

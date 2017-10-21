@@ -232,24 +232,24 @@ case class Game (
       case None => (None, None)
       case Some(ourSide) =>
         if(ourSide == curSide) {
-          if(idx == 0) {
+          if(idx == -1) {
             (None, None) // Available spells label
-          } else if(idx-1 < spellsToChoose.length) {
-            val spellId = spellsToChoose(idx-1)
+          } else if(idx < spellsToChoose.length) {
+            val spellId = spellsToChoose(idx)
             val side = if(spellsChosen.contains(spellId)) None else Some(ourSide)
             (Some(spellId), side)
-          } else if(idx-1-spellsToChoose.length == 0) {
+          } else if(idx-spellsToChoose.length == 0) {
             (None, None) // Upcoming spells label
-          } else if(idx-1-spellsToChoose.length-1 < upcomingSpells(ourSide).length) {
-            (Some(upcomingSpells(ourSide)(idx-1-spellsToChoose.length-1)), None)
+          } else if(idx-spellsToChoose.length-1 < upcomingSpells(ourSide).length) {
+            (Some(upcomingSpells(ourSide)(idx-spellsToChoose.length-1)), None)
           } else {
             (None, None) // Too far to the right
           }
         } else {
-          if(idx == 0) { // Upcoming spells label
+          if(idx == -1) { // Upcoming spells label
             (None, None)
-          } else if(idx-1 < upcomingSpells(ourSide).length) {
-            (Some(upcomingSpells(ourSide)(idx-1)), None)
+          } else if(idx < upcomingSpells(ourSide).length) {
+            (Some(upcomingSpells(ourSide)(idx)), None)
           } else {
             (None, None) // Too far to the right
           }
