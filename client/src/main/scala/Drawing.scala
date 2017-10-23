@@ -598,7 +598,9 @@ object Drawing {
       textAtLoc(side.toColorName + " Team:", 0.0, -10.0, style = "bold")
       textAtLoc("Wins: " + game.wins(side) + "/" + game.targetNumWins, 110.0, -10.0)
       textAtLoc("Souls: " + mana + " (+" + newMana + "/turn)", 200.0, -10.0)
-      textAtLoc("Techs Used: " + game.numTechsThisTurn + "/" + (game.extraTechsAndSpellsThisTurn + 1), 345.0, -10.0)
+      if(side == game.curSide) {
+        textAtLoc("Techs Used: " + game.numTechsThisTurn + "/" + (game.extraTechsAndSpellsThisTurn + 1), 345.0, -10.0)
+      }
     }
 
     //Board-specific info text
