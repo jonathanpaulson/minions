@@ -390,9 +390,11 @@ object ServerMain extends App {
       for(boardIdx <- 0 until boards.length) {
         val board = boards(boardIdx)
         if(board.curState.hasWon) {
-          doAddWin(newSide,boardIdx)
           if(game.winner.isEmpty) {
-            doResetBoard(boardIdx, false)
+            doAddWin(newSide,boardIdx)
+            if(game.winner.isEmpty) {
+              doResetBoard(boardIdx, false)
+            }
           }
         }
       }
