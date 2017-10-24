@@ -181,7 +181,7 @@ object ServerMain extends App {
 
   //----------------------------------------------------------------------------------
   //TIME LIMITS
-  val secondsPerTurn = config.getDouble("app.secondsPerTurn")
+  val secondsPerTurn = SideArray.ofArrayInplace(Array(config.getDouble("app.s0SecondsPerTurn"), config.getDouble("app.s1SecondsPerTurn")))
   //Server reports time left every this often
   val reportTimePeriod = 5.0
   def getNow(): Double = {
@@ -433,9 +433,9 @@ object ServerMain extends App {
     private def scheduleEndOfTurn(turnNumber: Int): Unit = {
       import scala.concurrent.duration._
       import scala.language.postfixOps
-      endOfTurnTime = Some(getNow() + secondsPerTurn)
+      endOfTurnTime = Some(getNow() + secondsPerTurn(game.curSide))
       maybeBroadcastTimeLeft()
-      val (_: Cancellable) = actorSystem.scheduler.scheduleOnce(secondsPerTurn seconds) {
+      val (_: Cancellable) = actorSystem.scheduler.scheduleOnce(secondsPerTurn(game.curSide) seconds) {
         //Make sure to do this via sending event to self, rather than directly, to
         //take advantage of the actor's synchronization
         self ! ShouldEndTurn(turnNumber)
