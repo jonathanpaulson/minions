@@ -145,7 +145,8 @@ object PieceMods {
       pieceStats.copy(
         isBaseStats = false,
         moveRange = Math.min(pieceStats.moveRange, 1),
-        attackRange = Math.min(pieceStats.attackRange, 1)
+        attackRange = Math.min(pieceStats.attackRange, 1),
+        attackRangeVsFlying = Math.min(pieceStats.attackRangeVsFlying, 1),
       )
     }
   }
