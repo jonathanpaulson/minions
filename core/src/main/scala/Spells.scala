@@ -85,7 +85,7 @@ case object Spells {
     name = "shield",
     displayName = "Shield",
     shortDisplayName = "Shield",
-    desc = List("Target friendly minion is persistent.", "Double its defense until the start", "of your next turn."),
+    desc = List("Target friendly minion is persistent.", "Double its health until the start", "of your next turn."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
@@ -99,7 +99,7 @@ case object Spells {
     name = "protection",
     displayName = "Protection",
     shortDisplayName = "Protect",
-    desc = List("Target friendly minion gets +2 defense until", "the end of your next turn."),
+    desc = List("Target friendly minion gets +2 health until", "the end of your next turn."),
     spellType = Cantrip,
     spawnPhaseOnly = false,
     tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>

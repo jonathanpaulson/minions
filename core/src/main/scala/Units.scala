@@ -147,6 +147,7 @@ object Units {
     isNecromancer = true,
     spawnRange = 1,
     extraMana = 3,
+    canHurtNecromancer = false,
   )
   val swarm_necromancer = createPieceStats(
     name = "swarm_necromancer",
