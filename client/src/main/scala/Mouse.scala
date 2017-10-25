@@ -230,7 +230,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
             targetPiece match {
               case None =>
                 //Ordinary move to location
-                board.findLegalMove(dragPiece,pathBias=pathBias,isRotationPath=false) { case (loc,_) => loc == curLoc }
+                board.findPathForUI(dragPiece,pathBias=pathBias,isRotationPath=false) { case (loc,_) => loc == curLoc }
               case Some(targetPiece) =>
                 //Merge into friendly swarm
                 if(targetPiece.side == dragPiece.side) {
@@ -241,7 +241,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                   val isRotationPath = {
                     !board.canSwarmTogether(dpStats,tpStats) || dpStats.swarmMax < board.pieces(curLoc).length + 1
                   }
-                  board.findLegalMove(dragPiece,pathBias=pathBias,isRotationPath) { case (loc,_) => loc == curLoc }
+                  board.findPathForUI(dragPiece,pathBias=pathBias,isRotationPath) { case (loc,_) => loc == curLoc }
                 }
                 //Attack enemy piece
                 else {
@@ -251,8 +251,8 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                     None
                   else {
                     val attackRange = { if(tpStats.isFlying) dpStats.attackRangeVsFlying else dpStats.attackRange }
-                    board.findLegalMove(dragPiece,pathBias=pathBias,isRotationPath=false) { case (loc,shuffles) =>
-                      shuffles.length <= 1 &&
+                    board.findPathForUI(dragPiece,pathBias=pathBias,isRotationPath=false) { case (loc,revMovements) =>
+                      revMovements.length <= 1 &&
                       board.topology.distance(loc, curLoc) <= attackRange &&
                       (loc == dragPiece.loc || !dpStats.isLumbering)
                     }
@@ -261,7 +261,8 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
             }
           }
           newLegalMove match {
-            case None => ()
+            case None =>
+              clearPath()
             case Some((newPath,newPathMovements)) =>
               path = newPath
               pathMovements = newPathMovements
@@ -293,8 +294,12 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
         //Do fancy movement that potentially includes swaps
         else {
           val filteredPathMovements = pathMovements.filter { case (_,path) => path.length > 1 }
-          if(filteredPathMovements.isEmpty) None
-          else Some(Movements(filteredPathMovements.map { case (pieceSpec,path) => Movement(pieceSpec,path.toVector) }))
+          if(filteredPathMovements.nonEmpty)
+            Some(Movements(filteredPathMovements.map { case (pieceSpec,path) => Movement(pieceSpec,path.toVector) }))
+          else if(path.length > 1)
+            Some(Movements(List(Movement(piece.spec, path.toVector))))
+          else
+            None
         }
       }
       //Use teleporter

@@ -1291,7 +1291,8 @@ object Drawing {
 
                     //Draw based on what would happen if we released the mouse
                     mouseState.hovered.getLoc().foreach { hoverLoc =>
-                      mode.dragPieceMouseUpActions(mouseState.hovered, hoverLoc, piece, board).foreach {
+                      val actions = mode.dragPieceMouseUpActions(mouseState.hovered, hoverLoc, piece, board)
+                      actions.foreach {
                         case (_ : Movements) =>
                           //If moving, draw the movement path
                           val path = mode.path

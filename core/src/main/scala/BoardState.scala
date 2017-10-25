@@ -638,7 +638,7 @@ case class BoardState private (
 
   //pathBias - bias the search to focus on locations in this path first, so as to keep stable a path the user has traced.
   //isRotationPath - adhere to the pathBias more strongly, proceeding down it in a depth-first fashion, therefore possibly
-  //returning a nonminimal path, but allow the path to go anywhere a minimal path could reach. The purpose of this is to
+  //returning a nonminimal path or illegal move, but allow the path to go anywhere a minimal path could reach. The purpose of this is to
   //allow the user to draw nonminimal paths to specify lines or loops along with pieces should shuffle, when they want
   //to do swaps or triangular or higher-order piece shuffles and rotations.
   private def forEachLegalMoveHelper(piece: Piece, pathBias: List[Loc], isRotationPath: Boolean)
@@ -659,40 +659,45 @@ case class BoardState private (
     //Attempts to try this location as an ending location, shuffling/rotating existing friendly units on that
     //hex back along the path if already occupied (or if there would be too many, in the case of swarm).
     def tryEndingLoc(loc: Loc, revPath: List[Loc], shortestRevPath: List[Loc]): Unit = {
-      //Make sure the original piece can walk on that tile
-      if(canWalkOnTile(pieceStats,tiles(loc)) &&
-        pieces(loc).forall { other => other.side == side }) {
-        //Find if shuffling works
-        canShuffleOnPath(side, List(pieceStats), revPath, numMovingFromZero = 1) match {
-          case Some(shuffles) =>
-            f(loc, revPath, (pieceSpec,shortestRevPath) :: shuffles)
-            endedOn += loc
-          case None =>
-            //If the original piece was part of a swarm, try sending members of the swarm down this path as well.
-            //For example, a clicking and dragging one of the bone rat in a stack of 3 to swap with a zombie should
-            //perform the swap by moving the dragged rat AND the other two rats along with it.
-            val otherPiecesAbleToFollow = pieces(piece.loc).filter { otherPiece =>
-              otherPiece.spec != pieceSpec &&
-              canMoveAtLeast(otherPiece,shortestRevPath.length-1) &&
-              shortestRevPath.forall { pathLoc => canWalkOnTile(otherPiece.curStats(this),tiles(pathLoc)) }
-            }
-            //Try each number of other pieces that could follow, and see if we get a legal shuffling
-            var success = false
-            for(numOthers <- 1 to otherPiecesAbleToFollow.length) {
-              if(!success) {
-                val others = otherPiecesAbleToFollow.take(numOthers)
-                val otherStats = others.map { other => other.curStats(this) }
-                canShuffleOnPath(side, pieceStats :: otherStats, revPath, numMovingFromZero = 1 + numOthers) match {
-                  case Some(shuffles) =>
-                    val otherMoves = others.map { other => (other.spec,shortestRevPath) }
-                    f(loc, revPath, (pieceSpec,shortestRevPath) :: (otherMoves ++ shuffles))
-                    endedOn += loc
-                    success = true
-                  case None => ()
+      if(pieces(loc).forall { other => other.side == side }) {
+        var success = false
+        //Make sure the original piece can walk on that tile
+        if(canWalkOnTile(pieceStats,tiles(loc)) && shortestRevPath.nonEmpty) {
+          //Find if shuffling works
+          canShuffleOnPath(side, List(pieceStats), revPath, numMovingFromZero = 1) match {
+            case Some(shuffles) =>
+              f(loc, revPath, (pieceSpec,shortestRevPath) :: shuffles)
+              endedOn += loc
+              success = true
+            case None =>
+              //If the original piece was part of a swarm, try sending members of the swarm down this path as well.
+              //For example, a clicking and dragging one of the bone rat in a stack of 3 to swap with a zombie should
+              //perform the swap by moving the dragged rat AND the other two rats along with it.
+              val otherPiecesAbleToFollow = pieces(piece.loc).filter { otherPiece =>
+                otherPiece.spec != pieceSpec &&
+                canMoveAtLeast(otherPiece,shortestRevPath.length-1) &&
+                shortestRevPath.forall { pathLoc => canWalkOnTile(otherPiece.curStats(this),tiles(pathLoc)) }
+              }
+              //Try each number of other pieces that could follow, and see if we get a legal shuffling
+              for(numOthers <- 1 to otherPiecesAbleToFollow.length) {
+                if(!success) {
+                  val others = otherPiecesAbleToFollow.take(numOthers)
+                  val otherStats = others.map { other => other.curStats(this) }
+                  canShuffleOnPath(side, pieceStats :: otherStats, revPath, numMovingFromZero = 1 + numOthers) match {
+                    case Some(shuffles) =>
+                      val otherMoves = others.map { other => (other.spec,shortestRevPath) }
+                      f(loc, revPath, (pieceSpec,shortestRevPath) :: (otherMoves ++ shuffles))
+                      endedOn += loc
+                      success = true
+                    case None => ()
+                  }
                 }
               }
-            }
+          }
         }
+        //If not successsful, then call f anyways with an empty move list
+        if(!success)
+          f(loc, revPath, List())
       }
     }
 
@@ -748,13 +753,15 @@ case class BoardState private (
           val idx = pathBias.indexOf(loc)
           if(idx >= 0 && idx < pathBias.length - 1) {
             val y = pathBias(idx+1)
-            if(topology.distance(loc,y) == 1) {
+            if(topology.distance(loc,y) == 1 && isNextLocOk(y)) {
               //And make sure we have a shortest path to reach it
               shortestRevPathToLoc.get(y) match {
-                case None => ()
+                case None =>
+                  //Can't actually end with a rotation on this hex, but perhaps the rotation
+                  //goes further and comes back into range, so we add it to the queue.
+                  q = ((y, d+1, y :: revPath, List())) +: q
                 case Some(newShortestRevPath) =>
-                  if(isNextLocOk(y))
-                    q = ((y, newShortestRevPath.length-1, y :: revPath, newShortestRevPath)) +: q
+                  q = ((y, newShortestRevPath.length-1, y :: revPath, newShortestRevPath)) +: q
               }
             }
           }
@@ -782,8 +789,9 @@ case class BoardState private (
   //Does not include teleports.
   def legalMoves(piece : Piece): Map[Loc, Int] = {
     val ans = scala.collection.mutable.HashMap[Loc, Int]()
-    forEachLegalMoveHelper(piece,List(),isRotationPath=false) { case (loc,revPath,_) =>
-      ans(loc) = revPath.length
+    forEachLegalMoveHelper(piece,List(),isRotationPath=false) { case (loc,revPath,revMovements) =>
+      if(revMovements.nonEmpty)
+        ans(loc) = revPath.length
     }
     Map() ++ ans
   }
@@ -806,13 +814,14 @@ case class BoardState private (
   //May return a nonminimal path in the case that the path is traversing friendly units such that the user could
   //be trying to perform a swap or rotation.
   //Does not include teleports.
-  def findLegalMove(piece : Piece, pathBias: List[Loc], isRotationPath: Boolean)
+  //Might return an illegal move if isRotationPath is true, in that case the movements list will be empty.
+  def findPathForUI(piece : Piece, pathBias: List[Loc], isRotationPath: Boolean)
     (f: (Loc,List[(PieceSpec,List[Loc])]) => Boolean): Option[(List[Loc],List[(PieceSpec,List[Loc])])]
   = {
-    forEachLegalMoveHelper(piece,pathBias,isRotationPath) { case (loc,revPath,shuffles) =>
-      if(f(loc,shuffles)) {
-        val reversedShuffles = shuffles.map { case (spec,rpath) => (spec, rpath.reverse) }
-        return Some((revPath.reverse, reversedShuffles))
+    forEachLegalMoveHelper(piece,pathBias,isRotationPath) { case (loc,revPath,revMovements) =>
+      if(f(loc,revMovements)) {
+        val movements = revMovements.map { case (spec,rpath) => (spec, rpath.reverse) }
+        return Some((revPath.reverse, movements))
       }
     }
     None
