@@ -242,7 +242,7 @@ object ServerMain extends App {
           case PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
           case AddUpcomingSpells(_,_) => ()
           case AddWin(side, boardIdx) =>
-            messages = messages :+ ("Team " + side.toColorName + " won board " + boardIdx + "!")
+            messages = messages :+ ("Team " + side.toColorName + " won board " + (boardIdx+1) + "!")
             broadcastAll(Protocol.Messages(messages))
           case ResignBoard(_) =>
             assertUnreachable()
@@ -554,7 +554,7 @@ object ServerMain extends App {
                     game.tryIsLegal(gameAction).map { case () =>
                       //And if so, reset the board
                       doResetBoard(boardIdx, true)
-                      messages = messages :+ ("Team " + game.curSide.toColorName + " resigned board " + boardIdx + "!")
+                      messages = messages :+ ("Team " + game.curSide.toColorName + " resigned board " + (boardIdx+1) + "!")
                       broadcastAll(Protocol.Messages(messages))
                     }
                   case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) | (_: AddUpcomingSpells) |
