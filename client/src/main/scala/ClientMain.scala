@@ -357,15 +357,17 @@ class Client() {
         case (_: DoGeneralBoardAction) =>
           sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
         case (_: PlayerActions) | (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: GainSpellUndo) =>
-          if(game.exists { game => game.winner.nonEmpty })
+          if(game.exists { game => game.winner.nonEmpty }) {
             reportError("Game is over")
-          localBoards(curBoardIdx).doAction(action,externalInfo) match {
-            case Failure(error) => reportError(error.getLocalizedMessage)
-            case Success(()) =>
-              localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
-              localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
-              numActionsLocalAhead = numActionsLocalAhead + 1
-              sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+          } else {
+            localBoards(curBoardIdx).doAction(action,externalInfo) match {
+              case Failure(error) => reportError(error.getLocalizedMessage)
+              case Success(()) =>
+                localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
+                localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
+                numActionsLocalAhead = numActionsLocalAhead + 1
+                sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+            }
           }
       }
     }
