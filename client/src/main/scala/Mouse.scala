@@ -639,6 +639,7 @@ case class DragPieceToLocMouseMode(val mouseState: MouseState, val pieceTargets:
       case MouseEndTurn(_) => None
       case MouseNextBoard => None
       case MousePrevBoard => None
+      case MouseToggleChat => None
       case MouseResignBoard(_) => None
     }
 
