@@ -82,14 +82,17 @@ object Drawing {
       textBaseline : String = "alphabetic",
       style : String = "normal",
       fontSize : Int = 10,
+      alpha: Double = 1.0,
     ) : Unit
     = {
-      ctx.globalAlpha = 1.0
+      val oldAlpha = ctx.globalAlpha
+      ctx.globalAlpha = alpha
       ctx.fillStyle = color
       ctx.textAlign = textAlign
       ctx.textBaseline = textBaseline
       ctx.font = style + " " + fontSize + "px sans-serif"
       ctx.fillText(text, Math.floor(pixel.x), Math.floor(pixel.y))
+      ctx.globalAlpha = oldAlpha
     }
 
     def hexCorner(hexLoc : HexLoc, scale : Double, corner : Int) : HexLoc = {
@@ -200,17 +203,17 @@ object Drawing {
       Units.pieceMap(pieceName).shortDisplayName
     }
 
-    def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], label: String) : Unit = {
+    def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], label: String, alpha: Double = 1.0) : Unit = {
       val pieceColor =
         side match {
           case None => "#cccccc"
           case Some(S0) => "#ccccff"
           case Some(S1) => "#ffbbbb"
         }
-      fillHex(hexLoc, pieceColor, scale)
-      strokeHex(hexLoc, "black", scale, alpha=0.2)
+      fillHex(hexLoc, pieceColor, scale, alpha = alpha)
+      strokeHex(hexLoc, "black", scale, alpha = 0.2 * alpha)
       if(label != "")
-        text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
+        text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black", alpha = alpha)
     }
 
     def drawSpell(hexLoc: HexLoc, scale : Double, side: Option[Side], spellId: Option[SpellId], subLabel: Option[String] = None) : Unit = {
@@ -920,49 +923,62 @@ object Drawing {
     }
 
     //Pieces
+    def drawBoardPiece(piece: Piece, board: BoardState, alpha: Double = 1.0): Unit = {
+      val (loc,scale) = locAndScaleOfPiece(board,piece)
+      val baseStats = piece.baseStats
+      val curStats = piece.curStats(board)
+      val label = baseStats.shortDisplayName
+
+      drawPiece(loc, scale, Some(piece.side), "", alpha = alpha)
+
+      val (aStr,aColor) = getAttackStringAndColor(baseStats,curStats,piece.actState)
+      val (dStr,dColor) = getDefenseStringAndColor(baseStats,curStats,piece.damage)
+      val (rStr,rColor) = getRangeStringAndColor(baseStats,curStats)
+      val (mStr,mColor) = getMoveStringAndColor(baseStats,curStats,piece.actState)
+
+      //Multiple pieces in same hex
+      if(board.pieces(piece.loc).length > 1) {
+        text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-3.0), "black", fontSize=8, alpha = alpha)
+        text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-5.0,5.0), aColor, fontSize=8, alpha = alpha)
+        text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(5.0,5.0), dColor, fontSize=8, alpha = alpha)
+      }
+      //One piece in hex
+      else {
+        if(baseStats.name == Units.zombie.name && curStats.isBaseStats) {
+          text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-4.0), "black", alpha = alpha)
+        }
+        else {
+          text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-8.0), "black", alpha = alpha)
+          text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,2.0), aColor, alpha = alpha)
+          text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,2.0), dColor, alpha = alpha)
+          text(rStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,12.0), rColor, alpha = alpha)
+          text(mStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,12.0), mColor, alpha = alpha)
+        }
+      }
+
+      if(piece.side != game.curSide) {
+        if(piece.damage > 0)
+          strokeHex(loc, "magenta", scale, alpha = alpha)
+      }
+      else {
+        if(pieceHasNotDoneThings(piece))
+          strokeHex(loc, "green", scale, lineWidth=2.0, alpha = alpha)
+        else if(pieceCanStillDoThings(piece))
+          strokeHex(loc, "orange", scale, lineWidth=1.5, alpha = alpha)
+      }
+    }
+
     board.pieces.foreach { pieces =>
       pieces.foreach { piece =>
-        val (loc,scale) = locAndScaleOfPiece(board,piece)
-        val baseStats = piece.baseStats
-        val curStats = piece.curStats(board)
-        val label = baseStats.shortDisplayName
+        drawBoardPiece(piece,board)
+      }
+    }
 
-        drawPiece(loc, scale, Some(piece.side), "")
-
-        val (aStr,aColor) = getAttackStringAndColor(baseStats,curStats,piece.actState)
-        val (dStr,dColor) = getDefenseStringAndColor(baseStats,curStats,piece.damage)
-        val (rStr,rColor) = getRangeStringAndColor(baseStats,curStats)
-        val (mStr,mColor) = getMoveStringAndColor(baseStats,curStats,piece.actState)
-
-        //Multiple pieces in same hex
-        if(board.pieces(piece.loc).length > 1) {
-          text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-3.0), "black", fontSize=8)
-          text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-5.0,5.0), aColor, fontSize=8)
-          text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(5.0,5.0), dColor, fontSize=8)
-        }
-        //One piece in hex
-        else {
-          if(baseStats.name == Units.zombie.name && curStats.isBaseStats) {
-            text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-4.0), "black")
-          }
-          else {
-            text(label, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(0,-8.0), "black")
-            text(aStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,2.0), aColor)
-            text(dStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,2.0), dColor)
-            text(rStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(-10.0,12.0), rColor)
-            text(mStr, PixelLoc.ofHexLoc(loc,gridSize) + PixelVec(10.0,12.0), mColor)
-          }
-        }
-
-        if(piece.side != game.curSide) {
-          if(piece.damage > 0)
-            strokeHex(loc, "magenta", scale)
-        }
-        else {
-          if(pieceHasNotDoneThings(piece))
-            strokeHex(loc, "green", scale, lineWidth=2.0)
-          else if(pieceCanStillDoThings(piece))
-            strokeHex(loc, "orange", scale, lineWidth=1.5)
+    val preSpawnBoard = boards(boardIdx).preSpawnState()
+    preSpawnBoard.pieces.foreachi { case (loc,pieces) =>
+      if(board.pieces(loc).isEmpty) {
+        pieces.foreach { piece =>
+          drawBoardPiece(piece,preSpawnBoard,alpha=0.3)
         }
       }
     }
