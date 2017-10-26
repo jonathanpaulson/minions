@@ -135,6 +135,9 @@ class Board private (
   def curState(): BoardState = {
     history.spawnState
   }
+  def preSpawnState(): BoardState = {
+    history.moveAttackState
+  }
 
   //Find the set of actions that would be undone by a local undo for pieceSpec
   def findLocalPieceUndoActions(pieceSpec: PieceSpec): Option[List[PlayerAction]] = {
