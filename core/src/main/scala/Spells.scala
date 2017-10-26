@@ -190,6 +190,29 @@ case object Spells {
     }
   )
 
+  val stumble = PieceAndLocSpell(
+    name = "stumble",
+    displayName = "Stumble",
+    shortDisplayName = "Stumble",
+    desc = List("Move target damaged enemy minion to an adjacent location."),
+    spellType = NormalSpell,
+    spawnPhaseOnly = false,
+    tryCanTargetPiece = ((side: Side, piece:Piece) =>
+      if(piece.side == side || piece.baseStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+      else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
+      else Success(())
+    ),
+    tryCanTarget = ((side: Side, piece:Piece, loc: Loc, board: BoardState) =>
+      if(piece.side == side || piece.baseStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+      else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
+      else if(board.topology.distance(loc,piece.loc) != 1) Failure(new Exception("Location is not adjacent"))
+      else if(board.pieces(loc).nonEmpty) Failure(new Exception("Adjacent location is not empty"))
+      else board.tryCanEndOnLoc(side, piece.spec, piece.curStats(board), loc, List())
+    ),
+    effect = { (board: BoardState, piece: Piece, loc: Loc) =>
+      board.doMovePieceToLoc(piece,loc)
+    }
+  )
 
   val spawn = TargetedSpell(
     name = "spawn",
@@ -266,6 +289,7 @@ case object Spells {
     shackle,
 
     reposition,
+    stumble,
     spawn,
     blink,
     raiseZombie,
@@ -292,6 +316,7 @@ case object Spells {
       shackle,shackle,
 
       reposition,reposition,reposition,reposition,reposition,reposition,
+      stumble,stumble,stumble,stumble,stumble,stumble,
       spawn,spawn,spawn,spawn,
       blink,blink,blink,blink,
       raiseZombie,raiseZombie,raiseZombie,raiseZombie,

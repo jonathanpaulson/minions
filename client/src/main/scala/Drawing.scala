@@ -1124,11 +1124,11 @@ object Drawing {
       case (mode: DragPieceToLocMouseMode) =>
         mode.pieceTargets.foreach { pieceSpec =>
           board.findPiece(pieceSpec).foreach { piece =>
-            highlightPiece(piece,alpha=0.5)
+            highlightPiece(piece,alpha=0.7)
           }
         }
         mode.locTargets.foreach { loc =>
-          highlightHex(ui.MainBoard.hexLoc(loc),alpha=0.5)
+          highlightHex(ui.MainBoard.hexLoc(loc),alpha=0.7)
         }
         mouseState.dragTarget match {
           case MousePiece(spec,_) =>
@@ -1136,17 +1136,17 @@ object Drawing {
               case None => ()
               case Some(piece) =>
                 if(mode.pieceTargets.contains(piece.spec)) {
-                  highlightPiece(piece)
+                  highlightPiece(piece,alpha=0.7)
                   mouseState.hovered.getLoc().foreach { hoverLoc =>
                     if(mode.locTargets.contains(hoverLoc)) {
-                      highlightHex(ui.MainBoard.hexLoc(hoverLoc))
+                      highlightHex(ui.MainBoard.hexLoc(hoverLoc),alpha=0.7)
                     }
                   }
                 }
             }
           case MouseTile(loc) =>
             if(mode.locTargets.contains(loc)) {
-              highlightHex(ui.MainBoard.hexLoc(loc))
+              highlightHex(ui.MainBoard.hexLoc(loc),alpha=0.7)
             }
           case _ => ()
         }
