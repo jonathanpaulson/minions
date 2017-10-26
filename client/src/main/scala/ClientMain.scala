@@ -65,7 +65,12 @@ class Client() {
   }
 
   var gotFatalError: Boolean = false
+
+  // Whether we are viewing the all chat or the team chat
+  var allChat = true
   var lastMessageSeen: Int = 0
+  var allMessages: List[String] = Nil
+  var teamMessages: List[String] = Nil
 
   def scrollMessages(): Unit = {
     messages.scrollTop = messages.scrollHeight.toDouble
@@ -91,10 +96,17 @@ class Client() {
     jQuery("#board").addClass("errorborder")
     gotFatalError = true
   }
+  def resetChat(): Unit = {
+    messages.value = ""
+    val visibleMessages = if(allChat) allMessages else teamMessages
+    visibleMessages.foreach { s =>
+        reportMessage(s)
+    }
+  }
 
-  def addClickedMessage(): Unit = {
-    jQuery("body").append("<p>You clicked!</p>")
-    ()
+  def toggleChat(): Unit = {
+    allChat = !allChat
+    resetChat()
   }
 
   val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
@@ -317,11 +329,10 @@ class Client() {
       case Protocol.ReportTimeLeft(timeLeft) =>
         updateEstimatedTurnEndTime(timeLeft)
 
-      case Protocol.Messages(messages) =>
-        for(i <- lastMessageSeen to messages.length-1) {
-          reportMessage(messages(i))
-        }
-        lastMessageSeen = messages.length
+      case Protocol.Messages(all, team) =>
+        allMessages = all
+        teamMessages = team
+        resetChat()
     }
   }
 
@@ -443,7 +454,8 @@ class Client() {
     // Enter
     if(e.keyCode == 13) {
       if(chat.value != "") {
-        sendWebsocketQuery(Protocol.Chat(username, chat.value))
+        val toSide = if(allChat) None else ourSide
+        sendWebsocketQuery(Protocol.Chat(username, toSide, chat.value))
         chat.value = ""
       }
     }

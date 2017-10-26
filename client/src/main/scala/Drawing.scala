@@ -574,6 +574,7 @@ object Drawing {
         case S1 => "#ffe0e0"
       }
     }
+    val chatStr = if(client.allChat) "Switch to Team Chat" else "Switch to All Chat"
 
     //Game info text
     Side.foreach { side =>
@@ -665,6 +666,9 @@ object Drawing {
     text("Buy Extra", ploc + PixelVec(0,-6.0), "black")
     text("Tech+Spell", ploc + PixelVec(0,5.0), "black")
     text("(" + game.extraTechCost + " souls)", ploc + PixelVec(0, 16.0), "black")
+
+    // ToggleChat
+    text(chatStr, ui.ToggleChat.hexLoc(ui.ToggleChat.locs(0)), "black", textAlign="center", textBaseline="top", fontSize=12)
 
     //Reinforcements
     Side.foreach { side =>
@@ -1133,7 +1137,8 @@ object Drawing {
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", ui.NextBoard.hexLocs(0), "darkgreen", textAlign="center", textBaseline="top", fontSize=12)
-
+          case MouseToggleChat =>
+            text(chatStr, ui.ToggleChat.hexLocs(0), "darkgreen", textAlign="center", textBaseline="top", fontSize=12)
           case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
               strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
@@ -1240,6 +1245,8 @@ object Drawing {
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", ui.NextBoard.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
+          case MouseToggleChat =>
+              text(chatStr, ui.ToggleChat.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
           case MouseTech(techIdx,loc) =>
             if(client.ourSide == Some(game.curSide)) {
               if(undoing) {
@@ -1399,6 +1406,7 @@ object Drawing {
         case MouseEndTurn(_) => ui.EndTurn
         case MouseNextBoard => ui.NextBoard
         case MousePrevBoard => ui.PrevBoard
+        case MouseToggleChat => ui.ToggleChat
         case MouseResignBoard(_) => ui.ResignBoard
       }
       strokeHex(component.hexLoc(hoverLoc), "black", tileScale, alpha=0.3)
