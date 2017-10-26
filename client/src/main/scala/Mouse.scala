@@ -22,6 +22,7 @@ sealed trait MouseTarget {
       case MouseEndTurn(_) => None
       case MouseNextBoard => None
       case MousePrevBoard => None
+      case MouseToggleChat => None
       case MouseResignBoard(_) => None
     }
   }
@@ -40,6 +41,7 @@ sealed trait MouseTarget {
       case MouseEndTurn(loc) => Some(loc)
       case MouseNextBoard => None
       case MousePrevBoard => None
+      case MouseToggleChat => None
       case MouseResignBoard(loc) => Some(loc)
     }
   }
@@ -57,6 +59,7 @@ case class MouseExtraTechAndSpell(loc: Loc) extends MouseTarget
 case class MouseEndTurn(loc: Loc) extends MouseTarget
 case object MouseNextBoard extends MouseTarget
 case object MousePrevBoard extends MouseTarget
+case object MouseToggleChat extends MouseTarget
 case class MouseResignBoard(loc: Loc) extends MouseTarget
 
 //Different modes the mouse can be in for selecting different things
@@ -435,6 +438,11 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
             client.curBoardIdx -= 1
             client.draw()
           }
+        }
+
+      case MouseToggleChat =>
+        if(curTarget == dragTarget) {
+          mouseState.client.toggleChat()
         }
 
       case MouseTech(techIdx,_) =>

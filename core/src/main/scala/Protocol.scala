@@ -10,7 +10,7 @@ object Protocol {
   sealed trait Response
   case class Version(version: String) extends Response
   case class QueryError(err: String) extends Response
-  case class Messages(messages: List[String]) extends Response
+  case class Messages(all: List[String], team: List[String]) extends Response
   case class ClientHeartbeatRate(periodInSeconds: Double) extends Response
   case class OkHeartbeat(i: Int) extends Response
   case class Initialize(game: Game, summaries: Array[BoardSummary], boardNames: Array[String], boardSequences: Array[Int]) extends Response
@@ -31,7 +31,7 @@ object Protocol {
   case class RequestBoardHistory(boardIdx: Int) extends Query
   case class DoBoardAction(boardIdx: Int, boardAction: BoardAction) extends Query
   case class DoGameAction(gameAction: GameAction) extends Query
-  case class Chat(username: String, message: String) extends Query
+  case class Chat(username: String, side: Option[Side], message: String) extends Query
 
   //Conversions----------------------------------------------------
   def readsFromString[T](typeName: String)(f: String => T): Reads[T] = {

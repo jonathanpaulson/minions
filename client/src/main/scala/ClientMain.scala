@@ -65,7 +65,12 @@ class Client() {
   }
 
   var gotFatalError: Boolean = false
+
+  // Whether we are viewing the all chat or the team chat
+  var allChat = true
   var lastMessageSeen: Int = 0
+  var allMessages: List[String] = Nil
+  var teamMessages: List[String] = Nil
 
   def scrollMessages(): Unit = {
     messages.scrollTop = messages.scrollHeight.toDouble
@@ -91,10 +96,17 @@ class Client() {
     jQuery("#board").addClass("errorborder")
     gotFatalError = true
   }
+  def resetChat(): Unit = {
+    messages.value = ""
+    val visibleMessages = if(allChat) allMessages else teamMessages
+    visibleMessages.foreach { s =>
+        reportMessage(s)
+    }
+  }
 
-  def addClickedMessage(): Unit = {
-    jQuery("body").append("<p>You clicked!</p>")
-    ()
+  def toggleChat(): Unit = {
+    allChat = !allChat
+    resetChat()
   }
 
   val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
@@ -317,11 +329,10 @@ class Client() {
       case Protocol.ReportTimeLeft(timeLeft) =>
         updateEstimatedTurnEndTime(timeLeft)
 
-      case Protocol.Messages(messages) =>
-        for(i <- lastMessageSeen to messages.length-1) {
-          reportMessage(messages(i))
-        }
-        lastMessageSeen = messages.length
+      case Protocol.Messages(all, team) =>
+        allMessages = all
+        teamMessages = team
+        resetChat()
     }
   }
 
@@ -346,15 +357,17 @@ class Client() {
         case (_: DoGeneralBoardAction) =>
           sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
         case (_: PlayerActions) | (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: GainSpellUndo) =>
-          if(game.exists { game => game.winner.nonEmpty })
+          if(game.exists { game => game.winner.nonEmpty }) {
             reportError("Game is over")
-          localBoards(curBoardIdx).doAction(action,externalInfo) match {
-            case Failure(error) => reportError(error.getLocalizedMessage)
-            case Success(()) =>
-              localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
-              localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
-              numActionsLocalAhead = numActionsLocalAhead + 1
-              sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+          } else {
+            localBoards(curBoardIdx).doAction(action,externalInfo) match {
+              case Failure(error) => reportError(error.getLocalizedMessage)
+              case Success(()) =>
+                localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
+                localActionSequence(curBoardIdx) = localActionSequence(curBoardIdx) :+ action
+                numActionsLocalAhead = numActionsLocalAhead + 1
+                sendWebsocketQuery(Protocol.DoBoardAction(curBoardIdx,action))
+            }
           }
       }
     }
@@ -443,7 +456,8 @@ class Client() {
     // Enter
     if(e.keyCode == 13) {
       if(chat.value != "") {
-        sendWebsocketQuery(Protocol.Chat(username, chat.value))
+        val toSide = if(allChat) None else ourSide
+        sendWebsocketQuery(Protocol.Chat(username, toSide, chat.value))
         chat.value = ""
       }
     }

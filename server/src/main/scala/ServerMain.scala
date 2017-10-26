@@ -207,7 +207,8 @@ object ServerMain extends App {
     var usernameOfSession: Map[Int,String] = Map()
     var userSides: Map[Int,Option[Side]] = Map()
     var userOuts: Map[Int,ActorRef] = Map()
-    var messages : List[String] = List()
+    var allMessages: List[String] = List()
+    var teamMessages: SideArray[List[String]] = SideArray.create(List())
 
     val timeReportJob: Cancellable = {
       import scala.concurrent.duration._
@@ -232,6 +233,10 @@ object ServerMain extends App {
         out ! response
       }
     }
+    private def broadcastMessages(): Unit = {
+      broadcastToSide(Protocol.Messages(allMessages, teamMessages(S0)), S0)
+      broadcastToSide(Protocol.Messages(allMessages, teamMessages(S1)), S1)
+    }
 
     private def performAndBroadcastGameActionIfLegal(gameAction: GameAction): Try[Unit] = {
       game.doAction(gameAction).map { case () =>
@@ -242,8 +247,8 @@ object ServerMain extends App {
           case PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
           case AddUpcomingSpells(_,_) => ()
           case AddWin(side, boardIdx) =>
-            messages = messages :+ ("GAME: Team " + side.toColorName + " won board " + (boardIdx+1) + "!")
-            broadcastAll(Protocol.Messages(messages))
+            allMessages = allMessages :+ ("GAME: Team " + side.toColorName + " won board " + (boardIdx+1) + "!")
+            broadcastMessages()
           case ResignBoard(_) =>
             assertUnreachable()
         }
@@ -403,14 +408,14 @@ object ServerMain extends App {
       scheduleEndOfTurn(game.turnNumber)
       game.winner match {
         case Some(winner) =>
-          messages = messages :+ ("GAME: Team " + winner.toColorName + " won the game!")
+          allMessages = allMessages :+ ("GAME: Team " + winner.toColorName + " won the game!")
         case None =>
           game.newTechsThisTurn.foreach { case (side,tech) =>
-            messages = messages :+ ("GAME: Team " + side.toColorName + " acquired new tech: " + tech.displayName)
+            allMessages = allMessages :+ ("GAME: Team " + side.toColorName + " acquired new tech: " + tech.displayName)
           }
-          messages = messages :+ ("GAME: Beginning " + newSide.toColorName + " team turn (turn #" + game.turnNumber + ")")
+          allMessages = allMessages :+ ("GAME: Beginning " + newSide.toColorName + " team turn (turn #" + game.turnNumber + ")")
       }
-      broadcastAll(Protocol.Messages(messages))
+      broadcastMessages()
     }
 
     private def getTimeLeftEvent(): Option[Protocol.Response] = {
@@ -554,8 +559,8 @@ object ServerMain extends App {
                     game.tryIsLegal(gameAction).map { case () =>
                       //And if so, reset the board
                       doResetBoard(boardIdx, true)
-                      messages = messages :+ ("GAME: Team " + game.curSide.toColorName + " resigned board " + (boardIdx+1) + "!")
-                      broadcastAll(Protocol.Messages(messages))
+                      allMessages = allMessages :+ ("GAME: Team " + game.curSide.toColorName + " resigned board " + (boardIdx+1) + "!")
+                      broadcastMessages()
                     }
                   case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) | (_: AddUpcomingSpells) |
                       (_: ChooseSpell) | (_: UnchooseSpell) =>
@@ -569,17 +574,20 @@ object ServerMain extends App {
                     out ! Protocol.OkGameAction(gameSequence)
                     broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
                     game.winner.foreach { winner =>
-                      messages = messages :+ ("GAME: Team " + winner.toColorName + " won the game!")
+                      allMessages = allMessages :+ ("GAME: Team " + winner.toColorName + " won the game!")
+                      broadcastMessages()
                     }
-                    broadcastAll(Protocol.Messages(messages))
                     maybeDoEndOfTurn()
                 }
               }
           }
 
-        case Protocol.Chat(username, message) =>
-          messages = messages :+ (username + ": " + message)
-          broadcastAll(Protocol.Messages(messages))
+        case Protocol.Chat(username, side, message) =>
+          side match {
+            case None => allMessages = allMessages :+ (username + ": " + message)
+            case Some(side) => teamMessages(side) = teamMessages(side) :+ (username + ": " + message)
+          }
+          broadcastMessages()
       }
     }
 
@@ -617,7 +625,7 @@ object ServerMain extends App {
         userSides = userSides + (sessionId -> side)
         userOuts = userOuts + (sessionId -> out)
 
-        messages = messages :+ joinedOrLeftMessage(username, side, true)
+        allMessages = allMessages :+ joinedOrLeftMessage(username, side, true)
 
         out ! Protocol.Version(CurrentVersion.version)
         out ! Protocol.ClientHeartbeatRate(periodInSeconds=clientHeartbeatPeriodInSeconds)
@@ -632,16 +640,16 @@ object ServerMain extends App {
         out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
         getTimeLeftEvent().foreach { response => out ! response }
         broadcastAll(Protocol.UserJoined(username,side))
-        broadcastAll(Protocol.Messages(messages))
+        broadcastMessages()
         log("UserJoined: " + username + " Side: " + side)
 
       case UserLeft(sessionId) =>
         if(usernameOfSession.contains(sessionId)) {
           val username = usernameOfSession(sessionId)
           val side = userSides(sessionId)
-          messages = messages :+ joinedOrLeftMessage(username, side, false)
+          allMessages = allMessages :+ joinedOrLeftMessage(username, side, false)
           broadcastAll(Protocol.UserLeft(username,side))
-          broadcastAll(Protocol.Messages(messages))
+          broadcastMessages()
           val out = userOuts(sessionId)
           usernameOfSession = usernameOfSession - sessionId
           userSides = userSides - sessionId
