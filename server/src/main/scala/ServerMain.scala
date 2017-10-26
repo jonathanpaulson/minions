@@ -242,7 +242,7 @@ object ServerMain extends App {
           case PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
           case AddUpcomingSpells(_,_) => ()
           case AddWin(side, boardIdx) =>
-            messages = messages :+ ("Team " + side.toColorName + " won board " + (boardIdx+1) + "!")
+            messages = messages :+ ("GAME: Team " + side.toColorName + " won board " + (boardIdx+1) + "!")
             broadcastAll(Protocol.Messages(messages))
           case ResignBoard(_) =>
             assertUnreachable()
@@ -403,12 +403,12 @@ object ServerMain extends App {
       scheduleEndOfTurn(game.turnNumber)
       game.winner match {
         case Some(winner) =>
-          messages = messages :+ ("Team " + winner.toColorName + " won the game!")
+          messages = messages :+ ("GAME: Team " + winner.toColorName + " won the game!")
         case None =>
           game.newTechsThisTurn.foreach { case (side,tech) =>
-            messages = messages :+ ("Team " + side.toColorName + " acquired new tech: " + tech.displayName)
+            messages = messages :+ ("GAME: Team " + side.toColorName + " acquired new tech: " + tech.displayName)
           }
-          messages = messages :+ ("Beginning " + newSide.toColorName + " team turn (turn #" + game.turnNumber + ")")
+          messages = messages :+ ("GAME: Beginning " + newSide.toColorName + " team turn (turn #" + game.turnNumber + ")")
       }
       broadcastAll(Protocol.Messages(messages))
     }
@@ -554,7 +554,7 @@ object ServerMain extends App {
                     game.tryIsLegal(gameAction).map { case () =>
                       //And if so, reset the board
                       doResetBoard(boardIdx, true)
-                      messages = messages :+ ("Team " + game.curSide.toColorName + " resigned board " + (boardIdx+1) + "!")
+                      messages = messages :+ ("GAME: Team " + game.curSide.toColorName + " resigned board " + (boardIdx+1) + "!")
                       broadcastAll(Protocol.Messages(messages))
                     }
                   case (_: PayForReinforcement) | (_: UnpayForReinforcement) | (_: AddWin) | (_: AddUpcomingSpells) |
@@ -569,7 +569,7 @@ object ServerMain extends App {
                     out ! Protocol.OkGameAction(gameSequence)
                     broadcastAll(Protocol.ReportGameAction(gameAction,gameSequence))
                     game.winner.foreach { winner =>
-                      messages = messages :+ ("Team " + winner.toColorName + " won the game!")
+                      messages = messages :+ ("GAME: Team " + winner.toColorName + " won the game!")
                     }
                     broadcastAll(Protocol.Messages(messages))
                     maybeDoEndOfTurn()
@@ -577,6 +577,9 @@ object ServerMain extends App {
               }
           }
 
+        case Protocol.Chat(username, message) =>
+          messages = messages :+ (username + ": " + message)
+          broadcastAll(Protocol.Messages(messages))
       }
     }
 
@@ -605,7 +608,7 @@ object ServerMain extends App {
         case Some(side) => "team " + side.toColorName
       }
       val joinedOrLeft = if(joined) "joined" else "left"
-      return username + " " + joinedOrLeft + " " + sideStr
+      return "GAME: " + username + " " + joinedOrLeft + " " + sideStr
     }
 
     override def receive: Receive = {

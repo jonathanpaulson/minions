@@ -7,7 +7,7 @@ import scala.scalajs.js.{JSApp, Dictionary}
 import org.scalajs.jquery.{JQuery,jQuery,JQueryEventObject}
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.{MouseEvent, KeyboardEvent}
-import org.scalajs.dom.html.{Canvas, TextArea}
+import org.scalajs.dom.html.{Canvas, TextArea, Input}
 import org.scalajs.dom.window
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -49,12 +49,19 @@ class Client() {
   def init(): Unit = {
     val jcanvas = jQuery(canvas)
     val jmessages = jQuery(messages)
+    val jchat = jQuery(chat)
+
     jmessages.height(canvas.height*0.4)
     jmessages.width(canvas.width*0.27)
     val canvas_offset = jcanvas.offset.asInstanceOf[Offset]
-    val left = canvas_offset.left + jcanvas.width - jmessages.outerWidth(true)
-    val top = canvas_offset.top + jcanvas.height - jmessages.outerHeight(true)
-    val _ = jmessages.offset(Dictionary("left"->left, "top"->top))
+    val msg_left = canvas_offset.left + jcanvas.width - jmessages.outerWidth(true)
+    val msg_top = canvas_offset.top + jcanvas.height - jmessages.outerHeight(true) - jchat.outerHeight(true)
+    ignore(jmessages.offset(Dictionary("left"->msg_left, "top"->msg_top)))
+
+    ignore(jchat.width(jmessages.width()))
+    val chat_left = canvas_offset.left + jcanvas.width - jchat.outerWidth(true)
+    val chat_top = canvas_offset.top + jcanvas.height - jchat.outerHeight(true)
+    ignore(jchat.offset(Dictionary("left"->chat_left, "top"->chat_top)))
   }
 
   var gotFatalError: Boolean = false
@@ -65,8 +72,9 @@ class Client() {
   }
 
   def scrollMessagesIfAtEnd(): Unit = {
-    if(messages.scrollTop + messages.clientHeight + 1 >= messages.scrollHeight)
+    if(messages.scrollHeight - messages.scrollTop <= messages.clientHeight + 50) { 
       scrollMessages()
+    }
   }
 
   def reportMessage(msg: String): Unit = {
@@ -92,6 +100,7 @@ class Client() {
   val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
   val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
   val messages = jQuery("#messages").get(0).asInstanceOf[TextArea]
+  val chat = jQuery("#chat").get(0).asInstanceOf[Input]
 
   //State of game, as far as we can tell from the server
   var game: Option[Game] = None
@@ -431,6 +440,13 @@ class Client() {
   }
 
   def keydown(e : KeyboardEvent) : Unit = {
+    // Enter
+    if(e.keyCode == 13) {
+      if(chat.value != "") {
+        sendWebsocketQuery(Protocol.Chat(username, chat.value))
+        chat.value = ""
+      }
+    }
     //Page up
     if(e.keyCode == 33) {
       e.preventDefault()

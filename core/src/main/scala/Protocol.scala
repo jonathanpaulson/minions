@@ -31,6 +31,7 @@ object Protocol {
   case class RequestBoardHistory(boardIdx: Int) extends Query
   case class DoBoardAction(boardIdx: Int, boardAction: BoardAction) extends Query
   case class DoGameAction(gameAction: GameAction) extends Query
+  case class Chat(username: String, message: String) extends Query
 
   //Conversions----------------------------------------------------
   def readsFromString[T](typeName: String)(f: String => T): Reads[T] = {
@@ -515,12 +516,14 @@ object Protocol {
   implicit val requestBoardHistoryFormat = Json.format[RequestBoardHistory]
   implicit val doBoardActionFormat = Json.format[DoBoardAction]
   implicit val doGameActionFormat = Json.format[DoGameAction]
+  implicit val chatFormat = Json.format[Chat]
   implicit val queryFormat = {
     val reads: Reads[Query] = readsFromPair[Query]("Query",Map(
       "Heartbeat" -> ((json:JsValue) => heartbeatFormat.reads(json)),
       "RequestBoardHistory" -> ((json:JsValue) => requestBoardHistoryFormat.reads(json)),
       "DoBoardAction" -> ((json:JsValue) => doBoardActionFormat.reads(json)),
-      "DoGameAction" -> ((json:JsValue) => doGameActionFormat.reads(json))
+      "DoGameAction" -> ((json:JsValue) => doGameActionFormat.reads(json)),
+      "Chat" -> ((json:JsValue) => chatFormat.reads(json)),
     ))
     val writes: Writes[Query] = new Writes[Query] {
       def writes(t: Query): JsValue = t match {
@@ -528,6 +531,7 @@ object Protocol {
         case (t:RequestBoardHistory) => jsPair("RequestBoardHistory",requestBoardHistoryFormat.writes(t))
         case (t:DoBoardAction) => jsPair("DoBoardAction",doBoardActionFormat.writes(t))
         case (t:DoGameAction) => jsPair("DoGameAction",doGameActionFormat.writes(t))
+        case (t:Chat) => jsPair("Chat", chatFormat.writes(t))
       }
     }
     Format(reads,writes)
