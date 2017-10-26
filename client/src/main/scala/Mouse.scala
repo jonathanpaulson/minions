@@ -151,7 +151,7 @@ case class MouseState(val ourSide: Option[Side], val ui: UI, val client: Client)
 //Normal mouse mode - click on things to do their usual actions, click and drag on
 //pieces to move and attack.
 
-case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
+case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
 
   //Tolerance in seconds for double click
   val doubleClickTolerance = 0.40
@@ -367,6 +367,22 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
                       val targets = SpellOrAbilityTargets.singleLoc(loc)
                       mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
                     }
+                  case (spell: PieceAndLocSpell) =>
+                    curTarget.findPiece(board).foreach { piece =>
+                      spell.tryCanTargetPiece(side,piece) match {
+                        case Failure(err) => mouseState.client.reportError(err.getLocalizedMessage)
+                        case Success(()) =>
+                          val pieceTargets = List(piece.spec)
+                          val locTargets = board.tiles.filterLocs { loc =>
+                            spell.tryCanTarget(side,piece,loc,board).isSuccess
+                          }
+                          mouseState.mode = DragPieceToLocMouseMode(mouseState,pieceTargets,locTargets) { case (piece,loc) =>
+                            val targets = SpellOrAbilityTargets.pieceAndLoc(piece.spec,loc)
+                            mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+                          }
+                      }
+                    }
+
                   case (_: NoEffectSpell) =>
                     ()
                 }
@@ -558,7 +574,7 @@ case class NormalMouseMode(mouseState: MouseState) extends MouseMode {
 //---------------------------------------------------------------------------------------
 //Mouse mode for selecting a target of spell or ability
 
-case class SelectTargetMouseMode(mouseState: MouseState)(f:MouseTarget => Unit) extends MouseMode {
+case class SelectTargetMouseMode(val mouseState: MouseState)(f:MouseTarget => Unit) extends MouseMode {
 
   def handleMouseDown(curTarget: MouseTarget, game: Game, board: BoardState, undo: Boolean, ourSide: Option[Side]): Unit = {
     val _ = (curTarget,game,board, undo, ourSide)
@@ -577,5 +593,54 @@ case class SelectTargetMouseMode(mouseState: MouseState)(f:MouseTarget => Unit) 
     //If the mouse up and mouse down are on the same location, we're good
     if(curTarget == dragTarget)
       f(curTarget)
+  }
+}
+
+//---------------------------------------------------------------------------------------
+//Mouse mode for dragging a piece to a location for a spell or ability
+
+case class DragPieceToLocMouseMode(val mouseState: MouseState, val pieceTargets: List[PieceSpec], val locTargets: List[Loc])(f:(Piece,Loc) => Unit) extends MouseMode {
+
+  def handleMouseDown(curTarget: MouseTarget, game: Game, board: BoardState, undo: Boolean, ourSide: Option[Side]): Unit = {
+    val _ = (curTarget,game,board, undo, ourSide)
+  }
+
+  def handleMouseMove(dragTarget: MouseTarget, curTarget: MouseTarget, game: Game, board: BoardState, ourSide: Option[Side]): Unit = {
+    val _ = (dragTarget,curTarget,game,board, ourSide)
+  }
+
+  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, game: Game, board: BoardState, boardIdx: Int, undo: Boolean, ourSide: Option[Side]): Unit = {
+    val _ = (game,board,boardIdx,undo, ourSide)
+
+    val piece = dragTarget.findPiece(board).orElse {
+      if(pieceTargets.length == 1) board.findPiece(pieceTargets.head)
+      else None
+    }
+
+    val loc = curTarget match {
+      case MousePiece(_,loc) => Some(loc)
+      case MouseTile(loc) => Some(loc)
+      case MouseNone => None
+      case MouseSpellChoice(_,_,_) => None
+      case MouseSpellHand(_,_,_) => None
+      case MouseSpellPlayed(_,_,_,_) => None
+      case MouseTech(_,_) => None
+      case MouseReinforcement(_,_,_) => None
+      case MouseDeadPiece(_,_) => None
+      case MouseExtraTechAndSpell(_) => None
+      case MouseEndTurn(_) => None
+      case MouseNextBoard => None
+      case MousePrevBoard => None
+      case MouseResignBoard(_) => None
+    }
+
+    //Restore normal mode
+    mouseState.mode = NormalMouseMode(mouseState)
+
+    piece.foreach { piece =>
+      loc.foreach { loc =>
+        f(piece,loc)
+      }
+    }
   }
 }

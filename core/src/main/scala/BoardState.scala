@@ -141,6 +141,8 @@ object SpellOrAbilityTargets {
     new SpellOrAbilityTargets(pieceSpec,PieceSpec.none,Loc(-1,-1),Loc(-1,-1))
   def singleLoc(loc: Loc) =
     new SpellOrAbilityTargets(PieceSpec.none,PieceSpec.none,loc,Loc(-1,-1))
+  def pieceAndLoc(pieceSpec: PieceSpec, loc: Loc) =
+    new SpellOrAbilityTargets(pieceSpec,PieceSpec.none,loc,Loc(-1,-1))
 }
 
 /** GeneralBoardAction:
@@ -956,7 +958,7 @@ case class BoardState private (
     pieces(loc).forall { other => other.side == side } &&
     canSwarmToLoc(pieceSpec,pieceStats,loc,simultaneousMovements)
   }
-  private def tryCanEndOnLoc(side: Side, pieceSpec: PieceSpec, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Try[Unit] = {
+  def tryCanEndOnLoc(side: Side, pieceSpec: PieceSpec, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Try[Unit] = {
     if(!tiles.inBounds(loc)) failed("Location not in bounds")
     else {
       tryCanWalkOnTile(pieceStats,tiles(loc)).flatMap { case () =>
@@ -1067,6 +1069,13 @@ case class BoardState private (
       case (spell: TileSpell) =>
         if(!tiles.inBounds(targets.loc0)) failed("Target location not in bounds")
         else spell.tryCanTarget(side,targets.loc0,this)
+      case (spell: PieceAndLocSpell) =>
+        findPiece(targets.target0) match {
+          case None => failed("No target specified for spell")
+          case Some(target) =>
+            if(!tiles.inBounds(targets.loc0)) failed("Target location not in bounds")
+            else spell.tryCanTarget(side,target,targets.loc0,this)
+        }
       case (_: NoEffectSpell) =>
         Success(())
     }
@@ -1245,16 +1254,20 @@ case class BoardState private (
     tryLegalitySingle(action,externalInfo).map { case () => doActionSingleAssumeLegal(action,externalInfo) }
   }
 
+  def doMovePieceToLoc(piece: Piece, dest: Loc): Unit = {
+    val src = piece.loc
+    pieces(src) = pieces(src).filterNot { p => p.id == piece.id }
+    pieces(dest) = pieces(dest) :+ piece
+    piece.loc = dest
+  }
+
   private def doActionSingleAssumeLegal(action:PlayerAction, externalInfo: ExternalInfo): Unit = {
     action match {
       case Movements(movements) =>
         movements.foreach { movement =>
           val piece = findPiece(movement.pieceSpec).get
-          val src = movement.path(0)
           val dest = movement.path.last
-          pieces(src) = pieces(src).filterNot { p => p.id == piece.id }
-          pieces(dest) = pieces(dest) :+ piece
-          piece.loc = dest
+          doMovePieceToLoc(piece,dest)
           piece.hasMoved = true
           piece.actState = piece.actState match {
             case Moving(n) => Moving(n + movement.path.length - 1)
@@ -1362,6 +1375,9 @@ case class BoardState private (
             spell.effect(this,targets.loc0)
             val piecesOnTile = pieces(targets.loc0)
             piecesOnTile.foreach { piece => killIfEnoughDamage(piece) }
+          case (spell: PieceAndLocSpell) =>
+            val target = findPiece(targets.target0).get
+            spell.effect(this,target,targets.loc0)
         }
         spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
         spellsPlayedThisTurn = spellsPlayedThisTurn :+ SpellPlayedInfo(spellId, side, Some(targets))

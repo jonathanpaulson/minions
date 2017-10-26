@@ -999,14 +999,14 @@ object Drawing {
       }
     }
 
-    def highlightHex(hexLoc: HexLoc, scale: Double = tileScale, fillColor: String = "yellow", strokeColor: String = "black") = {
-      fillHex(hexLoc, fillColor, scale, alpha=0.15)
-      strokeHex(hexLoc, strokeColor, scale, alpha=0.5, lineWidth=1.5)
+    def highlightHex(hexLoc: HexLoc, scale: Double = tileScale, fillColor: String = "yellow", strokeColor: String = "black", alpha: Double = 1.0) = {
+      fillHex(hexLoc, fillColor, scale, alpha=0.15 * alpha)
+      strokeHex(hexLoc, strokeColor, scale, alpha=0.5 * alpha, lineWidth=1.5)
     }
-    def highlightPiece(piece: Piece, fillColor: String = "yellow", strokeColor: String = "black") = {
+    def highlightPiece(piece: Piece, fillColor: String = "yellow", strokeColor: String = "black", alpha: Double = 1.0) = {
       val (targetLoc,targetScale) = locAndScaleOfPiece(board,piece)
-      fillHex(targetLoc, fillColor, targetScale, alpha=0.15)
-      strokeHex(targetLoc, strokeColor, targetScale, alpha=0.5, lineWidth=1.5)
+      fillHex(targetLoc, fillColor, targetScale, alpha=0.15 * alpha)
+      strokeHex(targetLoc, strokeColor, targetScale, alpha=0.5 * alpha, lineWidth=1.5)
     }
 
     def findLocOfPiece(pieceSpec: PieceSpec): Option[Loc] = {
@@ -1121,6 +1121,36 @@ object Drawing {
       //TODO highlight legal targets
       case (_: SelectTargetMouseMode) => ()
 
+      case (mode: DragPieceToLocMouseMode) =>
+        mode.pieceTargets.foreach { pieceSpec =>
+          board.findPiece(pieceSpec).foreach { piece =>
+            highlightPiece(piece,alpha=0.5)
+          }
+        }
+        mode.locTargets.foreach { loc =>
+          highlightHex(ui.MainBoard.hexLoc(loc),alpha=0.5)
+        }
+        mouseState.dragTarget match {
+          case MousePiece(spec,_) =>
+            board.findPiece(spec) match {
+              case None => ()
+              case Some(piece) =>
+                if(mode.pieceTargets.contains(piece.spec)) {
+                  highlightPiece(piece)
+                  mouseState.hovered.getLoc().foreach { hoverLoc =>
+                    if(mode.locTargets.contains(hoverLoc)) {
+                      highlightHex(ui.MainBoard.hexLoc(hoverLoc))
+                    }
+                  }
+                }
+            }
+          case MouseTile(loc) =>
+            if(mode.locTargets.contains(loc)) {
+              highlightHex(ui.MainBoard.hexLoc(loc))
+            }
+          case _ => ()
+        }
+
       case (mode: NormalMouseMode) =>
         //Highlight mouse's target on mouse hover
         mouseState.hovered match {
@@ -1218,6 +1248,13 @@ object Drawing {
                         spell.tryCanTarget(board.side,loc,board) match {
                           case Failure(_) => ()
                           case Success(()) => highlightHex(ui.MainBoard.hexLoc(loc))
+                        }
+                      }
+                    case (spell: PieceAndLocSpell) =>
+                      board.pieceById.values.foreach { piece =>
+                        spell.tryCanTargetPiece(board.side,piece) match {
+                          case Failure(_) => ()
+                          case Success(()) => highlightPiece(piece)
                         }
                       }
                     case (_: NoEffectSpell) =>

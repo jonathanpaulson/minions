@@ -293,6 +293,25 @@ case class TileSpell(
   override def hashCode: Int = super.hashCode
 }
 
+/**
+ * PieceAndLocSpell:
+ * Targets a single piece and a location.
+ */
+case class PieceAndLocSpell(
+  val name: SpellName,
+  val displayName: String,
+  val shortDisplayName: String,
+  val desc: List[String],
+  val spellType: SpellType,
+  val spawnPhaseOnly: Boolean,
+  val tryCanTargetPiece: (Side, Piece) => Try[Unit],
+  val tryCanTarget: (Side, Piece, Loc, BoardState) => Try[Unit],
+  val effect: ((BoardState, Piece, Loc) => Unit)
+) extends Spell {
+  override def equals(o: Any): Boolean = super.equals(o)
+  override def hashCode: Int = super.hashCode
+}
+
 
 /**
  * Terrain:

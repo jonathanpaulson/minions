@@ -167,6 +167,29 @@ case object Spells {
 
   //UTILITY---------------------------------------------------------------------------
 
+  val reposition = PieceAndLocSpell(
+    name = "reposition",
+    displayName = "Reposition",
+    shortDisplayName = "Repos",
+    desc = List("Move target friendly minion to an adjacent location."),
+    spellType = NormalSpell,
+    spawnPhaseOnly = true,
+    tryCanTargetPiece = ((side: Side, piece:Piece) =>
+      if(piece.side != side || piece.baseStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
+      else Success(())
+    ),
+    tryCanTarget = ((side: Side, piece:Piece, loc: Loc, board: BoardState) =>
+      if(piece.side != side || piece.baseStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
+      else if(board.topology.distance(loc,piece.loc) != 1) Failure(new Exception("Location is not adjacent"))
+      else if(board.pieces(loc).nonEmpty) Failure(new Exception("Adjacent location is not empty"))
+      else board.tryCanEndOnLoc(side, piece.spec, piece.curStats(board), loc, List())
+    ),
+    effect = { (board: BoardState, piece: Piece, loc: Loc) =>
+      board.doMovePieceToLoc(piece,loc)
+    }
+  )
+
+
   val spawn = TargetedSpell(
     name = "spawn",
     displayName = "Spawn",
@@ -241,6 +264,7 @@ case object Spells {
     lumbering,
     shackle,
 
+    reposition,
     spawn,
     blink,
     raiseZombie,
@@ -266,6 +290,7 @@ case object Spells {
       lumbering,lumbering,
       shackle,shackle,
 
+      reposition,reposition,reposition,reposition,reposition,reposition,
       spawn,spawn,spawn,spawn,
       blink,blink,blink,blink,
       raiseZombie,raiseZombie,raiseZombie,raiseZombie,
