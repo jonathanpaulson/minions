@@ -655,7 +655,7 @@ case class BoardState private (
 
     val range = piece.actState match {
       case Moving(stepsUsed) => pieceStats.moveRange - stepsUsed
-      case Attacking(_) | DoneActing => 0
+      case Attacking(_) | Spawning | DoneActing => 0
     }
 
     //Attempts to try this location as an ending location, shuffling/rotating existing friendly units on that
@@ -862,7 +862,7 @@ case class BoardState private (
           //Fuller check
           else if(numAttacks >= attackerStats.numAttacks) failed("Piece already assigned all of its attacks")
           else Success(())
-        case DoneActing =>
+        case Spawning | DoneActing =>
           failed("Piece has already acted or cannot attack this turn")
       }
       result.flatMap { case () =>
@@ -977,7 +977,7 @@ case class BoardState private (
   private def canMoveAtLeast(piece: Piece, steps: Int): Boolean = {
     piece.actState match {
       case Moving(stepsUsed) => piece.curStats(this).moveRange >= stepsUsed + steps
-      case Attacking(_) | DoneActing => false
+      case Attacking(_) | Spawning | DoneActing => false
     }
   }
 
@@ -1128,9 +1128,6 @@ case class BoardState private (
               //Ownership
               failUnless(piece.side == side, "Piece controlled by other side")
 
-              //Piece currently at the start of the path
-              failUnless(piece.loc == path(0), "Moved piece is not at the head of the path")
-
               val pieceStats = piece.curStats(this)
 
               //Piece movement range and state is ok
@@ -1138,10 +1135,12 @@ case class BoardState private (
               piece.actState match {
                 case Moving(stepsUsed) =>
                   failUnless(path.length - 1 <= pieceStats.moveRange - stepsUsed, "Movement range of piece is not large enough")
-                case Attacking(_) | DoneActing =>
+                case Attacking(_) | Spawning | DoneActing =>
                   fail("Piece has already acted or cannot move this turn")
               }
 
+              //Piece currently at the start of the path
+              failUnless(piece.loc == path(0), "Moved piece is not at the head of the path")
               //Check spaces along the path
               path.foreach { loc => tryCanMoveThroughLoc(piece, loc).get}
               //Check space at the end of the path
@@ -1195,7 +1194,9 @@ case class BoardState private (
                 requireSuccess(ability.tryIsUsableNow(piece))
                 failIf(ability.isSorcery && sorceryPower <= 0, "No sorcery power (must first play cantrip or discard spell)")
                 ability match {
-                  case SuicideAbility | BlinkAbility | KillAdjacentAbility | (_:SelfEnchantAbility) => ()
+                  case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) => ()
+                  case KillAdjacentAbility =>
+                    failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
                   case (ability:TargetedAbility) =>
                     findPiece(targets.target0) match {
                       case None => fail("No target specified for ability")
@@ -1217,9 +1218,9 @@ case class BoardState private (
             failUnless(piece.loc == src, "Teleporting piece is not on the teleporter")
             piece.actState match {
               case Moving(stepsUsed) =>
-                failUnless(stepsUsed == 0, "Piece must start turn on teleporter without moving")
-              case Attacking(_) | DoneActing =>
-                fail("Piece cannot act before teleporting")
+                failUnless(stepsUsed == 0, "Piece must start turn on teleporter without moving or acting")
+              case Attacking(_) | Spawning | DoneActing =>
+                fail("Piece must start turn on teleporter without moving or acting")
             }
             val pieceStats = piece.curStats(this)
             tryCanEndOnLoc(piece.side, piece.spec, pieceStats, dest, List()).get
@@ -1271,7 +1272,7 @@ case class BoardState private (
           piece.hasMoved = true
           piece.actState = piece.actState match {
             case Moving(n) => Moving(n + movement.path.length - 1)
-            case Attacking(_) | DoneActing => assertUnreachable()
+            case Attacking(_) | Spawning | DoneActing => assertUnreachable()
           }
         }
       case Attack(attackerSpec, targetSpec) =>
@@ -1284,12 +1285,12 @@ case class BoardState private (
         attacker.actState = attacker.actState match {
           case Moving(_) => Attacking(1)
           case Attacking(n) => Attacking(n+1)
-          case DoneActing => assertUnreachable()
+          case Spawning | DoneActing => assertUnreachable()
         }
 
         if(attackerStats.isWailing) {
           attacker.actState match {
-            case Moving(_) | DoneActing => assertUnreachable()
+            case Moving(_) | Spawning | DoneActing => assertUnreachable()
             case Attacking(numAttacks) =>
               if(numAttacks >= attackerStats.numAttacks)
                 killPiece(attacker)

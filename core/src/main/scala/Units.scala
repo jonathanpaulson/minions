@@ -284,7 +284,10 @@ object Units {
       displayName = "Double Strike (sorcery)",
       desc = "Pay 1 sorcery power: Attacks twice",
       isSorcery = true,
-      tryIsUsableNow = { (_: Piece) => Success(()) },
+      tryIsUsableNow = { (piece: Piece) =>
+        if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
+        else Success(())
+      },
       mod = PieceModWithDuration(PieceMods.DoubleAttack,turnsLeft = Some(1))
     ))
   )
@@ -355,7 +358,10 @@ object Units {
       displayName = "Unsummon Strike (sorcery)",
       desc = "Pay 1 sorcery power: Attack unsummons",
       isSorcery = true,
-      tryIsUsableNow = { (_: Piece) => Success(()) },
+      tryIsUsableNow = { (piece: Piece) =>
+        if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
+        else Success(())
+      },
       mod = PieceModWithDuration(PieceMods.UnsummonAttack,turnsLeft = Some(1))
     ))
   )
@@ -388,7 +394,12 @@ object Units {
       displayName = "Move Three (sorcery)",
       desc = "Pay 1 sorcery power: Move 3",
       isSorcery = true,
-      tryIsUsableNow = { (_: Piece) => Success(()) },
+      tryIsUsableNow = { (piece: Piece) =>
+        piece.actState match {
+          case DoneActing | Spawning | Attacking(_) => Failure(new Exception("Piece has already acted or attacked this turn"))
+          case Moving(_) => Success(())
+        }
+      },
       mod = PieceModWithDuration(PieceMods.MoveThree, turnsLeft = Some(1))
     ))
   )
@@ -468,7 +479,10 @@ object Units {
       displayName = "Air Strike (sorcery)",
       desc = "Pay 1 sorcery power: Attack range 3 vs flying",
       isSorcery = true,
-      tryIsUsableNow = { (_: Piece) => Success(()) },
+      tryIsUsableNow = { (piece: Piece) =>
+        if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
+        else Success(())
+      },
       mod = PieceModWithDuration(PieceMods.AirStrike, turnsLeft = Some(1))
     ))
   )

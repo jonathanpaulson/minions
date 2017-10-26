@@ -69,7 +69,8 @@ sealed trait ActState extends Ordered[ActState] {
 }
 case class Moving(val steps: Int) extends ActState { val order = 0 }
 case class Attacking(val strikes: Int) extends ActState { val order = 1 }
-case object DoneActing extends ActState { val order = 2 }
+case object Spawning extends ActState { val order = 2 }
+case object DoneActing extends ActState { val order = 3 }
 object ActState {
   val start = Moving(0)
 }

@@ -343,7 +343,7 @@ object Drawing {
                       case Attacking(attacks) =>
                         assert(attacks <= 1)
                         attacks == 1
-                      case DoneActing => true
+                      case Spawning | DoneActing => true
                     }
                   }
               }
@@ -366,7 +366,7 @@ object Drawing {
                         } else {
                           ("", "black")
                         }
-                      case DoneActing => ("", "grey")
+                      case Spawning | DoneActing => ("", "grey")
                     }
                   }
               }
@@ -407,7 +407,7 @@ object Drawing {
                           ("", "black")
                         }
                       case Attacking(_) => ("", "grey")
-                      case DoneActing => ("", "grey")
+                      case Spawning | DoneActing => ("", "grey")
                     }
               }
             show("Speed: " + stats.moveRange + " " + hexStr + "/turn" + usedStr, speedColor)
@@ -791,14 +791,14 @@ object Drawing {
 
     def pieceCanStillDoThings(piece: Piece): Boolean = {
       piece.actState match {
-        case DoneActing => false
+        case Spawning | DoneActing => false
         case Attacking(numAttacks) => numAttacks < piece.curStats(board).numAttacks
         case Moving(stepsUsed) => !(piece.curStats(board).isLumbering && stepsUsed > 0)
       }
     }
     def pieceHasNotDoneThings(piece: Piece): Boolean = {
       piece.actState match {
-        case DoneActing | Attacking(_) => false
+        case Spawning | DoneActing | Attacking(_) => false
         case Moving(stepsUsed) => stepsUsed == 0
       }
     }
@@ -812,7 +812,7 @@ object Drawing {
         case Some(_) => "A!"
       }
       val displayedAttacks = actState match {
-        case DoneActing => curStats.numAttacks
+        case Spawning | DoneActing => curStats.numAttacks
         case Moving(_) => curStats.numAttacks
         case Attacking(attacksUsed) =>
           if(attacksUsed >= curStats.numAttacks) curStats.numAttacks
@@ -836,7 +836,7 @@ object Drawing {
 
       val color = {
         actState match {
-          case DoneActing => "#777777"
+          case Spawning | DoneActing => "#777777"
           case Moving(n) =>
             if(n > 0 && curStats.isLumbering) "#777777"
             else colorFromEnchantments.getOrElse("black")
@@ -890,7 +890,7 @@ object Drawing {
     def getMoveStringAndColor(baseStats: PieceStats, curStats: PieceStats, actState: ActState): (String,String) = {
       val displayedMoveRange = {
         actState match {
-          case DoneActing | Attacking(_) => curStats.moveRange
+          case Spawning | DoneActing | Attacking(_) => curStats.moveRange
           case Moving(stepsUsed) =>
             if(stepsUsed >= curStats.moveRange) curStats.moveRange
             else curStats.moveRange - stepsUsed
@@ -906,7 +906,7 @@ object Drawing {
       }
       val color = {
         actState match {
-          case DoneActing => "#777777"
+          case Spawning | DoneActing => "#777777"
           case Attacking(_) =>
             if(curStats.abilities.contains(BlinkAbility.name)) "black"
             else "#777777"
