@@ -14,7 +14,7 @@ object Drawing {
   val tileScale = 31.5 / gridSize
   val pieceScale = 26.0 / gridSize
   val techScale = 31.0 / gridSize
-  val spellScale = 26.0 / gridSize
+  val spellScale = 29.0 / gridSize
   val techInteriorScale = 19.0 / gridSize
   val smallPieceScale = 14.0 / gridSize
   val smallPieceOffset = 15.0 / gridSize
@@ -99,7 +99,7 @@ object Drawing {
       hexLoc + HexVec.corners(corner) * scale
     }
 
-    def drawHex(hexLoc : HexLoc, color : Option[String], texture: Option[(String,String)], scale : Double, doStroke: Boolean, doFill:Boolean, alpha: Double, lineWidth: Double) : Unit = {
+    def drawHex(hexLoc : HexLoc, color : Option[String], texture: Option[(String,String)], scale : Double, doStroke: Boolean, doFill:Boolean, alpha: Double, lineWidth: Double, rectangle: Boolean) : Unit = {
       val oldAlpha = ctx.globalAlpha
       ctx.globalAlpha = alpha
       ctx.lineWidth = lineWidth
@@ -115,26 +115,30 @@ object Drawing {
       ctx.beginPath()
       move(hexCorner(hexLoc,scale,0))
       line(hexCorner(hexLoc,scale,1))
-      line(hexCorner(hexLoc,scale,2))
+      if(!rectangle) {
+        line(hexCorner(hexLoc,scale,2))
+      }
       line(hexCorner(hexLoc,scale,3))
       line(hexCorner(hexLoc,scale,4))
-      line(hexCorner(hexLoc,scale,5))
+      if(!rectangle) {
+        line(hexCorner(hexLoc,scale,5))
+      }
       line(hexCorner(hexLoc,scale,0))
       if(doStroke) ctx.stroke()
       if(doFill)  ctx.fill()
       ctx.closePath()
       ctx.globalAlpha = oldAlpha
     }
-    def strokeHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0) : Unit = {
-      drawHex(hexLoc,Some(color),None,scale,true,false,alpha,lineWidth);
+    def strokeHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0, rectangle: Boolean = false) : Unit = {
+      drawHex(hexLoc,Some(color),None,scale,true,false,alpha,lineWidth,rectangle);
     }
     //TODO stop drawing pieces with so much alpha. They change color too much on different terrain
     //This requires recalibrating all the colors
-    def fillHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0) : Unit = {
-      drawHex(hexLoc,Some(color),None,scale,false,true,alpha,1.0);
+    def fillHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, rectangle: Boolean = false) : Unit = {
+      drawHex(hexLoc,Some(color),None,scale,false,true,alpha,1.0, rectangle);
     }
-    def fillHexWithTexture(hexLoc : HexLoc, texture: String, scale : Double, alpha: Double = 1.0) : Unit = {
-      drawHex(hexLoc,None,Some((texture,"repeat")),scale,false,true,alpha,1.0);
+    def fillHexWithTexture(hexLoc : HexLoc, texture: String, scale : Double, alpha: Double = 1.0, rectangle:Boolean = false) : Unit = {
+      drawHex(hexLoc,None,Some((texture,"repeat")),scale,false,true,alpha,1.0,rectangle);
     }
     def fillHexWithImage(hexLoc : HexLoc, texture: String, scale : Double) : Unit = {
       //Adjust so that the image is centered
@@ -229,8 +233,8 @@ object Drawing {
           case Some(S0) => "#0000bb"
           case Some(S1) => "#bb0000"
         }
-      fillHex(hexLoc, color, scale)
-      strokeHex(hexLoc, strokeColor, scale, alpha=0.3)
+      fillHex(hexLoc, color, scale, rectangle=true)
+      strokeHex(hexLoc, strokeColor, scale, alpha=0.3, rectangle=true)
       spellId.foreach { spellId =>
         externalInfo.spellsRevealed.get(spellId) match {
           case None =>
@@ -500,6 +504,7 @@ object Drawing {
       spell match {
         case None => ()
         case Some(spellId) =>
+          show("")
           show("")
           externalInfo.spellsRevealed.get(spellId) match {
             case None =>
@@ -994,9 +999,9 @@ object Drawing {
       }
     }
 
-    def highlightHex(hexLoc: HexLoc, scale: Double = tileScale, fillColor: String = "yellow", strokeColor: String = "black", alpha: Double = 1.0) = {
-      fillHex(hexLoc, fillColor, scale, alpha=0.15 * alpha)
-      strokeHex(hexLoc, strokeColor, scale, alpha=0.5 * alpha, lineWidth=1.5)
+    def highlightHex(hexLoc: HexLoc, scale: Double = tileScale, fillColor: String = "yellow", strokeColor: String = "black", alpha: Double = 1.0, rectangle: Boolean = false) = {
+      fillHex(hexLoc, fillColor, scale, alpha=0.15 * alpha, rectangle)
+      strokeHex(hexLoc, strokeColor, scale, alpha=0.5 * alpha, lineWidth=1.5, rectangle)
     }
     def highlightPiece(piece: Piece, fillColor: String = "yellow", strokeColor: String = "black", alpha: Double = 1.0) = {
       val (targetLoc,targetScale) = locAndScaleOfPiece(board,piece)
@@ -1084,8 +1089,8 @@ object Drawing {
           val idx = game.spellsToChoose.indexOf(spellId)
           if(idx >= 0) {
             val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(idx))
-            strokeHex(hexLoc, "black", tileScale, alpha=0.5)
-            highlightHex(hexLoc,scale=spellScale)
+            strokeHex(hexLoc, "black", tileScale, alpha=0.5, rectangle=true)
+            highlightHex(hexLoc,scale=spellScale, rectangle=true)
           }
       }
     }
@@ -1224,7 +1229,7 @@ object Drawing {
           case MouseNone => ()
           case MouseSpellHand(spellId,_,loc) =>
             if(client.ourSide == Some(game.curSide)) {
-              highlightHex(ui.SpellHand.hexLoc(loc))
+              highlightHex(ui.SpellHand.hexLoc(loc), rectangle=true)
               if(undoing)
                 highlightUndoneActionsForSpell(spellId)
               else {
@@ -1262,12 +1267,12 @@ object Drawing {
 
           case MouseSpellChoice(_,_,loc) =>
             if(client.ourSide == Some(game.curSide)) {
-              highlightHex(ui.SpellChoice.hexLoc(loc))
+              highlightHex(ui.SpellChoice.hexLoc(loc), rectangle=true)
             }
           case MouseSpellPlayed(_,_,_,loc) =>
             if(client.ourSide == Some(game.curSide)) {
               if(undoing) {
-                highlightHex(ui.SpellPlayed.hexLoc(loc))
+                highlightHex(ui.SpellPlayed.hexLoc(loc), rectangle=true)
               }
             }
           case MouseTile(_) => ()
@@ -1436,24 +1441,24 @@ object Drawing {
 
     //Highlight hex tile on mouse hover
     mouseState.hovered.getLoc().foreach { hoverLoc =>
-      val component = mouseState.hovered match {
-        case MouseNone => ui.MainBoard
-        case MouseSpellChoice(_,_,_) => ui.SpellChoice
-        case MouseSpellHand(_,_,_) => ui.SpellHand
-        case MouseSpellPlayed(_,_,_,_) => ui.SpellPlayed
-        case MousePiece(_,_) => ui.MainBoard
-        case MouseTile(_) => ui.MainBoard
-        case MouseTech(_,_) => ui.Tech
-        case MouseReinforcement(_,_,_) => ui.Reinforcements
-        case MouseDeadPiece(_,_) => ui.DeadPieces
-        case MouseExtraTechAndSpell(_) => ui.ExtraTechAndSpell
-        case MouseEndTurn(_) => ui.EndTurn
-        case MouseNextBoard => ui.NextBoard
-        case MousePrevBoard => ui.PrevBoard
-        case MouseToggleChat => ui.ToggleChat
-        case MouseResignBoard(_) => ui.ResignBoard
+      val (component, rectangle) = mouseState.hovered match {
+        case MouseNone => (ui.MainBoard, false)
+        case MouseSpellChoice(_,_,_) => (ui.SpellChoice, true)
+        case MouseSpellHand(_,_,_) => (ui.SpellHand, true)
+        case MouseSpellPlayed(_,_,_,_) => (ui.SpellPlayed, true)
+        case MousePiece(_,_) => (ui.MainBoard, false)
+        case MouseTile(_) => (ui.MainBoard, false)
+        case MouseTech(_,_) => (ui.Tech, false)
+        case MouseReinforcement(_,_,_) => (ui.Reinforcements, false)
+        case MouseDeadPiece(_,_) => (ui.DeadPieces, false)
+        case MouseExtraTechAndSpell(_) => (ui.ExtraTechAndSpell, false)
+        case MouseEndTurn(_) => (ui.EndTurn, false)
+        case MouseNextBoard => (ui.NextBoard, false)
+        case MousePrevBoard => (ui.PrevBoard, false)
+        case MouseToggleChat => (ui.ToggleChat, false)
+        case MouseResignBoard(_) => (ui.ResignBoard, false)
       }
-      strokeHex(component.hexLoc(hoverLoc), "black", tileScale, alpha=0.3)
+      strokeHex(component.hexLoc(hoverLoc), "black", tileScale, alpha=0.3, rectangle=rectangle)
     }
   }
 }

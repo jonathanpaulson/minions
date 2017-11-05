@@ -194,7 +194,7 @@ case object Spells {
     name = "stumble",
     displayName = "Stumble",
     shortDisplayName = "Stumble",
-    desc = List("Move target damaged enemy minion to an adjacent location."),
+    desc = List("Move target damaged minion to an adjacent location."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
     tryCanTargetPiece = ((side: Side, piece:Piece) =>
