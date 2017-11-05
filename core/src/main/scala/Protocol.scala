@@ -31,7 +31,7 @@ object Protocol {
   case class RequestBoardHistory(boardIdx: Int) extends Query
   case class DoBoardAction(boardIdx: Int, boardAction: BoardAction) extends Query
   case class DoGameAction(gameAction: GameAction) extends Query
-  case class Chat(username: String, side: Option[Side], message: String) extends Query
+  case class Chat(username: String, side: Option[Side], allChat: Boolean, message: String) extends Query
 
   //Conversions----------------------------------------------------
   def readsFromString[T](typeName: String)(f: String => T): Reads[T] = {

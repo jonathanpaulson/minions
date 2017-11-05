@@ -456,8 +456,7 @@ class Client() {
     // Enter
     if(e.keyCode == 13) {
       if(chat.value != "") {
-        val toSide = if(allChat) None else ourSide
-        sendWebsocketQuery(Protocol.Chat(username, toSide, chat.value))
+        sendWebsocketQuery(Protocol.Chat(username, ourSide, allChat, chat.value))
         chat.value = ""
       }
     }

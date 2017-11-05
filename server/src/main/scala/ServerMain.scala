@@ -209,6 +209,7 @@ object ServerMain extends App {
     var userOuts: Map[Int,ActorRef] = Map()
     var allMessages: List[String] = List()
     var teamMessages: SideArray[List[String]] = SideArray.create(List())
+    var spectatorMessages: List[String] = List()
 
     val timeReportJob: Cancellable = {
       import scala.concurrent.duration._
@@ -236,6 +237,7 @@ object ServerMain extends App {
     private def broadcastMessages(): Unit = {
       broadcastToSide(Protocol.Messages(allMessages, teamMessages(S0)), S0)
       broadcastToSide(Protocol.Messages(allMessages, teamMessages(S1)), S1)
+      broadcastToSpectators(Protocol.Messages(allMessages, spectatorMessages))
     }
 
     private def performAndBroadcastGameActionIfLegal(gameAction: GameAction): Try[Unit] = {
@@ -582,10 +584,14 @@ object ServerMain extends App {
               }
           }
 
-        case Protocol.Chat(username, side, message) =>
-          side match {
-            case None => allMessages = allMessages :+ (username + ": " + message)
-            case Some(side) => teamMessages(side) = teamMessages(side) :+ (username + ": " + message)
+        case Protocol.Chat(username, side, allChat, message) =>
+          if(allChat) {
+            allMessages = allMessages :+ (username + ": " + message)
+          } else {
+            side match {
+              case None => spectatorMessages = spectatorMessages :+ (username + ": " + message)
+              case Some(side) => teamMessages(side) = teamMessages(side) :+ (username + ": " + message)
+            }
           }
           broadcastMessages()
       }
