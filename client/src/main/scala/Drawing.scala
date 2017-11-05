@@ -729,25 +729,16 @@ object Drawing {
     for(i <- 0 until game.techLine.length) {
       val techState = game.techLine(i)
       val hexLoc = techLocs(i)
-      val fillColor =
+      val (fillColor, strokeColor) =
         (techState.level(S0), techState.level(S1)) match {
-          case (TechLocked, TechLocked) => "#aaaaaa"
-          case (TechLocked, (TechUnlocked | TechAcquired)) => "#ffbbbb"
-          case ((TechUnlocked | TechAcquired), TechLocked) => "#bbbbff"
-          case ((TechUnlocked | TechAcquired), (TechUnlocked | TechAcquired)) => "#ff99ff"
-        }
-      val strokeColor =
-        (techState.level(S0), techState.level(S1)) match {
-          case ((TechLocked | TechUnlocked), (TechLocked | TechUnlocked)) => Some("#888888")
-          case ((TechLocked | TechUnlocked), TechAcquired) => Some("#ff3333")
-          case (TechAcquired, (TechLocked | TechUnlocked)) => Some("#3333ff")
-          case (TechAcquired, TechAcquired) => Some("#ff00ff")
+          case ((TechLocked | TechUnlocked), (TechLocked | TechUnlocked)) => ("#aaaaaa", "#888888")
+          case (TechAcquired, TechAcquired) => ("#aaaaaa", "#888888")
+          case ((TechLocked | TechUnlocked), TechAcquired) => ("#ffbbbb", "#ff3333")
+          case (TechAcquired, (TechLocked | TechUnlocked)) => ("#bbbbff", "#3333ff")
         }
 
       fillHex(hexLoc, fillColor, techScale, alpha=1.0)
-      strokeColor.foreach { color =>
-        strokeHex(hexLoc, color, techScale, lineWidth=2.0)
-      }
+      strokeHex(hexLoc, strokeColor, techScale, lineWidth=2.0)
 
       text(techState.shortDisplayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
       techState.techNumber.foreach { techNumber =>
