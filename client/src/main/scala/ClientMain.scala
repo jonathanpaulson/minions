@@ -484,7 +484,7 @@ class Client() {
       draw()
     }
     //'c'
-    else if(e.keyCode == 67) {
+    else if(e.keyCode == 67 && e.ctrlKey) {
       showCoords = !showCoords
       draw()
     }
