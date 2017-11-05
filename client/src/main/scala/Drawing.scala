@@ -819,7 +819,7 @@ object Drawing {
           else curStats.numAttacks - attacksUsed
       }
       val countStr = {
-        if(displayedAttacks > 1) displayedAttacks.toString
+        if(displayedAttacks > 1 && curStats.attackEffect!=None) displayedAttacks.toString
         else ""
       }
       val colorFromEnchantments: Option[String] = {

@@ -166,12 +166,15 @@ object PieceMods {
     val displayName = "Weakened"
     val desc = "-1 attack, cannot attack if < 1"
     def apply(pieceStats : PieceStats): PieceStats = {
+      val reduce_flurry = pieceStats.numAttacks > 1 && pieceStats.attackEffect == Some(Damage(1))
       pieceStats.copy(
         isBaseStats = false,
+        numAttacks = if(reduce_flurry) pieceStats.numAttacks-1 else pieceStats.numAttacks,
         attackEffect = pieceStats.attackEffect match {
           case None => None
           case Some(Damage(n)) =>
-            if(n <= 1) None
+            if(reduce_flurry) Some(Damage(n))
+            else if(n <= 1) None
             else Some(Damage(n-1))
           case Some(Unsummon) | Some(Kill) | Some(Enchant(_)) | Some(TransformInto(_)) =>
             pieceStats.attackEffect
