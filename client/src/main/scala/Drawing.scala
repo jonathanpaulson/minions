@@ -732,7 +732,7 @@ object Drawing {
       val (fillColor, strokeColor) =
         (techState.level(S0), techState.level(S1)) match {
           case ((TechLocked | TechUnlocked), (TechLocked | TechUnlocked)) => ("#aaaaaa", "#888888")
-          case (TechAcquired, TechAcquired) => ("#aaaaaa", "#888888")
+          case (TechAcquired, TechAcquired) => ("#A3C2A3", "#9ED49E")
           case ((TechLocked | TechUnlocked), TechAcquired) => ("#ffbbbb", "#ff3333")
           case (TechAcquired, (TechLocked | TechUnlocked)) => ("#bbbbff", "#3333ff")
         }
