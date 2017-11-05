@@ -15,7 +15,7 @@ sealed trait TechLevel {
   def toUnicodeSymbol() : String = this match {
     case TechLocked => ""
     case TechUnlocked => "\u25AE" // unicode rectangle
-    case TechAcquired => "\u2605" //Unicode star
+    case TechAcquired => "\u25AE\u25AE"
   }
 }
 object TechLevel {
