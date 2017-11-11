@@ -440,12 +440,14 @@ object Drawing {
           if(stats.swarmMax > 1) {
             show("Swarm (up to " + stats.swarmMax + "/hex)")
           }
-          if(stats.spawnRange > 0) {
-            assert(stats.spawnRange <= 2)
-            if(stats.spawnRange == 1)
-              show("Spawner (friendly units can spawn adjacent)")
-            else
-              show("Greater Spawner (spawn units at range 2)")
+          stats.spawnRange match {
+            case None => ()
+            case Some(spawnRange) =>
+              assert(spawnRange >= 1 && spawnRange <= 2)
+              if(spawnRange == 1)
+                show("Spawner (friendly units can spawn adjacent)")
+              else
+                show("Greater Spawner (spawn units at range 2)")
           }
           if(stats.isPersistent) {
             show("Persistent (cannot be unsummoned)")

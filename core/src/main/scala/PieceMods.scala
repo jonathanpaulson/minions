@@ -122,7 +122,7 @@ object PieceMods {
     def apply(pieceStats : PieceStats): PieceStats = {
       pieceStats.copy(
         isBaseStats = false,
-        spawnRange = Math.max(pieceStats.spawnRange,1)
+        spawnRange = Some(Math.max(1,pieceStats.spawnRange.getOrElse(1)))
       )
     }
   }

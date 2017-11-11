@@ -23,7 +23,7 @@ object Units {
     isWailing : Boolean = false,
     canHurtNecromancer : Boolean = true,
     swarmMax : Int = 1,
-    spawnRange : Int = 0,
+    spawnRange : Option[Int] = None,
     extraMana : Int = 0,
     extraSorceryPower : Int = 0,
     deathSpawn : Option[PieceName] = None,
@@ -69,7 +69,7 @@ object Units {
     attackRange = 1,
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = 1,
+    spawnRange = Some(1),
     extraMana = 3
   )
   val arcane_necromancer = createPieceStats(
@@ -84,7 +84,7 @@ object Units {
     attackRange = 1,
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = 1,
+    spawnRange = Some(1),
     extraMana = 5,
   )
   val ranged_necromancer = createPieceStats(
@@ -99,7 +99,7 @@ object Units {
     attackRange = 3,
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = 1,
+    spawnRange = Some(1),
     extraMana = 3,
   )
   val mounted_necromancer = createPieceStats(
@@ -114,7 +114,7 @@ object Units {
     attackRange = 1,
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = 1,
+    spawnRange = Some(1),
     extraMana = 3,
   )
   val immortal_necromancer = createPieceStats(
@@ -130,7 +130,7 @@ object Units {
     isFlying = true,
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = 1,
+    spawnRange = Some(1),
     extraMana = 3,
   )
   val deadly_necromancer = createPieceStats(
@@ -145,7 +145,7 @@ object Units {
     attackRange = 1,
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = 1,
+    spawnRange = Some(1),
     extraMana = 3,
     canHurtNecromancer = false,
   )
@@ -162,7 +162,7 @@ object Units {
     isPersistent = true,
     isNecromancer = true,
     swarmMax = 3,
-    spawnRange = 1,
+    spawnRange = Some(1),
     extraMana = 1,
   )
   val summoner_necromancer = createPieceStats(
@@ -177,7 +177,7 @@ object Units {
     attackRange = 1,
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = 2,
+    spawnRange = Some(2),
     extraMana = 3,
   )
 
@@ -201,7 +201,7 @@ object Units {
     defense = Some(2),
     moveRange = 2,
     attackRange = 0,
-    spawnRange = 1
+    spawnRange = Some(1)
   )
 
   val spire = createPieceStats(
@@ -223,7 +223,7 @@ object Units {
     defense = Some(5),
     moveRange = 2,
     attackRange = 1,
-    spawnRange = 1,
+    spawnRange = Some(1),
     isLumbering = true
   )
 
@@ -339,7 +339,7 @@ object Units {
     moveRange = 0,
     attackRange = 2,
     isPersistent = true,
-    spawnRange = 1
+    spawnRange = Some(1)
   )
 
   val bone_rat = createPieceStats(
@@ -413,7 +413,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     deathSpawn = Some(initiate.name),
-    spawnRange = 1,
+    spawnRange = Some(1),
   )
 
   val lich = createPieceStats(
@@ -525,7 +525,7 @@ object Units {
     numAttacks = 4,
     attackEffect = Some(Damage(1)),
     defense = Some(7),
-    spawnRange = 1,
+    spawnRange = Some(1),
   )
 
   val shadowlord = createPieceStats(

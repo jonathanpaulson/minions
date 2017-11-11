@@ -1054,10 +1054,10 @@ case class BoardState private (
   private def isSpawnerInRange(spawnLoc: Loc, spawnStats:PieceStats): Boolean = {
     pieceById.values.exists { piece =>
       val distance = topology.distance(spawnLoc,piece.loc)
-      if(piece.side != side)  false
+      if(piece.side != side) false
       else {
         val spawnerStats = piece.curStats(this)
-        if((!spawnStats.isEldritch || distance > 1) && (spawnerStats.spawnRange < distance)) false
+        if((!spawnStats.isEldritch || distance > 1) && (spawnerStats.spawnRange.forall { d => d < distance })) false
         else if(spawnerStats.isWailing && piece.hasAttacked) false
         else if(piece.actState >= DoneActing) false
         else true
