@@ -816,12 +816,13 @@ object Drawing {
     }
 
     def getAttackStringAndColor(baseStats: PieceStats, curStats: PieceStats, actState: ActState): (String,String) = {
-      val effectStr = curStats.attackEffect match {
-        case None => ""
-        case Some(Damage(n)) => "A" + n
-        case Some(Unsummon) => "A*"
-        case Some(Kill) => "AK"
-        case Some(_) => "A!"
+      val effectStr = (curStats.attackEffect, baseStats.attackEffect) match {
+        case (None,None) => ""
+        case (None,Some(_)) => "A-"
+        case (Some(Damage(n)),_) => "A" + n
+        case (Some(Unsummon),_) => "A*"
+        case (Some(Kill),_) => "AK"
+        case (Some(_),_) => "A!"
       }
       val displayedAttacks = actState match {
         case Spawning | DoneActing => curStats.numAttacks
@@ -839,7 +840,7 @@ object Drawing {
         else {
           (curStats.attackEffect, baseStats.attackEffect) match {
             case (Some(Damage(c)), Some(Damage(b))) => if(c < b) Some("magenta") else if(c == b) None else Some("green")
-            case (None, Some(Damage(_))) => Some("magenta")
+            case (None, Some(_)) => Some("magenta")
             case (Some(Unsummon), Some(Damage(_))) => Some("green")
             case _ => None
           }
