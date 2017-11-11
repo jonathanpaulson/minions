@@ -13,36 +13,94 @@
      minionsgame.jsclient.ClientMain().main();
     </script>
     <style type="text/css">
-     body {
-       margin: 4px;
-     }
-     canvas {
-       border: 1px solid black;
-       margin-left: 2px;
-     }
-     .invisible {
-       display: none;
-       visibility: hidden;
-     }
-     .errorborder {
-       border: 3px solid red;
-     }
-     #resign-confirm {
-       position: absolute;
-       width:300px;
-       height: 200px;
-       top: 40%;
-       left: 30%;
-       margin: -100px 0 0 -150px;
-       background: white;
-       border: 1px solid black;
-     }
+      body {
+        margin: 4px;
+      }
+      #main {
+        position:relative;
+        width:1470px;
+        height:860px;
+        border:1px solid black;
+        margin-left:2px
+      }
+      #board {
+        border: 1px solid black;
+        margin-left: 2px;
+      }
+      #chat {
+        width:27%;
+        height:44%;
+        display:flex;
+        flex-flow:column;
+        position:absolute;
+        right:0px;
+        bottom:0px;
+      }
+      #chat-tab-panel {
+        display:flex;
+        flex-flow:row;
+        height:25px;
+      }
+      #messages {
+        flex-grow:1;
+      }
+      #chat-input {
+        height:15px;
+      }
+      #board {
+      }
+      .invisible {
+        display: none;
+        visibility: hidden;
+      }
+      .errorborder {
+        border: 3px solid red;
+      }
+      #resign-confirm {
+        position: absolute;
+        width:300px;
+        height: 200px;
+        top: 40%;
+        left: 30%;
+        margin: -100px 0 0 -150px;
+        background: white;
+        border: 1px solid black;
+      }
+      button {
+        background:#eeeeee;
+        border:1px solid #cccccc;
+        box-shadow:1px 1px 2px #cccccc;
+        border-radius:3px;
+      }
+      button:active {
+        background:#dddddd;
+        box-shadow:inset 0px 1px 2px #cccccc;
+      }
+      button.active {
+        background:#ddeedd;
+        border:1px solid #ccddcc;
+        box-shadow:inset 0px 1px 2px #cccccc;
+      }
+      #global-chat-button {
+        outline:0;
+      }
+      #team-chat-button {
+        outline:0;
+      }
     </style>
   </head>
   <body>
-  <canvas id="board" width="1470" height="860" oncontextmenu="return false;"></canvas>
-  <textarea id="messages" readonly></textarea>
-  <input id="chat" type="text"></input>
+  <div id="main">
+    <canvas id="board" oncontextmenu="return false;"></canvas>
+    <div id="chat">
+      <div id="chat-tab-panel">
+	<button id="global-chat-button">Global Chat</button>
+	<button id="team-chat-button">Team Chat</button>
+      </div>
+      <textarea id="messages" readonly></textarea>
+      <input id="chat-input" type="text"></input>
+    </div>
+  </div>
   <div id="resign-confirm" class="invisible">
     <div style="display:flex; flex-flow:column; width:100%; height:100%; text-align:center">
       <span style="flex-grow:1"></span>

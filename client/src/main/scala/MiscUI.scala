@@ -75,20 +75,6 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     }
   }
 
-  object ToggleChat extends UI.Component with UI.Clickable {
-    val origin = HexLoc(16.5, 3)
-    val gridSizeScale = 1
-    val locs: Array[Loc] = Array(Loc(0, 0), Loc(-1,0), Loc(1,0))
-    val hexLocs = locs.map(hexLoc(_))
-
-    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
-      val _ = (game,board)
-      val (loc,_) = getLocAndDelta(hexLoc)
-      if(locs.contains(loc)) MouseToggleChat
-      else MouseNone
-    }
-  }
-
   object BoardInfo extends UI.Component {
     val origin = HexLoc(0,0)
     val gridSizeScale = 1
@@ -430,7 +416,6 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     SpellChoice,
     SpellHand,
     SpellPlayed,
-    ToggleChat,
   )
 
 }

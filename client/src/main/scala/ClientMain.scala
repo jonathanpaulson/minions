@@ -7,7 +7,7 @@ import scala.scalajs.js.{JSApp, Dictionary}
 import org.scalajs.jquery.{JQuery,jQuery,JQueryEventObject}
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.{MouseEvent, KeyboardEvent}
-import org.scalajs.dom.html.{Canvas, TextArea, Input}
+import org.scalajs.dom.html.{Canvas, TextArea, Input, Button}
 import org.scalajs.dom.window
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -22,12 +22,6 @@ object ClientMain extends JSApp {
     jQuery { () => new Client().init() }
     ()
   }
-}
-
-@scala.scalajs.js.native
-trait Offset extends scala.scalajs.js.Object {
-  def left : Double = scala.scalajs.js.native
-  def top : Double = scala.scalajs.js.native
 }
 
 class Client() {
@@ -47,21 +41,7 @@ class Client() {
     (username,password,ourSide)
   }
   def init(): Unit = {
-    val jcanvas = jQuery(canvas)
-    val jmessages = jQuery(messages)
-    val jchat = jQuery(chat)
-
-    jmessages.height(canvas.height*0.4)
-    jmessages.width(canvas.width*0.27)
-    val canvas_offset = jcanvas.offset.asInstanceOf[Offset]
-    val msg_left = canvas_offset.left + jcanvas.width - jmessages.outerWidth(true)
-    val msg_top = canvas_offset.top + jcanvas.height - jmessages.outerHeight(true) - jchat.outerHeight(true)
-    ignore(jmessages.offset(Dictionary("left"->msg_left, "top"->msg_top)))
-
-    ignore(jchat.width(jmessages.width()))
-    val chat_left = canvas_offset.left + jcanvas.width - jchat.outerWidth(true)
-    val chat_top = canvas_offset.top + jcanvas.height - jchat.outerHeight(true)
-    ignore(jchat.offset(Dictionary("left"->chat_left, "top"->chat_top)))
+    ()
   }
 
   var gotFatalError: Boolean = false
@@ -77,7 +57,7 @@ class Client() {
   }
 
   def scrollMessagesIfAtEnd(): Unit = {
-    if(messages.scrollHeight - messages.scrollTop <= messages.clientHeight + 50) { 
+    if(messages.scrollHeight - messages.scrollTop <= messages.clientHeight + 50) {
       scrollMessages()
     }
   }
@@ -100,19 +80,27 @@ class Client() {
     messages.value = ""
     val visibleMessages = if(allChat) allMessages else teamMessages
     visibleMessages.foreach { s =>
-        reportMessage(s)
+      reportMessage(s)
     }
   }
 
-  def toggleChat(): Unit = {
-    allChat = !allChat
+  def setAllChat(b: Boolean): Unit = {
+    allChat = b
+    if(allChat) {
+      jQuery("#global-chat-button").addClass("active")
+      jQuery("#team-chat-button").removeClass("active")
+    }
+    else {
+      jQuery("#global-chat-button").removeClass("active")
+      jQuery("#team-chat-button").addClass("active")
+    }
     resetChat()
   }
 
   val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
   val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
   val messages = jQuery("#messages").get(0).asInstanceOf[TextArea]
-  val chat = jQuery("#chat").get(0).asInstanceOf[Input]
+  val chat = jQuery("#chat-input").get(0).asInstanceOf[Input]
 
   //State of game, as far as we can tell from the server
   var game: Option[Game] = None
@@ -390,6 +378,11 @@ class Client() {
       withBoardForMouse { case (mouseState, board) =>
         mouseState.refresh(game.get,board.curState)
         val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
+
+        if(canvas.width != jQuery("#main").get(0).clientWidth)
+          canvas.width = jQuery("#main").get(0).clientWidth
+        if(canvas.height != jQuery("#main").get(0).clientHeight)
+          canvas.height = jQuery("#main").get(0).clientHeight
         Drawing.drawEverything(canvas, ctx, game.get, externalInfo, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
           mouseState.undoing, showCoords, timeLeft, this)
       }
@@ -453,6 +446,8 @@ class Client() {
   }
 
   def keydown(e : KeyboardEvent) : Unit = {
+    val _ = jQuery("#chat-input").focus()
+
     // Enter
     if(e.keyCode == 13) {
       if(chat.value != "") {
@@ -485,6 +480,12 @@ class Client() {
     //'c'
     else if(e.keyCode == 67 && e.ctrlKey) {
       showCoords = !showCoords
+      draw()
+    }
+    //tab
+    else if(e.keyCode == 9) {
+      e.preventDefault()
+      setAllChat(!allChat)
       draw()
     }
   }
@@ -522,6 +523,13 @@ class Client() {
     doGameAction(ResignBoard(curBoardIdx))
   }
 
+  jQuery("#global-chat-button").click { (_: JQueryEventObject) =>
+    setAllChat(true)
+  }
+  jQuery("#team-chat-button").click { (_: JQueryEventObject) =>
+    setAllChat(false)
+  }
+
   window.addEventListener("blur", onBlur)
   window.addEventListener("keydown", keydown)
   window.addEventListener("keyup", keyup)
@@ -531,6 +539,7 @@ class Client() {
   canvas.onmouseout = mouseout _
   canvas.onselectstart = selectStart _
 
+  setAllChat(allChat)
   draw()
 
   scala.scalajs.js.timers.setInterval(200) {
