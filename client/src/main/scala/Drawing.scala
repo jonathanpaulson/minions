@@ -207,12 +207,16 @@ object Drawing {
       Units.pieceMap(pieceName).shortDisplayName
     }
 
-    def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], label: String, alpha: Double = 1.0) : Unit = {
+    def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], label: String, pieceName:PieceName, alpha: Double = 1.0) : Unit = {
       val pieceColor =
         side match {
           case None => "#cccccc"
-          case Some(S0) => "#ccccff"
-          case Some(S1) => "#ffbbbb"
+          case Some(S0) =>
+            if(Units.pieceMap(pieceName).isNecromancer) "#bbddff"
+            else "#ccccff"
+          case Some(S1) =>
+            if(Units.pieceMap(pieceName).isNecromancer) "#ffccaa"
+            else "#ffbbbb"
         }
       fillHex(hexLoc, pieceColor, scale, alpha = alpha)
       strokeHex(hexLoc, "black", scale, alpha = 0.2 * alpha)
@@ -288,7 +292,7 @@ object Drawing {
       }
       stats match {
         case None => ()
-        case Some(_) => drawPiece(hexLoc, pieceScale*6.0, side, "")
+        case Some(stats) => drawPiece(hexLoc, pieceScale*6.0, side, "", stats.name)
       }
       spell match {
         case None => ()
@@ -678,7 +682,7 @@ object Drawing {
     Side.foreach { side =>
       val locsAndContents = ui.Reinforcements.getHexLocsAndContents(side,board)
       locsAndContents.foreach { case (hexLoc,pieceName,count) =>
-        drawPiece(hexLoc, pieceScale, Some(side), "")
+        drawPiece(hexLoc, pieceScale, Some(side), "", pieceName)
         val label = displayNameOfPieceName(pieceName)
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
         text("x " + count, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,8.0), "black")
@@ -705,7 +709,7 @@ object Drawing {
       }
       locsAndContents.foreach { case (hexLoc,_,pieceName,side) =>
         val label = displayNameOfPieceName(pieceName)
-        drawPiece(hexLoc, pieceScale, Some(side), label)
+        drawPiece(hexLoc, pieceScale, Some(side), label, pieceName)
       }
     }
 
@@ -925,7 +929,7 @@ object Drawing {
       val curStats = piece.curStats(board)
       val label = baseStats.shortDisplayName
 
-      drawPiece(loc, scale, Some(piece.side), "", alpha = alpha)
+      drawPiece(loc, scale, Some(piece.side), "", curStats.name, alpha = alpha)
 
       val (aStr,aColor) = getAttackStringAndColor(baseStats,curStats,piece.actState)
       val (dStr,dColor) = getDefenseStringAndColor(baseStats,curStats,piece.damage)
