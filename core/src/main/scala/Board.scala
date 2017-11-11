@@ -286,7 +286,7 @@ class Board private (
       if(moveAttackMatchIdx >= 0) {
         val newMoveAttackState = initialStateThisTurn.copy()
         val newGeneralBoardActionsThisTurn = history.generalBoardActionsThisTurn
-        newGeneralBoardActionsThisTurn.foreach { generalBoardAction => newMoveAttackState.doGeneralBoardAction(_) }
+        newGeneralBoardActionsThisTurn.foreach { newMoveAttackState.doGeneralBoardAction(_) }
         val preMoveAttackActionsThisTurn = history.moveAttackActionsThisTurn.take(moveAttackMatchIdx)
         preMoveAttackActionsThisTurn.foreach { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
         var pieceSpecsToFilter: Set[PieceSpec] = Set()
@@ -316,7 +316,7 @@ class Board private (
       else {
         val newMoveAttackState = initialStateThisTurn.copy()
         val newGeneralBoardActionsThisTurn = dropLastMatch(history.generalBoardActionsThisTurn)(matchesGeneral)
-        newGeneralBoardActionsThisTurn.foreach { generalBoardAction => newMoveAttackState.doGeneralBoardAction(_) }
+        newGeneralBoardActionsThisTurn.foreach { newMoveAttackState.doGeneralBoardAction(_) }
         var pieceSpecsToFilter: Set[PieceSpec] = Set()
         val newMoveAttackActionsThisTurn =
           reapplyLegal(history.moveAttackActionsThisTurn.drop(moveAttackMatchIdx+1),
