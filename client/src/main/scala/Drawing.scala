@@ -747,7 +747,7 @@ object Drawing {
       locsAndContents.foreach { case (hexLoc, spellId, side, targets) =>
         val subLabel = targets match {
           case None => "(discard)"
-          case Some(_) => "(played)"
+          case Some(_) => ""
         }
         drawSpell(hexLoc, spellScale, Some(side), Some(spellId), subLabel=Some(subLabel))
       }
