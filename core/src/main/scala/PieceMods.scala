@@ -22,6 +22,21 @@ sealed trait PieceMod {
     case PieceMods.Frozen => "Frozen"
     case PieceMods.Weakened => "Weakened"
   }
+
+  def isGood: Boolean = this match {
+    case PieceMods.Shielded => true
+    case PieceMods.Protected => true
+    case PieceMods.DoubleAttack => true
+    case PieceMods.UnsummonAttack => true
+    case PieceMods.MoveThree => true
+    case PieceMods.AirStrike => true
+    case PieceMods.Spawner => true
+    case PieceMods.Lumbering => false
+    case PieceMods.Shackled => false
+    case PieceMods.Frozen => false
+    case PieceMods.Weakened => false
+  }
+
 }
 object PieceMod {
   def ofString(s:String): PieceMod = {

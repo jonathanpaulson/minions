@@ -207,7 +207,7 @@ object Drawing {
       Units.pieceMap(pieceName).shortDisplayName
     }
 
-    def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], label: String, pieceName:PieceName, alpha: Double = 1.0) : Unit = {
+    def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], pieceName:PieceName, alpha: Double = 1.0) : Unit = {
       val pieceColor =
         side match {
           case None => "#cccccc"
@@ -220,8 +220,6 @@ object Drawing {
         }
       fillHex(hexLoc, pieceColor, scale, alpha = alpha)
       strokeHex(hexLoc, "black", scale, alpha = 0.2 * alpha)
-      if(label != "")
-        text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black", alpha = alpha)
     }
 
     def drawSpell(hexLoc: HexLoc, scale : Double, side: Option[Side], spellId: Option[SpellId], subLabel: Option[String] = None) : Unit = {
@@ -292,7 +290,7 @@ object Drawing {
       }
       stats match {
         case None => ()
-        case Some(stats) => drawPiece(hexLoc, pieceScale*6.0, side, "", stats.name)
+        case Some(stats) => drawPiece(hexLoc, pieceScale*6.0, side, stats.name)
       }
       spell match {
         case None => ()
@@ -471,6 +469,20 @@ object Drawing {
             show("")
             show("Ability: " + ability.displayName)
             show(ability.desc)
+          }
+          piece.foreach { piece =>
+            piece.modsWithDuration.foreach { mod =>
+              if(mod.mod.isGood) {
+                show("")
+                show(mod.mod.displayName + ":",color="green")
+                show(mod.mod.desc,color="green")
+              }
+              else {
+                show("")
+                show(mod.mod.displayName + ":",color="red")
+                show(mod.mod.desc,color="red")
+              }
+            }
           }
       }
       tile match {
@@ -694,7 +706,7 @@ object Drawing {
     Side.foreach { side =>
       val locsAndContents = ui.Reinforcements.getHexLocsAndContents(side,board)
       locsAndContents.foreach { case (hexLoc,pieceName,count) =>
-        drawPiece(hexLoc, pieceScale, Some(side), "", pieceName)
+        drawPiece(hexLoc, pieceScale, Some(side), pieceName)
         val label = displayNameOfPieceName(pieceName)
         text(label, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
         text("x " + count, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,8.0), "black")
@@ -721,7 +733,8 @@ object Drawing {
       }
       locsAndContents.foreach { case (hexLoc,_,pieceName,side) =>
         val label = displayNameOfPieceName(pieceName)
-        drawPiece(hexLoc, pieceScale, Some(side), label, pieceName)
+        drawPiece(hexLoc, pieceScale, Some(side), pieceName)
+        text(label, PixelLoc.ofHexLoc(hexLoc,gridSize), "black")
       }
     }
 
@@ -942,7 +955,22 @@ object Drawing {
       val curStats = piece.curStats(board)
       val label = baseStats.shortDisplayName
 
-      drawPiece(loc, scale, Some(piece.side), "", curStats.name, alpha = alpha)
+      drawPiece(loc, scale, Some(piece.side), curStats.name, alpha = alpha)
+
+      if(piece.modsWithDuration.exists { mod => mod.mod.isGood }) {
+        piece.side match {
+          case S0 =>
+            fillHex(loc, "#ccffff", scale, alpha=0.50 * alpha)
+            strokeHex(loc, "#22eeff", scale, lineWidth=1.0, alpha = alpha)
+          case S1 =>
+            fillHex(loc, "#ffeecc", scale, alpha=0.50 * alpha)
+            strokeHex(loc, "#ffaa44", scale, lineWidth=1.0, alpha = alpha)
+        }
+      }
+      else if(piece.modsWithDuration.exists { mod => !mod.mod.isGood }) {
+        fillHex(loc, "#bb00bb", scale, alpha=0.15 * alpha)
+        strokeHex(loc, "magenta", scale, lineWidth=0.4, alpha = alpha)
+      }
 
       val (aStr,aColor) = getAttackStringAndColor(baseStats,curStats,piece.actState)
       val (dStr,dColor) = getDefenseStringAndColor(baseStats,curStats,piece.damage)
