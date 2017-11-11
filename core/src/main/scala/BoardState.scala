@@ -286,7 +286,7 @@ object BoardState {
       turnNumber = 0,
       reinforcements = SideArray.create(Map()),
       spellsInHand = SideArray.create(List()),
-      spellsPlayedThisTurn = Nil,
+      spellsPlayed = Nil,
       sorceryPower = 0,
       hasUsedSpawnerTile = false,
       hasGainedSpell = false,
@@ -345,8 +345,8 @@ case class BoardState private (
 
   //List of all spells in hand, indexed by spellID
   val spellsInHand: SideArray[List[Int]],
-  // List of all spellIDs played this turn
-  var spellsPlayedThisTurn: List[SpellPlayedInfo],
+  // List of all spellIDs played this board
+  var spellsPlayed: List[SpellPlayedInfo],
 
   //How many units of sorcery power the side to move has (from cantrips and spell discards)
   var sorceryPower: Int,
@@ -388,7 +388,7 @@ case class BoardState private (
       turnNumber = turnNumber,
       reinforcements = reinforcements.copy(),
       spellsInHand = spellsInHand.copy(),
-      spellsPlayedThisTurn = spellsPlayedThisTurn,
+      spellsPlayed = spellsPlayed,
       sorceryPower = sorceryPower,
       hasUsedSpawnerTile = hasUsedSpawnerTile,
       hasGainedSpell = hasGainedSpell,
@@ -494,6 +494,20 @@ case class BoardState private (
     newMana
   }
 
+  //What spells would need to be discarded to meet sorcery power requirements?
+  //This is NOT handled within the endTurn function, but rather by the server so that we can also get proper spell revealing.
+  def spellsToAutoDiscardBeforeEndTurn(externalInfo: ExternalInfo): List[SpellId] = {
+    var sorceryPowerTmp = sorceryPower
+    var discardCount = 0
+    while(sorceryPowerTmp < 0 && discardCount < spellsInHand(side).length) {
+      val spellId = spellsInHand(side)(discardCount)
+      val spell = Spells.spellMap(externalInfo.spellsRevealed(spellId))
+      sorceryPowerTmp += sorceryPowerOfDiscard(spell.spellType)
+      discardCount += 1
+    }
+    spellsInHand(side).take(discardCount)
+  }
+
   //End the current turn and begin the next turn
   def endTurn(): Unit = {
     //Wailing units that attacked and have not been finished yet die
@@ -530,7 +544,6 @@ case class BoardState private (
     numPiecesSpawnedThisTurnAt = Map()
     killedThisTurn = Nil
     unsummonedThisTurn = Nil
-    spellsPlayedThisTurn = Nil
     hasUsedSpawnerTile = false
     hasGainedSpell = false
 
@@ -557,7 +570,7 @@ case class BoardState private (
     pieceById = Map()
     piecesSpawnedThisTurn = Map()
     numPiecesSpawnedThisTurnAt = Map()
-    spellsPlayedThisTurn = Nil
+    spellsPlayed = Nil
     Side.foreach { side =>
       reinforcements(side) = Map()
     }
@@ -1094,6 +1107,32 @@ case class BoardState private (
     }
   }
 
+  private def sorceryPowerOfDiscard(spellType: SpellType): Int = {
+    spellType match {
+      case NormalSpell => 1
+      case Sorcery => 1
+      case Cantrip => 1
+      case DoubleCantrip => 2
+    }
+  }
+
+  private def sorceryPowerInHand(side: Side, externalInfo: ExternalInfo, excludingSpell: Option[SpellId] = None): Int = {
+    spellsInHand(side).foldLeft(0) { case (power,spellId) =>
+      if(excludingSpell == Some(spellId))
+        power
+      else {
+        externalInfo.spellsRevealed.get(spellId) match {
+          //Assume that unknown spells are worth 2 sorcery power when discarded so that we
+          //don't complain about move legality from the opponent when we don't know their hand
+          case None => power + 2
+          case Some(spellName) =>
+            val spell = Spells.spellMap(spellName)
+            power + sorceryPowerOfDiscard(spell.spellType)
+        }
+      }
+    }
+  }
+
   //Tests if a spawn is possible. Doesn't test reinforcements (since other things can
   //cause spawns, such as death spawns, this functions handles the most general tests).
   private def spawnIsLegal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Boolean = {
@@ -1205,7 +1244,7 @@ case class BoardState private (
               case None => fail("Piece does not have this ability")
               case Some(ability) =>
                 requireSuccess(ability.tryIsUsableNow(piece))
-                failIf(ability.isSorcery && sorceryPower <= 0, "No sorcery power (must first play cantrip or discard spell)")
+                failIf(ability.isSorcery && sorceryPower + sorceryPowerInHand(side,externalInfo) <= 0, "No sorcery power (must first play cantrip or discard spell)")
                 ability match {
                   case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) => ()
                   case KillAdjacentAbility =>
@@ -1249,7 +1288,9 @@ case class BoardState private (
                 Spells.spellMap.get(spellName) match {
                   case None => fail("Unknown spell name")
                   case Some(spell) =>
-                    failIf(spell.spellType == Sorcery && sorceryPower <= 0, "No sorcery power (must first play cantrip or discard spell)")
+                    failIf(
+                      spell.spellType == Sorcery && sorceryPower + sorceryPowerInHand(side,externalInfo,excludingSpell=Some(spellId)) <= 0,
+                      "No sorcery power (must first play cantrip or discard spell)")
                     trySpellTargetLegality(spell,targets).get
                 }
             }
@@ -1394,18 +1435,13 @@ case class BoardState private (
             spell.effect(this,target,targets.loc0)
         }
         spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
-        spellsPlayedThisTurn = spellsPlayedThisTurn :+ SpellPlayedInfo(spellId, side, Some(targets))
+        spellsPlayed = spellsPlayed :+ SpellPlayedInfo(spellId, side, Some(targets))
 
       case DiscardSpell(spellId) =>
         val spell = Spells.spellMap(externalInfo.spellsRevealed(spellId))
-        spell.spellType match {
-          case NormalSpell => sorceryPower += 1
-          case Sorcery => sorceryPower += 1
-          case Cantrip => sorceryPower += 1
-          case DoubleCantrip => sorceryPower += 2
-        }
+        sorceryPower += sorceryPowerOfDiscard(spell.spellType)
         spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
-        spellsPlayedThisTurn = spellsPlayedThisTurn :+ SpellPlayedInfo(spellId, side, None)
+        spellsPlayed = spellsPlayed :+ SpellPlayedInfo(spellId, side, None)
     }
   }
 

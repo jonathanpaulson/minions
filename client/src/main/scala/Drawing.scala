@@ -534,8 +534,14 @@ object Drawing {
               }
               spell.spellType match {
                 case NormalSpell => ()
-                case Sorcery => show(""); show("Sorcery (costs 1 sorcery power to play)")
-                case Cantrip => show(""); show("Cantrip (gain 1 sorcery power when played)")
+                case Sorcery =>
+                  show("");
+                  show("Sorcery (costs 1 sorcery power to play)")
+                  show("If sorcery power is negative, will auto-discard")
+                  show("spells at end of turn.")
+                case Cantrip =>
+                  show("");
+                  show("Cantrip (gain 1 sorcery power when played)")
                 case DoubleCantrip => () //double cantrip spell description covers this
               }
               if(spell.spawnPhaseOnly) {
@@ -633,8 +639,12 @@ object Drawing {
 
       textAtLoc("Souls: +" + board.endOfTurnMana(side) + "/turn", 0, 0)
       textAtLoc("Net +souls: " + (board.totalMana(side) - board.totalCosts(side)), 110, 0)
-      if(side == board.side)
-        textAtLoc("Sorcery Power: " + board.sorceryPower, 220, 0)
+      if(side == board.side) {
+        if(board.sorceryPower < 0)
+          textAtLoc("Sorcery Power: " + board.sorceryPower, 220, 0, style = "bold")
+        else
+          textAtLoc("Sorcery Power: " + board.sorceryPower, 220, 0)
+      }
     }
 
     //Clock

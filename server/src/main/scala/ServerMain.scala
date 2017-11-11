@@ -406,6 +406,21 @@ object ServerMain extends App {
         }
       }
 
+      //Discard spells to meet sorcery power requirements
+      for(boardIdx <- 0 until numBoards) {
+        val board = boards(boardIdx)
+        val spellIdsToDiscard = board.curState.spellsToAutoDiscardBeforeEndTurn(externalInfo)
+        if(spellIdsToDiscard.nonEmpty) {
+          revealSpellsToSide(game.curSide.opp,spellIdsToDiscard.toArray, revealToSpectators = true)
+          spellIdsToDiscard.foreach { spellId =>
+            val boardAction: BoardAction = PlayerActions(List(DiscardSpell(spellId)),"autodiscard")
+            boards(boardIdx).doAction(boardAction,externalInfo)
+            boardSequences(boardIdx) += 1
+            broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
+          }
+        }
+      }
+
       game.endTurn()
       boards.foreach { board => board.endTurn() }
       broadcastAll(Protocol.ReportNewTurn(newSide))

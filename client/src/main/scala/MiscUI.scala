@@ -197,7 +197,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     val descLoc: HexLoc = hexLoc(Loc(-1,0))
 
     def getHexLocsAndContents(board: BoardState): Array[(HexLoc,SpellId,Side,Option[SpellOrAbilityTargets])] = {
-      board.spellsPlayedThisTurn.reverse.zipWithIndex.map { case (info, i) =>
+      board.spellsPlayed.reverse.zipWithIndex.map { case (info, i) =>
         (hexLoc(Loc(i,0)), info.spellId, info.side, info.targets)
       }.toArray
     }
@@ -206,8 +206,8 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
       val _ = (game)
       val (loc,_) = getLocAndDelta(hexLoc)
       val idx = loc.x
-      if(loc.y == 0 && idx >= 0 && idx < board.spellsPlayedThisTurn.length) {
-        val info = board.spellsPlayedThisTurn.reverse(idx)
+      if(loc.y == 0 && idx >= 0 && idx < board.spellsPlayed.length) {
+        val info = board.spellsPlayed.reverse(idx)
         MouseSpellPlayed(info.spellId, info.side, info.targets, loc)
       }
       else
