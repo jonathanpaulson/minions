@@ -102,7 +102,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     }
   }
   object ResignBoard extends UI.Component with UI.Clickable {
-    val origin = HexLoc(15.35,-1.7)
+    val origin = HexLoc(16.35,-1.7)
     val gridSizeScale = 1
 
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
