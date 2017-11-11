@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import com.typesafe.config.ConfigFactory
 import java.util.Calendar
 import java.text.SimpleDateFormat
+import java.security.SecureRandom
 
 import akka.actor.{ActorSystem, Actor, ActorRef, Cancellable, Terminated, Props, Status}
 import akka.stream.{ActorMaterializer,OverflowStrategy}
@@ -49,7 +50,24 @@ object ServerMain extends App {
   val password = if(config.hasPath("app.password")) Some(config.getString("app.password")) else None
   val clientHeartbeatPeriodInSeconds = config.getDouble("akka.http.server.clientHeartbeatRate")
 
-  val rand = Rand()
+  val randSeed:Long = {
+    if(config.hasPath("app.randSeed"))
+      config.getLong("app.randSeed")
+    else {
+      val secureRandom = new SecureRandom()
+      secureRandom.nextLong()
+    }
+  }
+  log("Random seed " + randSeed)
+  val setupRand = Rand(randSeed)
+  val spellRands = SideArray.ofArrayInplace(Array(
+    Rand(RandUtils.sha256Long(randSeed + "#spell0")),
+    Rand(RandUtils.sha256Long(randSeed + "#spell1"))
+  ))
+  val necroRands = SideArray.ofArrayInplace(Array(
+    Rand(RandUtils.sha256Long(randSeed + "#necro0")),
+    Rand(RandUtils.sha256Long(randSeed + "#necro1"))
+  ))
 
   //----------------------------------------------------------------------------------
   //GAME AND BOARD SETUP
@@ -70,7 +88,7 @@ object ServerMain extends App {
         val numFixedTechs = config.getInt("app.numFixedTechs")
         val fixedTechs = Units.techPieces.zipWithIndex.take(numFixedTechs).toArray
         //Partition remaining ones randomly into two sets of the appropriate size, the first one getting the rounding up
-        val randomized = rand.shuffle(Units.techPieces.zipWithIndex.drop(numFixedTechs).toList)
+        val randomized = setupRand.shuffle(Units.techPieces.zipWithIndex.drop(numFixedTechs).toList)
         var set1 = randomized.take((randomized.length+1) / 2)
         var set2 = randomized.drop((randomized.length+1) / 2)
         //Sort each set independently
@@ -121,7 +139,7 @@ object ServerMain extends App {
     if(numBoards > availableMaps.length)
       throw new Exception("Configured for " + numBoards + " boards but only " + availableMaps.length + " available")
 
-    val chosenMaps = rand.shuffle(availableMaps).take(numBoards)
+    val chosenMaps = setupRand.shuffle(availableMaps).take(numBoards)
 
     val boardsAndNames = chosenMaps.toArray.map { case (boardName,map) =>
       val state = map()
@@ -272,7 +290,7 @@ object ServerMain extends App {
     private def doResetBoard(boardIdx: Int, canMove: Boolean): Unit = {
       Side.foreach { side =>
         if(specialNecrosRemaining(side).isEmpty)
-          specialNecrosRemaining(side) = rand.shuffle(Units.specialNecromancers.toList).map(_.name)
+          specialNecrosRemaining(side) = necroRands(side).shuffle(Units.specialNecromancers.toList).map(_.name)
       }
       val necroNames = SideArray.ofArrayInplace(Array(specialNecrosRemaining(S0).head,specialNecrosRemaining(S1).head))
       specialNecrosRemaining(S0) = specialNecrosRemaining(S0).tail
@@ -320,7 +338,7 @@ object ServerMain extends App {
         for(i <- 0 until numSpellsToAdd) {
           val _ = i
           if(spellsRemaining(side).isEmpty)
-            spellsRemaining(side) = rand.shuffle(Spells.createDeck())
+            spellsRemaining(side) = spellRands(side).shuffle(Spells.createDeck())
 
           val spellName = spellsRemaining(side)(0)
           val spellId = nextSpellId
