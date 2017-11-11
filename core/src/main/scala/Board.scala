@@ -221,11 +221,123 @@ class Board private (
     else vec.take(index) ++ vec.drop(index+1)
   }
 
-  def reapplyLegal[T](vec: Vector[T])(tryAction: T => Try[Unit]): Vector[T] = {
+  //Reapply moves, filtering out due to illegality or when filterOut returns true, calling onFiltered for each element illegal or filtered out.
+  def reapplyLegal(
+    vec: Vector[List[PlayerAction]],
+    tryAction: List[PlayerAction] => Try[Unit],
+    filterOut: List[PlayerAction] => Boolean,
+    onFiltered: List[PlayerAction] => Unit
+  ): Vector[List[PlayerAction]] = {
     vec.filter { action =>
-      tryAction(action) match {
-        case Success(()) => true
-        case Failure(_) => false
+      if(filterOut(action)) {
+        onFiltered(action)
+        false
+      }
+      else {
+        tryAction(action) match {
+          case Failure(_) =>
+            onFiltered(action)
+            false
+          case Success(()) =>
+            true
+        }
+      }
+    }
+  }
+
+  //Update a set of pieceSpecsToFilter given a list of player actions that we are undoing or that are being found illegal, by
+  //adding all the additional piecespecs that need to be undone to it.
+  def addSpecsToFilter(pieceSpecsToFilter: Set[PieceSpec], actions: List[PlayerAction]): Set[PieceSpec] = {
+    var specs = pieceSpecsToFilter
+    actions.foreach { action => specs = specs ++ action.additionalUndoPieceSpecs() }
+    specs
+  }
+
+  //Undo the last action that matches the given predicates, plus any actions made illegal by them, and recursively any further actions
+  //involving pieces from actions that were undone.
+  def undoLastMatch(externalInfo: ExternalInfo, matchesPlayer: List[PlayerAction] => Boolean, matchesGeneral:GeneralBoardAction => Boolean): BoardHistory = {
+    val spawnMatchIdx = history.spawnActionsThisTurn.lastIndexWhere(matchesPlayer)
+    if(spawnMatchIdx >= 0) {
+      val newMoveAttackState = history.moveAttackState.copy()
+      val newGeneralBoardActionsThisTurn = history.generalBoardActionsThisTurn
+      val newMoveAttackActionsThisTurn = history.moveAttackActionsThisTurn
+      val newSpawnState = newMoveAttackState.copy()
+      val preSpawnActionsThisTurn = history.spawnActionsThisTurn.take(spawnMatchIdx)
+      preSpawnActionsThisTurn.foreach { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
+      var pieceSpecsToFilter: Set[PieceSpec] = Set()
+      pieceSpecsToFilter = addSpecsToFilter(pieceSpecsToFilter,history.spawnActionsThisTurn(spawnMatchIdx))
+      val postSpawnActionsThisTurn =
+        reapplyLegal(history.spawnActionsThisTurn.drop(spawnMatchIdx+1),
+          { playerActions => newSpawnState.doActions(playerActions,externalInfo) },
+          { playerActions => playerActions.exists { action => pieceSpecsToFilter.exists { spec => action.involvesPiece(spec) } } },
+          { actions => pieceSpecsToFilter = addSpecsToFilter(pieceSpecsToFilter,actions) }
+        )
+      val newSpawnActionsThisTurn = preSpawnActionsThisTurn ++ postSpawnActionsThisTurn
+      BoardHistory(
+        moveAttackState = newMoveAttackState,
+        spawnState = newSpawnState,
+        moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
+        spawnActionsThisTurn = newSpawnActionsThisTurn,
+        generalBoardActionsThisTurn = newGeneralBoardActionsThisTurn
+      )
+    }
+    else {
+      val moveAttackMatchIdx = history.moveAttackActionsThisTurn.lastIndexWhere(matchesPlayer)
+      if(moveAttackMatchIdx >= 0) {
+        val newMoveAttackState = initialStateThisTurn.copy()
+        val newGeneralBoardActionsThisTurn = history.generalBoardActionsThisTurn
+        newGeneralBoardActionsThisTurn.foreach { generalBoardAction => newMoveAttackState.doGeneralBoardAction(_) }
+        val preMoveAttackActionsThisTurn = history.moveAttackActionsThisTurn.take(moveAttackMatchIdx)
+        preMoveAttackActionsThisTurn.foreach { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
+        var pieceSpecsToFilter: Set[PieceSpec] = Set()
+        pieceSpecsToFilter = addSpecsToFilter(pieceSpecsToFilter,history.moveAttackActionsThisTurn(moveAttackMatchIdx))
+        val postMoveAttackActionsThisTurn =
+          reapplyLegal(history.moveAttackActionsThisTurn.drop(moveAttackMatchIdx+1),
+            { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) },
+            { playerActions => playerActions.exists { action => pieceSpecsToFilter.exists { spec => action.involvesPiece(spec) } } },
+            { actions => pieceSpecsToFilter = addSpecsToFilter(pieceSpecsToFilter,actions) }
+          )
+        val newMoveAttackActionsThisTurn = preMoveAttackActionsThisTurn ++ postMoveAttackActionsThisTurn
+        val newSpawnState = newMoveAttackState.copy()
+        val newSpawnActionsThisTurn =
+          reapplyLegal(history.spawnActionsThisTurn.drop(spawnMatchIdx+1),
+            { playerActions => newSpawnState.doActions(playerActions,externalInfo) },
+            { playerActions => playerActions.exists { action => pieceSpecsToFilter.exists { spec => action.involvesPiece(spec) } } },
+            { actions => pieceSpecsToFilter = addSpecsToFilter(pieceSpecsToFilter,actions) }
+          )
+        BoardHistory(
+          moveAttackState = newMoveAttackState,
+          spawnState = newSpawnState,
+          moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
+          spawnActionsThisTurn = newSpawnActionsThisTurn,
+          generalBoardActionsThisTurn = newGeneralBoardActionsThisTurn
+        )
+      }
+      else {
+        val newMoveAttackState = initialStateThisTurn.copy()
+        val newGeneralBoardActionsThisTurn = dropLastMatch(history.generalBoardActionsThisTurn)(matchesGeneral)
+        newGeneralBoardActionsThisTurn.foreach { generalBoardAction => newMoveAttackState.doGeneralBoardAction(_) }
+        var pieceSpecsToFilter: Set[PieceSpec] = Set()
+        val newMoveAttackActionsThisTurn =
+          reapplyLegal(history.moveAttackActionsThisTurn.drop(moveAttackMatchIdx+1),
+            { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) },
+            { playerActions => playerActions.exists { action => pieceSpecsToFilter.exists { spec => action.involvesPiece(spec) } } },
+            { actions => pieceSpecsToFilter = addSpecsToFilter(pieceSpecsToFilter,actions) }
+          )
+        val newSpawnState = newMoveAttackState.copy()
+        val newSpawnActionsThisTurn =
+          reapplyLegal(history.spawnActionsThisTurn.drop(spawnMatchIdx+1),
+            { playerActions => newSpawnState.doActions(playerActions,externalInfo) },
+            { playerActions => playerActions.exists { action => pieceSpecsToFilter.exists { spec => action.involvesPiece(spec) } } },
+            { actions => pieceSpecsToFilter = addSpecsToFilter(pieceSpecsToFilter,actions) }
+          )
+        BoardHistory(
+          moveAttackState = newMoveAttackState,
+          spawnState = newSpawnState,
+          moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
+          spawnActionsThisTurn = newSpawnActionsThisTurn,
+          generalBoardActionsThisTurn = newGeneralBoardActionsThisTurn
+        )
       }
     }
   }
@@ -280,9 +392,13 @@ class Board private (
 
             //Reapply all the spawn actions so far
             val newSpawnState = newMoveAttackState.copy()
-            val reappliedSpawnActionsThisTurn = reapplyLegal(history.spawnActionsThisTurn) { playerActions =>
-              newSpawnState.doActions(playerActions,externalInfo)
-            }
+            var pieceSpecsToFilter: Set[PieceSpec] = Set()
+            val reappliedSpawnActionsThisTurn =
+              reapplyLegal(history.spawnActionsThisTurn,
+                { playerActions => newSpawnState.doActions(playerActions,externalInfo) },
+                { playerActions => playerActions.exists { action => pieceSpecsToFilter.exists { spec => action.involvesPiece(spec) } } },
+                { actions => pieceSpecsToFilter = addSpecsToFilter(pieceSpecsToFilter,actions) }
+              )
 
             //And now apply all the deferred actions
             val spawnActions = delayedToSpawnRev.reverse
@@ -307,122 +423,29 @@ class Board private (
               spawnActionsThisTurn = history.spawnActionsThisTurn,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn :+ generalBoardAction
             )
+
           case LocalPieceUndo(pieceSpec,_) =>
-            val newMoveAttackState = initialStateThisTurn.copy()
-            //Reapply all generalBoard actions
-            //Note that this relies on the invariant mentioned at the top of BoardState.scala - that reordering generalBoard actions
-            //to come before player actions never changes the legality of the total move sequence or the final result of that sequence.
-            history.generalBoardActionsThisTurn.foreach { generalBoardAction =>
-              newMoveAttackState.doGeneralBoardAction(generalBoardAction)
-            }
-
-            //Drop the most recent action involving the piece
-            val keptSpawnActionsThisTurn =
-              dropLastMatch(history.spawnActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
-            val keptMoveAttackActionsThisTurn = {
-              if(keptSpawnActionsThisTurn.length != history.spawnActionsThisTurn.length)
-                history.moveAttackActionsThisTurn
-              else
-                dropLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } }
-            }
-
-            //And then reapply the actions, dropping any illegal ones.
-            val newMoveAttackActionsThisTurn =
-              reapplyLegal(keptMoveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
-            val newSpawnState = newMoveAttackState.copy()
-            val newSpawnActionsThisTurn =
-              reapplyLegal(keptSpawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
-            BoardHistory(
-              moveAttackState = newMoveAttackState,
-              spawnState = newSpawnState,
-              moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
-              spawnActionsThisTurn = newSpawnActionsThisTurn,
-              generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
+            undoLastMatch(externalInfo,
+              { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } },
+              { _ => false }
             )
 
           case SpellUndo(spellId,_) =>
-            val newMoveAttackState = initialStateThisTurn.copy()
-            //Reapply all generalBoard actions
-            history.generalBoardActionsThisTurn.foreach { generalBoardAction =>
-              newMoveAttackState.doGeneralBoardAction(generalBoardAction)
-            }
-
-            //Drop the most recent action involving the spell
-            val keptSpawnActionsThisTurn =
-              dropLastMatch(history.spawnActionsThisTurn) { playerActions => playerActions.exists { _.involvesSpell(spellId) } }
-            val keptMoveAttackActionsThisTurn = {
-              if(keptSpawnActionsThisTurn.length != history.spawnActionsThisTurn.length)
-                history.moveAttackActionsThisTurn
-              else
-                dropLastMatch(history.moveAttackActionsThisTurn) { playerActions => playerActions.exists { _.involvesSpell(spellId) } }
-            }
-
-            //And then reapply the actions, dropping any illegal ones.
-            val newMoveAttackActionsThisTurn =
-              reapplyLegal(keptMoveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
-            val newSpawnState = newMoveAttackState.copy()
-            val newSpawnActionsThisTurn =
-              reapplyLegal(keptSpawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
-            BoardHistory(
-              moveAttackState = newMoveAttackState,
-              spawnState = newSpawnState,
-              moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
-              spawnActionsThisTurn = newSpawnActionsThisTurn,
-              generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
+            undoLastMatch(externalInfo,
+              { playerActions => playerActions.exists { _.involvesSpell(spellId) } },
+              { _ => false }
             )
 
           case BuyReinforcementUndo(pieceName,_) =>
-            val newMoveAttackState = initialStateThisTurn.copy()
-            //Reapply all generalBoard actions, after filtering
-            val keptGeneralActionsThisTurn =
-              dropLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction =>
-                generalBoardAction.involvesBuyPiece(pieceName)
-              }
-
-            //General actions cannot be made illegal via one another
-            keptGeneralActionsThisTurn.foreach { generalBoardAction =>
-              newMoveAttackState.doGeneralBoardAction(generalBoardAction)
-            }
-
-            val newMoveAttackActionsThisTurn =
-              reapplyLegal(history.moveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
-            val newSpawnState = newMoveAttackState.copy()
-            val newSpawnActionsThisTurn =
-              reapplyLegal(history.spawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
-
-            BoardHistory(
-              moveAttackState = newMoveAttackState,
-              spawnState = newSpawnState,
-              moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
-              spawnActionsThisTurn = newSpawnActionsThisTurn,
-              generalBoardActionsThisTurn = keptGeneralActionsThisTurn
+            undoLastMatch(externalInfo,
+              { _ => false },
+              { generalBoardAction => generalBoardAction.involvesBuyPiece(pieceName) }
             )
 
           case GainSpellUndo(spellId,_) =>
-            val newMoveAttackState = initialStateThisTurn.copy()
-            //Reapply all generalBoard actions, after filtering
-            val keptGeneralActionsThisTurn =
-              dropLastMatch(history.generalBoardActionsThisTurn) { generalBoardAction =>
-                generalBoardAction.involvesGainSpell(spellId)
-               }
-
-            //General actions cannot be made illegal via one another
-            keptGeneralActionsThisTurn.foreach { generalBoardAction =>
-              newMoveAttackState.doGeneralBoardAction(generalBoardAction)
-            }
-
-            val newMoveAttackActionsThisTurn =
-              reapplyLegal(history.moveAttackActionsThisTurn) { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
-            val newSpawnState = newMoveAttackState.copy()
-            val newSpawnActionsThisTurn =
-              reapplyLegal(history.spawnActionsThisTurn) { playerActions => newSpawnState.doActions(playerActions,externalInfo) }
-
-            BoardHistory(
-              moveAttackState = newMoveAttackState,
-              spawnState = newSpawnState,
-              moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
-              spawnActionsThisTurn = newSpawnActionsThisTurn,
-              generalBoardActionsThisTurn = keptGeneralActionsThisTurn
+            undoLastMatch(externalInfo,
+              { _ => false },
+              { generalBoardAction => generalBoardAction.involvesGainSpell(spellId) }
             )
         }
 

@@ -106,6 +106,19 @@ sealed trait PlayerAction {
     }
   }
 
+  //When undoing this action, also undo any subsequent actions involving the returned list of pieceSpecs
+  def additionalUndoPieceSpecs(): List[PieceSpec] = {
+    this match {
+      case Movements(movements) => movements.map { case Movement(pSpec, _) => pSpec }
+      case Attack(aSpec,tSpec) => List(aSpec,tSpec)
+      case Spawn(_,_) => List()
+      case ActivateTile(_) => List()
+      case ActivateAbility(_,_,_) => List()
+      case Teleport(spec,_,_) => List(spec)
+      case PlaySpell(_,_) => List()
+      case DiscardSpell(_) => List()
+    }
+  }
 }
 
 case class Movements(movements: List[Movement]) extends PlayerAction
