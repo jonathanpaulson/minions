@@ -331,6 +331,7 @@ case object Earthquake extends Terrain
 case object Firestorm extends Terrain
 case object Flood extends Terrain
 case object Whirlwind extends Terrain
+case object Mist extends Terrain
 
 
 /**

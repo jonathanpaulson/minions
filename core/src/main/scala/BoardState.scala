@@ -514,6 +514,16 @@ case class BoardState private (
     killAttackingWailingUnits()
 
     val newMana = endOfTurnMana(side)
+    // Mist
+    tiles.foreachLoc { loc =>
+      if(tiles(loc).terrain == Mist) {
+        pieces(loc).foreach { piece =>
+          if(!piece.curStats(this).isPersistent) {
+            unsummonPiece(piece)
+          }
+        }
+      }
+    }
     //Heal damage, reset piece state, decay modifiers
     pieceById.values.foreach { piece =>
       refreshPieceForStartOfTurn(piece)
@@ -925,7 +935,7 @@ case class BoardState private (
   private def tryCanWalkOnTile(baseStats: PieceStats, pieceStats: PieceStats, tile: Tile): Try[Unit] = {
     tile.terrain match {
       case Wall => failed("Cannot move or spawn through borders")
-      case Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) => Success(())
+      case Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) | Mist => Success(())
       case Water => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
       case Earthquake => if(baseStats.moveRange >= 2) Success(()) else failed("Only unit types with at least two speed can move through an earthquake")
       case Firestorm => if(baseStats.defense.getOrElse(4) >= 4) Success(()) else failed("Only unit types with at least four health can move through a firestorm")
@@ -1225,7 +1235,7 @@ case class BoardState private (
       case ActivateTile(loc) =>
         failUnless(tiles.inBounds(loc), "Activated location not in bounds")
         tiles(loc).terrain match {
-          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind =>
+          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind | Mist =>
             fail("Tile cannot be activated")
           case Spawner(spawnName) =>
             failIf(pieces(loc).nonEmpty, "Spawner tile must be unoccupied")
@@ -1367,7 +1377,7 @@ case class BoardState private (
 
       case ActivateTile(loc) =>
         tiles(loc).terrain match {
-          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind =>
+          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind | Mist =>
             assertUnreachable()
           case Spawner(spawnName) =>
             hasUsedSpawnerTile = true

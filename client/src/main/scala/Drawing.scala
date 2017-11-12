@@ -197,6 +197,9 @@ object Drawing {
           strokeHex(hexLoc, "#ff55ff", scale, alpha=0.5, lineWidth=2.0)
           val img = "img_terrain_spawner"
           fillHexWithImage(hexLoc, img, scale)
+        case Mist =>
+          fillHex(hexLoc, "#6E754C", scale)
+          strokeHex(hexLoc, "#6E754C", scale, alpha=0.8, lineWidth=2.0)
         case Earthquake =>
           fillHex(hexLoc, "#846935", scale)
           strokeHex(hexLoc, "#846935", scale, alpha=0.8, lineWidth=2.0)
@@ -526,6 +529,9 @@ object Drawing {
               show("Terrain: " + name + " Spawner")
               show("You may spawn a free " + name + " here.")
               show("Only one spawner can be used per turn.")
+            case Mist =>
+              show("Terrain: Mist")
+              show("Non-persistent units are unsummoned at the end of the turn.")
             case Earthquake =>
               show("Terrain: Earthquake")
               show("Only passable by unit types with at least two speed")

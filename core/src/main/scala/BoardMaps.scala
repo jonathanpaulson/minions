@@ -12,9 +12,7 @@ object BoardMaps {
         case 's' => Some(SorceryNode)
         case 't' => Some(Teleporter)
         case 'z' => Some(Spawner(Units.zombie.name))
-
-        //TODO this should be split out into various terrain tiles
-        case '?' => Some(Ground)
+        case 'm' => Some(Mist)
 
         case _ => None
       }
@@ -89,15 +87,15 @@ object BoardMaps {
 
   val treacherousPathways = make(10,10,"""
  . g . . . . . g . .
-  . . . . . . . ? . .
-   . . 0 . g . . ? ? g
+  . m . . . . . m . .
+   . . 0 . g . . w m g
     . . . . . . . . . .
      g . . . . . . . . .
-      w ? w w ? . . g . .
+      w m w w m . . g . .
        . . . . w . . . . .
         . . . . w . . 1 . .
-         g ? . . ? . . . . g
-          ? g . . w g . . . .
+         g w . . m . . . m g
+          . g . . w g . . . .
 """)
 
   val midnightLake = make(10,10,"""
@@ -171,9 +169,7 @@ object BoardMaps {
     "Sorceror's Lair" -> sorcerorsLair,
     "Chaos Diamond" -> chaosDiamond,
     "Apocalypse" -> apocalypse,
-
-    //DISABLED since we don't have the tiles implemented for it
-    //"Treacherous Pathways" -> treacherousPathways,
+    "Treacherous Pathways" -> treacherousPathways,
   )
 
   val basicMaps = Map(
@@ -193,6 +189,7 @@ object BoardMaps {
     "Forbidden Isle" -> "img_terrain_grass0",
     "Puddles" -> "img_terrain_grass2",
     "Blackened Shores" -> "img_terrain_dirt0",
+    "Treacherous Pathways" -> "img_terrain_grass0",
   )
 
   val waterImage = Map(
@@ -204,5 +201,6 @@ object BoardMaps {
     "Forbidden Isle" -> "img_terrain_water1",
     "Puddles" -> "img_terrain_water1",
     "Blackened Shores" -> "img_terrain_water0",
+    "Treacherous Pathways" -> "img_terrain_water1",
   )
 }

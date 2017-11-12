@@ -355,7 +355,7 @@ case object Spells {
     tryCanTarget = ((side: Side, loc: Loc, board: BoardState) =>
         board.tiles(loc).terrain match {
           case Earthquake | Firestorm | Flood | Whirlwind => Success(())
-          case Wall | Water | Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) =>
+          case Wall | Water | Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) | Mist =>
             Failure(new Exception("Must target earthquake, firestorm, flood, or whirlwind"))
         }
     ),

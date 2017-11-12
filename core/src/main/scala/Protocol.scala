@@ -95,6 +95,7 @@ object Protocol {
       "Teleporter" -> ((_:JsValue) => JsSuccess(Teleporter: Terrain)),
       "StartHex" -> ((json:JsValue) => startHexFormat.reads(json)),
       "Spawner" -> ((json:JsValue) => spawnerFormat.reads(json)),
+      "Mist" -> ((_:JsValue) => JsSuccess(Mist: Terrain)),
       "Earthquake" -> ((json:JsValue) => JsSuccess(Earthquake: Terrain)),
       "Firestorm" -> ((json:JsValue) => JsSuccess(Firestorm: Terrain)),
       "Flood" -> ((json:JsValue) => JsSuccess(Flood: Terrain)),
@@ -110,6 +111,7 @@ object Protocol {
         case (Teleporter) => jsPair("Teleporter",JsString(""))
         case (t:StartHex) => jsPair("StartHex",startHexFormat.writes(t))
         case (t:Spawner) => jsPair("Spawner",spawnerFormat.writes(t))
+        case (Mist) => jsPair("Mist",JsString(""))
         case (Earthquake) => jsPair("Earthquake", JsString(""))
         case (Firestorm) => jsPair("Firestorm", JsString(""))
         case (Flood) => jsPair("Flood", JsString(""))
