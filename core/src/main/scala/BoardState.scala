@@ -569,7 +569,7 @@ case class BoardState private (
   }
 
   //Reset the board to the starting position
-  def resetBoard(necroNames: SideArray[PieceName], canMoveFirstTurn: Boolean): Unit = {
+  def resetBoard(necroNames: SideArray[PieceName], canMoveFirstTurn: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
     //Remove tile modifiers
     tiles.transform { tile =>
       if(tile.modsWithDuration.isEmpty)tile
@@ -582,7 +582,7 @@ case class BoardState private (
     numPiecesSpawnedThisTurnAt = Map()
     spellsPlayed = Nil
     Side.foreach { side =>
-      reinforcements(side) = Map()
+      reinforcements(side) = new_reinforcements(side)
     }
 
     //Unset win flag

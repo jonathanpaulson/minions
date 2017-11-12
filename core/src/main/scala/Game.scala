@@ -102,8 +102,8 @@ case object Game {
         displayName = tech.displayName,
         tech = tech,
         techNumber = None,
-        level = SideArray.ofArrayInplace(Array(TechAcquired,TechAcquired)),
-        startingLevelThisTurn = SideArray.ofArrayInplace(Array(TechAcquired,TechAcquired))
+        level = SideArray.create(TechAcquired),
+        startingLevelThisTurn = SideArray.create(TechAcquired),
       )
     }
     val techStatesLocked = lockedTechs.map { case (tech,techNumber) =>
@@ -112,8 +112,8 @@ case object Game {
         displayName = tech.displayName,
         tech = tech,
         techNumber = Some(techNumber),
-        level = SideArray.ofArrayInplace(Array(TechLocked,TechLocked)),
-        startingLevelThisTurn = SideArray.ofArrayInplace(Array(TechLocked,TechLocked))
+        level = SideArray.create(TechLocked),
+        startingLevelThisTurn = SideArray.create(TechLocked),
       )
     }
     val piecesAlwaysAcquired: Map[PieceName,TechState] =

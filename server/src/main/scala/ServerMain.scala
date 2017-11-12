@@ -144,7 +144,7 @@ object ServerMain extends App {
     val boardsAndNames = chosenMaps.toArray.map { case (boardName,map) =>
       val state = map()
       val necroNames = SideArray.create(Units.necromancer.name)
-      state.resetBoard(necroNames, true)
+      state.resetBoard(necroNames, true, SideArray.create(Map()))
 
       //Testing
       {
@@ -292,11 +292,24 @@ object ServerMain extends App {
         if(specialNecrosRemaining(side).isEmpty)
           specialNecrosRemaining(side) = necroRands(side).shuffle(Units.specialNecromancers.toList).map(_.name)
       }
-      val necroNames = SideArray.ofArrayInplace(Array(specialNecrosRemaining(S0).head,specialNecrosRemaining(S1).head))
-      specialNecrosRemaining(S0) = specialNecrosRemaining(S0).tail
-      specialNecrosRemaining(S1) = specialNecrosRemaining(S1).tail
-      boards(boardIdx).resetBoard(necroNames, canMove)
-      broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMove))
+      val necroNames = SideArray.createFn(side => specialNecrosRemaining(side).head)
+      Side.foreach { side =>
+        specialNecrosRemaining(side) = specialNecrosRemaining(side).tail
+      }
+      val reinforcements = SideArray.createFn({ side =>
+          val unlocked_initiate =
+            game.piecesAcquired(side).get(Units.initiate.name) match {
+              case None => false
+              case Some(techState) => techState.level(side) == TechAcquired
+            }
+          if(unlocked_initiate) {
+            Map(Units.initiate.name -> 1)
+          } else {
+            Map(Units.acolyte.name -> 1)
+          }
+      })
+      boards(boardIdx).resetBoard(necroNames, canMove, reinforcements)
+      broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMove, reinforcements))
     }
 
     private def maybeDoEndOfTurn(): Unit = {

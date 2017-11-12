@@ -385,6 +385,7 @@ object Loc {
  */
 object SideArray {
   def create[T:ClassTag](initial: T) = new SideArray[T](Array.fill[T](2)(initial))
+  def createFn[T:ClassTag](fn: Side => T) = new SideArray[T](Array(fn(S0), fn(S1)))
   def ofArrayInplace[T:ClassTag](arr: Array[T]) = new SideArray(arr)
 }
 class SideArray[T:ClassTag] private (
