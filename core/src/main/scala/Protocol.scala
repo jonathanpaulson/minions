@@ -106,6 +106,7 @@ object Protocol {
         case (Teleporter) => jsPair("Teleporter",JsString(""))
         case (t:StartHex) => jsPair("StartHex",startHexFormat.writes(t))
         case (t:Spawner) => jsPair("Spawner",spawnerFormat.writes(t))
+        case (Whirlwind) => jsPair("Whirlwind", JsString(""))
       }
     }
     Format(reads,writes)

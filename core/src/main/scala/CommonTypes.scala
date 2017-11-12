@@ -327,6 +327,7 @@ case object SorceryNode extends Terrain
 case object Teleporter extends Terrain
 case class StartHex(side:Side) extends Terrain
 case class Spawner(pieceName:PieceName) extends Terrain
+case object Whirlwind extends Terrain
 
 
 /**

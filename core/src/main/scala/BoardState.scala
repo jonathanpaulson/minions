@@ -690,7 +690,7 @@ case class BoardState private (
       if(pieces(loc).forall { other => other.side == side }) {
         var success = false
         //Make sure the original piece can walk on that tile
-        if(canWalkOnTile(pieceStats,tiles(loc)) && shortestRevPath.nonEmpty) {
+        if(canWalkOnTile(piece.baseStats, pieceStats,tiles(loc)) && shortestRevPath.nonEmpty) {
           //Find if shuffling works
           canShuffleOnPath(side, List(pieceStats), revPath, numMovingFromZero = 1) match {
             case Some(shuffles) =>
@@ -704,7 +704,7 @@ case class BoardState private (
               val otherPiecesAbleToFollow = pieces(piece.loc).filter { otherPiece =>
                 otherPiece.spec != pieceSpec &&
                 canMoveAtLeast(otherPiece,shortestRevPath.length-1) &&
-                shortestRevPath.forall { pathLoc => canWalkOnTile(otherPiece.curStats(this),tiles(pathLoc)) }
+                shortestRevPath.forall { pathLoc => canWalkOnTile(otherPiece.baseStats, otherPiece.curStats(this),tiles(pathLoc)) }
               }
               //Try each number of other pieces that could follow, and see if we get a legal shuffling
               for(numOthers <- 1 to otherPiecesAbleToFollow.length) {
@@ -827,7 +827,7 @@ case class BoardState private (
   def withinTerrainRange(piece : Piece, steps : Int) : Set[Loc] = {
     var ans = Set[Loc]()
     tiles.topology.forEachReachable(piece.loc, steps) { loc =>
-      if(inBounds(loc) && canWalkOnTile(piece.curStats(this), tiles(loc))) {
+      if(inBounds(loc) && canWalkOnTile(piece.baseStats, piece.curStats(this), tiles(loc))) {
         ans = ans + loc
         true //Can continue moving from this location
       } else {
@@ -864,7 +864,7 @@ case class BoardState private (
         tiles.filterLocs { loc =>
           //Make up a fake spec that won't match anything else
           val pieceSpec = SpawnedThisTurn(pieceName, loc, nthAtLoc = -1)
-          tryCanEndOnLoc(side, pieceSpec, spawnStats, loc, Nil).isSuccess &&
+          tryCanEndOnLoc(side, pieceSpec, spawnStats, spawnStats, loc, Nil).isSuccess &&
           isSpawnerInRange(loc,spawnStats)
         }
     }
@@ -919,29 +919,26 @@ case class BoardState private (
   }
 
   //HELPER FUNCTIONS -------------------------------------------------------------------------------------
-  private def canWalkOnTile(pieceStats: PieceStats, tile: Tile): Boolean = {
-    tile.terrain match {
-      case Wall => false
-      case Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) => true
-      case Water => pieceStats.isFlying
-    }
+  private def canWalkOnTile(baseStats: PieceStats, pieceStats: PieceStats, tile: Tile): Boolean = {
+    tryCanWalkOnTile(baseStats, pieceStats, tile).isSuccess
   }
-  private def tryCanWalkOnTile(pieceStats: PieceStats, tile: Tile): Try[Unit] = {
+  private def tryCanWalkOnTile(baseStats: PieceStats, pieceStats: PieceStats, tile: Tile): Try[Unit] = {
     tile.terrain match {
       case Wall => failed("Cannot move or spawn through borders")
       case Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) => Success(())
       case Water => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
+      case Whirlwind => if(baseStats.isPersistent) Success(()) else failed("Only persistent unit types can move through a whirlwind")
     }
   }
 
   private def canMoveThroughLoc(piece: Piece, loc: Loc): Boolean = {
     val pieceStats = piece.curStats(this)
-    canWalkOnTile(pieceStats,tiles(loc)) &&
+    canWalkOnTile(piece.baseStats, pieceStats,tiles(loc)) &&
     (pieceStats.isFlying || pieces(loc).forall { other => other.side == piece.side })
   }
   private def tryCanMoveThroughLoc(piece: Piece, loc: Loc): Try[Unit] = {
     val pieceStats = piece.curStats(this)
-    tryCanWalkOnTile(pieceStats,tiles(loc)).flatMap { case () =>
+    tryCanWalkOnTile(piece.baseStats, pieceStats,tiles(loc)).flatMap { case () =>
       if(pieceStats.isFlying || pieces(loc).forall { other => other.side == piece.side }) Success(())
       else failed("Non-flying pieces cannot move through enemies")
     }
@@ -978,16 +975,16 @@ case class BoardState private (
     ok && piecesOnFinalSquare <= minSwarmMax
   }
 
-  private def canEndOnLoc(side: Side, pieceSpec: PieceSpec, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Boolean = {
+  private def canEndOnLoc(side: Side, pieceSpec: PieceSpec, baseStats: PieceStats, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Boolean = {
     tiles.inBounds(loc) &&
-    canWalkOnTile(pieceStats,tiles(loc)) &&
+    canWalkOnTile(baseStats, pieceStats,tiles(loc)) &&
     pieces(loc).forall { other => other.side == side } &&
     canSwarmToLoc(pieceSpec,pieceStats,loc,simultaneousMovements)
   }
-  def tryCanEndOnLoc(side: Side, pieceSpec: PieceSpec, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Try[Unit] = {
+  def tryCanEndOnLoc(side: Side, pieceSpec: PieceSpec, baseStats: PieceStats, pieceStats: PieceStats, loc: Loc, simultaneousMovements: List[Movement]): Try[Unit] = {
     if(!tiles.inBounds(loc)) failed("Location not in bounds")
     else {
-      tryCanWalkOnTile(pieceStats,tiles(loc)).flatMap { case () =>
+      tryCanWalkOnTile(baseStats, pieceStats,tiles(loc)).flatMap { case () =>
         if(!pieces(loc).forall { other => other.side == side }) failed("Piece would end in the same space as enemies")
         else {
           if(!canSwarmToLoc(pieceSpec,pieceStats,loc,simultaneousMovements)) {
@@ -1045,7 +1042,7 @@ case class BoardState private (
         else {
           //Filter to the pieces able to shuffle down, and make sure enough can.
           val piecesAbleToShuffle = pieces(loc).filter { piece =>
-            canMoveAtLeast(piece,1) && canWalkOnTile(piece.curStats(this),tiles(nextLoc))
+            canMoveAtLeast(piece,1) && canWalkOnTile(piece.baseStats, piece.curStats(this),tiles(nextLoc))
           }
           if(piecesAbleToShuffle.length < excess)
             None
@@ -1141,7 +1138,7 @@ case class BoardState private (
       case Some(spawnStats) =>
         //Make up a fake spec that won't match anything else
         val pieceSpec = SpawnedThisTurn(spawnName, spawnLoc, nthAtLoc = -1)
-        canEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnLoc, Nil)
+        canEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnStats, spawnLoc, Nil)
     }
   }
   def trySpawnIsLegal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Try[Unit] = {
@@ -1150,7 +1147,7 @@ case class BoardState private (
       case Some(spawnStats) =>
         //Make up a fake spec that won't match anything else
         val pieceSpec = SpawnedThisTurn(spawnName, spawnLoc, nthAtLoc = -1)
-        tryCanEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnLoc, Nil)
+        tryCanEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnStats, spawnLoc, Nil)
     }
   }
 
@@ -1196,7 +1193,7 @@ case class BoardState private (
               //Check spaces along the path
               path.foreach { loc => tryCanMoveThroughLoc(piece, loc).get}
               //Check space at the end of the path
-              tryCanEndOnLoc(piece.side, piece.spec, pieceStats, path.last, movements).get
+              tryCanEndOnLoc(piece.side, piece.spec, piece.baseStats, pieceStats, path.last, movements).get
           }
         }
 
@@ -1225,7 +1222,7 @@ case class BoardState private (
       case ActivateTile(loc) =>
         failUnless(tiles.inBounds(loc), "Activated location not in bounds")
         tiles(loc).terrain match {
-          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) =>
+          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Whirlwind =>
             fail("Tile cannot be activated")
           case Spawner(spawnName) =>
             failIf(pieces(loc).nonEmpty, "Spawner tile must be unoccupied")
@@ -1275,7 +1272,7 @@ case class BoardState private (
                 fail("Piece must start turn on teleporter without moving or acting")
             }
             val pieceStats = piece.curStats(this)
-            tryCanEndOnLoc(piece.side, piece.spec, pieceStats, dest, List()).get
+            tryCanEndOnLoc(piece.side, piece.spec, piece.baseStats, pieceStats, dest, List()).get
         }
 
       case PlaySpell(spellId,targets) =>
@@ -1367,7 +1364,7 @@ case class BoardState private (
 
       case ActivateTile(loc) =>
         tiles(loc).terrain match {
-          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) =>
+          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Whirlwind =>
             assertUnreachable()
           case Spawner(spawnName) =>
             hasUsedSpawnerTile = true

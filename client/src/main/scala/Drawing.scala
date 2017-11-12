@@ -197,6 +197,9 @@ object Drawing {
           strokeHex(hexLoc, "#ff55ff", scale, alpha=0.5, lineWidth=2.0)
           val img = "img_terrain_spawner"
           fillHexWithImage(hexLoc, img, scale)
+        case Whirlwind =>
+          fillHex(hexLoc, "#846935", scale)
+          strokeHex(hexLoc, "#846935", scale, alpha=0.8, lineWidth=2.0)
       }
       if(showCoords) {
         text(loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
@@ -517,6 +520,9 @@ object Drawing {
               show("Terrain: " + name + " Spawner")
               show("You may spawn a free " + name + " here.")
               show("Only one spawner can be used per turn.")
+            case Whirlwind =>
+              show("Terrain: Whirlwind")
+              show("Only passable by persistent unit types.")
           }
       }
       spell match {
