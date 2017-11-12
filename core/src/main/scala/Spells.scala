@@ -265,28 +265,64 @@ case object Spells {
     }
   )
 
+  val canMoveTerrain = { (side: Side, loc: Loc, board: BoardState) =>
+    if(board.pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
+    else if(board.tiles(loc).terrain != Ground) Failure(new Exception("Target terrain is not Ground"))
+    else Success(())
+  }
+  def moveTerrain(terrain: Terrain) = {
+    { (board: BoardState, loc: Loc) =>
+        board.tiles.transform { tile =>
+          if(tile.terrain == terrain) {
+            Tile(Ground, modsWithDuration = tile.modsWithDuration)
+          } else {
+            tile
+          }
+        }
+       val _ = (terrain, board, loc)
+        board.tiles(loc) = Tile(terrain, modsWithDuration = board.tiles(loc).modsWithDuration)
+    }
+  }
+
+  val earthquake = TileSpell(
+    name = "earthquake",
+    displayName = "Earthquake",
+    shortDisplayName = "Earth",
+    desc = List("Move the earthquake to target empty Ground hex"),
+    spellType = NormalSpell,
+    spawnPhaseOnly = true,
+    tryCanTarget = canMoveTerrain,
+    effect = moveTerrain(Earthquake)
+  )
+  val firestorm = TileSpell(
+    name = "firestorm",
+    displayName = "Firestorm",
+    shortDisplayName = "Fire",
+    desc = List("Move the firestorm to target empty Ground hex"),
+    spellType = NormalSpell,
+    spawnPhaseOnly = true,
+    tryCanTarget = canMoveTerrain,
+    effect = moveTerrain(Firestorm)
+  )
+  val flood = TileSpell(
+    name = "flood",
+    displayName = "Flood",
+    shortDisplayName = "Water",
+    desc = List("Move the flood to target empty Ground hex"),
+    spellType = NormalSpell,
+    spawnPhaseOnly = true,
+    tryCanTarget = canMoveTerrain,
+    effect = moveTerrain(Flood)
+  )
   val whirlwind = TileSpell(
     name = "whirlwind",
     displayName = "Whirlwind",
-    shortDisplayName = "WWind",
-    desc = List("Move the whirlwind tile to target empty hex"),
+    shortDisplayName = "Wind",
+    desc = List("Move the whirlwind to target empty Ground hex"),
     spellType = NormalSpell,
     spawnPhaseOnly = true,
-    tryCanTarget = ((side: Side, loc: Loc, board: BoardState) =>
-        if(board.pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
-        else if(board.tiles(loc).terrain != Ground) Failure(new Exception("Target terrain is not Ground"))
-        else Success(())
-    ),
-    effect = { (board: BoardState, loc: Loc) =>
-      board.tiles.transform { tile =>
-        if(tile.terrain == Whirlwind) {
-          Tile(Ground, modsWithDuration = tile.modsWithDuration)
-        } else {
-          tile
-        }
-      }
-      board.tiles(loc) = Tile(Whirlwind, modsWithDuration = board.tiles(loc).modsWithDuration)
-    }
+    tryCanTarget = canMoveTerrain,
+    effect = moveTerrain(Whirlwind),
   )
 
   val doubleCantrip = NoEffectSpell(
@@ -317,8 +353,12 @@ case object Spells {
     spawn,
     blink,
     raiseZombie,
-    whirlwind,
     doubleCantrip,
+
+    earthquake,
+    firestorm,
+    flood,
+    whirlwind,
   )
   val spellMap: Map[SpellName,Spell] = spells.groupBy(spell => spell.name).mapValues { spells =>
     assert(spells.length == 1)
@@ -346,8 +386,12 @@ case object Spells {
       blink,blink,blink,blink,
       raiseZombie,raiseZombie,raiseZombie,raiseZombie,
       doubleCantrip,doubleCantrip,
-      whirlwind, whirlwind, whirlwind, whirlwind,
       raiseZombie,raiseZombie,raiseZombie,raiseZombie,
+
+      earthquake, earthquake,
+      firestorm, firestorm,
+      flood, flood,
+      whirlwind, whirlwind,
     ).map(_.name)
   }
 }

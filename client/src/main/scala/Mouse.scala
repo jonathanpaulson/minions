@@ -503,7 +503,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           if(undo) ()
           else {
             board.tiles(loc).terrain match {
-              case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Whirlwind => ()
+              case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind => ()
               case Spawner(_) =>
                 mouseState.client.doActionOnCurBoard(PlayerActions(List(ActivateTile(loc)),makeActionId()))
             }

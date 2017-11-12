@@ -166,7 +166,7 @@ object Drawing {
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale)
           //fillHex(hexLoc, "green", scale)
-        case Water =>
+        case Water | Flood =>
           val texture = BoardMaps.waterImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale)
         case Graveyard =>
@@ -197,9 +197,15 @@ object Drawing {
           strokeHex(hexLoc, "#ff55ff", scale, alpha=0.5, lineWidth=2.0)
           val img = "img_terrain_spawner"
           fillHexWithImage(hexLoc, img, scale)
-        case Whirlwind =>
+        case Earthquake =>
           fillHex(hexLoc, "#846935", scale)
           strokeHex(hexLoc, "#846935", scale, alpha=0.8, lineWidth=2.0)
+        case Firestorm =>
+          fillHex(hexLoc, "#e25822", scale)
+          strokeHex(hexLoc, "#e25822", scale, alpha=0.8, lineWidth=2.0)
+        case Whirlwind =>
+          fillHex(hexLoc, "#8ECCCC", scale)
+          strokeHex(hexLoc, "8ECCCC", scale, alpha=0.8, lineWidth=2.0)
       }
       if(showCoords) {
         text(loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
@@ -520,6 +526,15 @@ object Drawing {
               show("Terrain: " + name + " Spawner")
               show("You may spawn a free " + name + " here.")
               show("Only one spawner can be used per turn.")
+            case Earthquake =>
+              show("Terrain: Earthquake")
+              show("Only passable by unit types with at least two speed")
+            case Firestorm =>
+              show("Terrain: Firestorm")
+              show("Only passable by unit types with at least four health")
+            case Flood =>
+              show("Terrain: Flood")
+              show("Only passable by flying unit types.")
             case Whirlwind =>
               show("Terrain: Whirlwind")
               show("Only passable by persistent unit types.")

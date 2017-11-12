@@ -94,7 +94,11 @@ object Protocol {
       "SorceryNode" -> ((_:JsValue) => JsSuccess(SorceryNode: Terrain)),
       "Teleporter" -> ((_:JsValue) => JsSuccess(Teleporter: Terrain)),
       "StartHex" -> ((json:JsValue) => startHexFormat.reads(json)),
-      "Spawner" -> ((json:JsValue) => spawnerFormat.reads(json))
+      "Spawner" -> ((json:JsValue) => spawnerFormat.reads(json)),
+      "Earthquake" -> ((json:JsValue) => JsSuccess(Earthquake: Terrain)),
+      "Firestorm" -> ((json:JsValue) => JsSuccess(Firestorm: Terrain)),
+      "Flood" -> ((json:JsValue) => JsSuccess(Flood: Terrain)),
+      "Whirlwind" -> ((json:JsValue) => JsSuccess(Whirlwind: Terrain)),
     ))
     val writes: Writes[Terrain] = new Writes[Terrain] {
       def writes(t: Terrain): JsValue = t match {
@@ -106,6 +110,9 @@ object Protocol {
         case (Teleporter) => jsPair("Teleporter",JsString(""))
         case (t:StartHex) => jsPair("StartHex",startHexFormat.writes(t))
         case (t:Spawner) => jsPair("Spawner",spawnerFormat.writes(t))
+        case (Earthquake) => jsPair("Earthquake", JsString(""))
+        case (Firestorm) => jsPair("Firestorm", JsString(""))
+        case (Flood) => jsPair("Flood", JsString(""))
         case (Whirlwind) => jsPair("Whirlwind", JsString(""))
       }
     }

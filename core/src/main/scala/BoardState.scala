@@ -927,6 +927,9 @@ case class BoardState private (
       case Wall => failed("Cannot move or spawn through borders")
       case Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) => Success(())
       case Water => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
+      case Earthquake => if(baseStats.moveRange >= 2) Success(()) else failed("Only unit types with at least two speed can move through an earthquake")
+      case Firestorm => if(baseStats.defense.getOrElse(4) >= 4) Success(()) else failed("Only unit types with at least four health can move through a firestorm")
+      case Flood => if(baseStats.isFlying) Success(()) else failed("Only flying unit types can move through a flood")
       case Whirlwind => if(baseStats.isPersistent) Success(()) else failed("Only persistent unit types can move through a whirlwind")
     }
   }
@@ -1222,7 +1225,7 @@ case class BoardState private (
       case ActivateTile(loc) =>
         failUnless(tiles.inBounds(loc), "Activated location not in bounds")
         tiles(loc).terrain match {
-          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Whirlwind =>
+          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind =>
             fail("Tile cannot be activated")
           case Spawner(spawnName) =>
             failIf(pieces(loc).nonEmpty, "Spawner tile must be unoccupied")
@@ -1364,7 +1367,7 @@ case class BoardState private (
 
       case ActivateTile(loc) =>
         tiles(loc).terrain match {
-          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Whirlwind =>
+          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind =>
             assertUnreachable()
           case Spawner(spawnName) =>
             hasUsedSpawnerTile = true
