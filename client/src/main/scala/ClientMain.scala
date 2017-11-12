@@ -67,7 +67,7 @@ class Client() {
     scrollMessagesIfAtEnd()
   }
   def reportError(err: String): Unit = {
-    reportMessage(err)
+    reportMessage("ERROR: " + err)
     scrollMessages()
   }
   def reportFatalError(err: String): Unit = {

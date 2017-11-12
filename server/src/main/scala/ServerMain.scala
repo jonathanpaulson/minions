@@ -548,7 +548,7 @@ object ServerMain extends App {
 
                 specialResult.flatMap { case () => boards(boardIdx).doAction(boardAction,externalInfo) } match {
                   case Failure(e) =>
-                    out ! Protocol.QueryError("Illegal action: " + e.getLocalizedMessage)
+                    out ! Protocol.QueryError(e.getLocalizedMessage)
                   case Success(()) =>
                     //When someone plays or discards a spell legally/successfully, reveal it to the other side.
                     boardAction match {
@@ -603,7 +603,7 @@ object ServerMain extends App {
                 }
                 specialResult.flatMap { case () => game.doAction(gameAction) } match {
                   case Failure(e) =>
-                    out ! Protocol.QueryError("Illegal action: " + e.getLocalizedMessage)
+                    out ! Protocol.QueryError(e.getLocalizedMessage)
                   case Success(()) =>
                     gameSequence += 1
                     out ! Protocol.OkGameAction(gameSequence)
