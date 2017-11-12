@@ -279,7 +279,6 @@ case object Spells {
             tile
           }
         }
-       val _ = (terrain, board, loc)
         board.tiles(loc) = Tile(terrain, modsWithDuration = board.tiles(loc).modsWithDuration)
     }
   }
@@ -322,7 +321,26 @@ case object Spells {
     spellType = NormalSpell,
     spawnPhaseOnly = true,
     tryCanTarget = canMoveTerrain,
-    effect = moveTerrain(Whirlwind),
+    effect = moveTerrain(Whirlwind)
+  )
+
+  val normalize = TileSpell(
+    name = "normalize",
+    displayName = "Normalize",
+    shortDisplayName = "Normalize",
+    desc = List("Remove one of the four terrain tiles"),
+    spellType = Cantrip,
+    spawnPhaseOnly = true,
+    tryCanTarget = ((side: Side, loc: Loc, board: BoardState) =>
+        board.tiles(loc).terrain match {
+          case Earthquake | Firestorm | Flood | Whirlwind => Success(())
+          case Wall | Water | Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) =>
+            Failure(new Exception("Must target earthquake, firestorm, flood, or whirlwind"))
+        }
+    ),
+    effect = { (board: BoardState, loc: Loc) =>
+      board.tiles(loc) = Tile(Ground, modsWithDuration = board.tiles(loc).modsWithDuration)
+    }
   )
 
   val doubleCantrip = NoEffectSpell(
@@ -359,6 +377,7 @@ case object Spells {
     firestorm,
     flood,
     whirlwind,
+    normalize,
   )
   val spellMap: Map[SpellName,Spell] = spells.groupBy(spell => spell.name).mapValues { spells =>
     assert(spells.length == 1)
@@ -392,6 +411,7 @@ case object Spells {
       firestorm, firestorm,
       flood, flood,
       whirlwind, whirlwind,
+      normalize,normalize,
     ).map(_.name)
   }
 }
