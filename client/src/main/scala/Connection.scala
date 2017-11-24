@@ -18,15 +18,17 @@ import RichImplicits._
 
 object Connection {
   def apply(
+    gameid: String,
     username: String,
     password: Option[String],
     side: Option[Side]
   ): Connection = {
-    new Connection(username,password,side)
+    new Connection(gameid,username,password,side)
   }
 }
 
 class Connection private (
+  gameid: String,
   username: String,
   password: Option[String],
   side: Option[Side]
@@ -41,7 +43,8 @@ class Connection private (
     (new java.net.URI(window.location.href)).getAuthority() +
     "/playGame" +
     "?" +
-    "username=" + encode(username) +
+    "game=" + encode(gameid) +
+    "&username=" + encode(username) +
     (password match { case None => "" case Some(password) => "&password=" + encode(password)}) +
     (side match { case None => "" case Some(side) => "&side=" + side.int })
 

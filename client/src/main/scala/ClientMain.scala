@@ -25,7 +25,7 @@ object ClientMain extends JSApp {
 }
 
 class Client() {
-  val (username: String, password: Option[String], ourSide: Option[Side]) = {
+  val (gameid: String, username: String, password: Option[String], ourSide: Option[Side]) = {
     val params = (new java.net.URI(window.location.href)).getQuery()
     val fields = params.split("&").flatMap { piece =>
       piece.split("=").toList match {
@@ -35,10 +35,11 @@ class Client() {
         case _ :: _ :: _ :: _ => None
       }
     }.toMap
+    val gameid = fields("game")
     val username = fields("username")
     val password = fields.get("password")
     val ourSide = fields.get("side").map(Side.ofString)
-    (username,password,ourSide)
+    (gameid, username,password,ourSide)
   }
   def init(): Unit = {
     ()
@@ -136,7 +137,7 @@ class Client() {
   var mouseState: Option[MouseState] = None
 
   //Websocket connection!
-  val connection = Connection(username,password,ourSide)
+  val connection = Connection(gameid, username,password,ourSide)
 
   def sendWebsocketQuery(query: Protocol.Query): Unit = {
     connection.sendIfOpen(query)

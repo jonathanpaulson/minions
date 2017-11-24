@@ -69,146 +69,6 @@ object ServerMain extends App {
     Rand(RandUtils.sha256Long(randSeed + "#necro1"))
   ))
 
-  //----------------------------------------------------------------------------------
-  //GAME AND BOARD SETUP
-
-  val numBoards = config.getInt("app.numBoards")
-  val game = {
-    val targetNumWins = config.getInt("app.targetNumWins")
-    val startingMana = SideArray.create(0)
-    startingMana(S0) = config.getInt("app.s0StartingManaPerBoard") * numBoards
-    startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
-    val techsAlwaysAcquired: Array[Tech] =
-      Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
-    val lockedTechs: Array[(Tech,Int)] = {
-      if(!config.getBoolean("app.randomizeTechLine"))
-        Units.techPieces.zipWithIndex.map { case (piece,i) => (PieceTech(piece.name),i+1) }.toArray
-      else {
-        //First few techs are always the same
-        val numFixedTechs = config.getInt("app.numFixedTechs")
-        val fixedTechs = Units.techPieces.zipWithIndex.take(numFixedTechs).toArray
-        //Partition remaining ones randomly into two sets of the appropriate size, the first one getting the rounding up
-        val randomized = setupRand.shuffle(Units.techPieces.zipWithIndex.drop(numFixedTechs).toList)
-        var set1 = randomized.take((randomized.length+1) / 2)
-        var set2 = randomized.drop((randomized.length+1) / 2)
-        //Sort each set independently
-        set1 = set1.sortBy { case (_,origIdx) => origIdx }
-        set2 = set2.sortBy { case (_,origIdx) => origIdx }
-        //Interleave them
-        val set1Opt = set1.map { case (piece,origIdx) => Some((piece,origIdx)) }
-        val set2Opt = set2.map { case (piece,origIdx) => Some((piece,origIdx)) }
-        val interleaved = set1Opt.zipAll(set2Opt,None,None).flatMap { case (s1,s2) => List(s1,s2) }.flatten.toArray
-        (fixedTechs ++ interleaved).map { case (piece,origIdx) => (PieceTech(piece.name),origIdx+1) }
-      }
-    }
-    val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
-    val extraManaPerTurn = config.getInt("app.extraManaPerTurn")
-
-    val game = Game(
-      numBoards = numBoards,
-      targetNumWins = targetNumWins,
-      startingSide = S0,
-      startingMana = startingMana,
-      extraTechCost = extraTechCost,
-      extraManaPerTurn = extraManaPerTurn,
-      techsAlwaysAcquired = techsAlwaysAcquired,
-      lockedTechs = lockedTechs
-    )
-    game
-  }
-  var gameSequence: Int = 0
-
-  //These get repopulated when empty when we need to draw one
-  val specialNecrosRemaining: SideArray[List[String]] = SideArray.create(List())
-
-  //These get repopulated when empty when we need to draw one
-  val spellsRemaining: SideArray[List[String]] = SideArray.create(List())
-  var nextSpellId: Int = 0
-  var spellMap: Map[Int,SpellName] = Map()
-  val revealedSpellIds: SideArray[Set[Int]] = SideArray.create(Set())
-  val externalInfo: ExternalInfo = ExternalInfo()
-
-  val (boards,boardNames): (Array[Board],Array[String]) = {
-    val availableMaps = {
-      if(config.getBoolean("app.includeAdvancedMaps"))
-        BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList
-      else
-        BoardMaps.basicMaps.toList
-    }
-
-    if(numBoards > availableMaps.length)
-      throw new Exception("Configured for " + numBoards + " boards but only " + availableMaps.length + " available")
-
-    val chosenMaps = setupRand.shuffle(availableMaps).take(numBoards)
-
-    val boardsAndNames = chosenMaps.toArray.map { case (boardName,map) =>
-      val state = map()
-      val necroNames = SideArray.create(Units.necromancer.name)
-      state.resetBoard(necroNames, true, SideArray.create(Map()))
-
-      //Testing
-      {
-       /*state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
-       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
-       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
-
-       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
-       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
-       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
-       state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
-       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
-       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
-       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
-       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
-       state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
-       */
-       /*state.tiles.foreachi { (loc, tile) =>
-          if (tile.terrain == Graveyard) {
-            val _ = state.spawnPieceInitial(S0, Units.fallen_angel.name, loc)
-          }
-        }*/
-        /*
-        state.spawnPieceInitial(S0, Units.shrieker.name, Loc(5,4))
-        state.spawnPieceInitial(S0, Units.witch.name, Loc(6,4))
-        state.spawnPieceInitial(S0, Units.fallen_angel.name, Loc(7,4))
-        state.spawnPieceInitial(S0, Units.dark_tower.name, Loc(5,5))
-        state.spawnPieceInitial(S0, Units.lich.name, Loc(6,5))
-
-        state.spawnPieceInitial(S0, Units.haunt.name, Loc(5,6))
-
-        state.spawnPieceInitial(S1, Units.wight.name, Loc(6,6))
-
-        state.addReinforcementInitial(S0,"zombie")
-        state.addReinforcementInitial(S0,"bat")
-        state.addReinforcementInitial(S0,"bat")
-        state.addReinforcementInitial(S0,"bat")
-
-        state.addReinforcementInitial(S1,"zombie")
-        state.addReinforcementInitial(S1,"zombie")
-        state.addReinforcementInitial(S1,"bat")
-        state.addReinforcementInitial(S1,"bat")
-        */
-      }
-
-      (Board.create(state), boardName)
-    }
-
-    (boardsAndNames.map(_._1),boardsAndNames.map(_._2))
-  }
-  val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
-
-  //----------------------------------------------------------------------------------
-  //TIME LIMITS
-  val secondsPerTurn = SideArray.ofArrayInplace(Array(config.getDouble("app.s0SecondsPerTurn"), config.getDouble("app.s1SecondsPerTurn")))
-  //Server reports time left every this often
-  val reportTimePeriod = 5.0
-  def getNow(): Double = {
-    System.currentTimeMillis.toDouble / 1000.0
-  }
-  var endOfTurnTime: Option[Double] = None
-
-
-  //----------------------------------------------------------------------------------
   //GAME ACTOR - singleton actor that maintains the state of the game being played
 
   sealed trait GameActorEvent
@@ -228,6 +88,147 @@ object ServerMain extends App {
     var allMessages: List[String] = List()
     var teamMessages: SideArray[List[String]] = SideArray.create(List())
     var spectatorMessages: List[String] = List()
+
+    //----------------------------------------------------------------------------------
+    //GAME AND BOARD SETUP
+
+    val numBoards = config.getInt("app.numBoards")
+    val game = {
+      val targetNumWins = config.getInt("app.targetNumWins")
+      val startingMana = SideArray.create(0)
+      startingMana(S0) = config.getInt("app.s0StartingManaPerBoard") * numBoards
+      startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
+      val techsAlwaysAcquired: Array[Tech] =
+        Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
+      val lockedTechs: Array[(Tech,Int)] = {
+        if(!config.getBoolean("app.randomizeTechLine"))
+          Units.techPieces.zipWithIndex.map { case (piece,i) => (PieceTech(piece.name),i+1) }.toArray
+        else {
+          //First few techs are always the same
+          val numFixedTechs = config.getInt("app.numFixedTechs")
+          val fixedTechs = Units.techPieces.zipWithIndex.take(numFixedTechs).toArray
+          //Partition remaining ones randomly into two sets of the appropriate size, the first one getting the rounding up
+          val randomized = setupRand.shuffle(Units.techPieces.zipWithIndex.drop(numFixedTechs).toList)
+          var set1 = randomized.take((randomized.length+1) / 2)
+          var set2 = randomized.drop((randomized.length+1) / 2)
+          //Sort each set independently
+          set1 = set1.sortBy { case (_,origIdx) => origIdx }
+          set2 = set2.sortBy { case (_,origIdx) => origIdx }
+          //Interleave them
+          val set1Opt = set1.map { case (piece,origIdx) => Some((piece,origIdx)) }
+          val set2Opt = set2.map { case (piece,origIdx) => Some((piece,origIdx)) }
+          val interleaved = set1Opt.zipAll(set2Opt,None,None).flatMap { case (s1,s2) => List(s1,s2) }.flatten.toArray
+          (fixedTechs ++ interleaved).map { case (piece,origIdx) => (PieceTech(piece.name),origIdx+1) }
+        }
+      }
+      val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
+      val extraManaPerTurn = config.getInt("app.extraManaPerTurn")
+
+      val game = Game(
+        numBoards = numBoards,
+        targetNumWins = targetNumWins,
+        startingSide = S0,
+        startingMana = startingMana,
+        extraTechCost = extraTechCost,
+        extraManaPerTurn = extraManaPerTurn,
+        techsAlwaysAcquired = techsAlwaysAcquired,
+        lockedTechs = lockedTechs
+      )
+      game
+    }
+    var gameSequence: Int = 0
+
+    //These get repopulated when empty when we need to draw one
+    val specialNecrosRemaining: SideArray[List[String]] = SideArray.create(List())
+
+    //These get repopulated when empty when we need to draw one
+    val spellsRemaining: SideArray[List[String]] = SideArray.create(List())
+    var nextSpellId: Int = 0
+    var spellMap: Map[Int,SpellName] = Map()
+    val revealedSpellIds: SideArray[Set[Int]] = SideArray.create(Set())
+    val externalInfo: ExternalInfo = ExternalInfo()
+
+    val (boards,boardNames): (Array[Board],Array[String]) = {
+      val availableMaps = {
+        if(config.getBoolean("app.includeAdvancedMaps"))
+          BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList
+        else
+          BoardMaps.basicMaps.toList
+      }
+
+      if(numBoards > availableMaps.length)
+        throw new Exception("Configured for " + numBoards + " boards but only " + availableMaps.length + " available")
+
+      val chosenMaps = setupRand.shuffle(availableMaps).take(numBoards)
+
+      val boardsAndNames = chosenMaps.toArray.map { case (boardName,map) =>
+        val state = map()
+        val necroNames = SideArray.create(Units.necromancer.name)
+        state.resetBoard(necroNames, true, SideArray.create(Map()))
+
+        //Testing
+        {
+         /*state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+
+         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
+         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
+         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
+         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
+         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
+         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
+         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
+         */
+         /*state.tiles.foreachi { (loc, tile) =>
+            if (tile.terrain == Graveyard) {
+              val _ = state.spawnPieceInitial(S0, Units.fallen_angel.name, loc)
+            }
+          }*/
+          /*
+          state.spawnPieceInitial(S0, Units.shrieker.name, Loc(5,4))
+          state.spawnPieceInitial(S0, Units.witch.name, Loc(6,4))
+          state.spawnPieceInitial(S0, Units.fallen_angel.name, Loc(7,4))
+          state.spawnPieceInitial(S0, Units.dark_tower.name, Loc(5,5))
+          state.spawnPieceInitial(S0, Units.lich.name, Loc(6,5))
+
+          state.spawnPieceInitial(S0, Units.haunt.name, Loc(5,6))
+
+          state.spawnPieceInitial(S1, Units.wight.name, Loc(6,6))
+
+          state.addReinforcementInitial(S0,"zombie")
+          state.addReinforcementInitial(S0,"bat")
+          state.addReinforcementInitial(S0,"bat")
+          state.addReinforcementInitial(S0,"bat")
+
+          state.addReinforcementInitial(S1,"zombie")
+          state.addReinforcementInitial(S1,"zombie")
+          state.addReinforcementInitial(S1,"bat")
+          state.addReinforcementInitial(S1,"bat")
+          */
+        }
+
+        (Board.create(state), boardName)
+      }
+
+      (boardsAndNames.map(_._1),boardsAndNames.map(_._2))
+    }
+    val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
+
+    //----------------------------------------------------------------------------------
+    //TIME LIMITS
+    val secondsPerTurn = SideArray.ofArrayInplace(Array(config.getDouble("app.s0SecondsPerTurn"), config.getDouble("app.s1SecondsPerTurn")))
+    //Server reports time left every this often
+    val reportTimePeriod = 5.0
+    def getNow(): Double = {
+      System.currentTimeMillis.toDouble / 1000.0
+    }
+    var endOfTurnTime: Option[Double] = None
+
+
+    //----------------------------------------------------------------------------------
 
     val timeReportJob: Cancellable = {
       import scala.concurrent.duration._
@@ -739,21 +740,32 @@ object ServerMain extends App {
 
   }
 
-  val gameActor = actorSystem.actorOf(Props(classOf[GameActor]))
-  gameActor ! StartGame()
+  var games = Map[String, ActorRef]()
+
+  //val gameActor = actorSystem.actorOf(Props(classOf[GameActor]))
+  //gameActor ! StartGame()
 
   //----------------------------------------------------------------------------------
   //WEBSOCKET MESSAGE HANDLING
 
   val nextSessionId = new AtomicInteger()
 
-  def websocketMessageFlow(username: String, sideStr: Option[String]) : Flow[Message, Message, _] = {
+  def websocketMessageFlow(gameid: String, username: String, sideStr: Option[String]) : Flow[Message, Message, _] = {
     val side: Option[Side] = sideStr match {
       case Some("0") => Some(S0)
       case Some("1") => Some(S1)
       case Some(s) => throw new Exception("Invalid side: " + s)
       case None => None
     }
+    val gameActor =
+      games.get(gameid) match {
+        case None =>
+          val gameActor = actorSystem.actorOf(Props(classOf[GameActor]))
+          gameActor ! StartGame()
+          games = games + (gameid -> gameActor)
+          gameActor
+        case Some(gameActor) => gameActor
+      }
 
     val sessionId = nextSessionId.getAndIncrement()
 
@@ -826,10 +838,12 @@ object ServerMain extends App {
   path("playGame") {
     maybeRequirePassword(password) {
       parameter("username") { username =>
-        parameter("side".?) { side =>
-          Try(websocketMessageFlow(username,side)) match {
-            case Failure(exn) => complete(exn.getLocalizedMessage)
-            case Success(flow) => handleWebSocketMessages(flow)
+        parameter("game") { gameid =>
+          parameter("side".?) { side =>
+            Try(websocketMessageFlow(gameid,username,side)) match {
+              case Failure(exn) => complete(exn.getLocalizedMessage)
+              case Success(flow) => handleWebSocketMessages(flow)
+            }
           }
         }
       }
