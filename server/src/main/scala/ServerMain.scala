@@ -12,6 +12,7 @@ import akka.actor.{ActorSystem, Actor, ActorRef, Cancellable, Terminated, Props,
 import akka.stream.{ActorMaterializer,OverflowStrategy}
 import akka.stream.scaladsl.{Flow,Sink,Source}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.{ContentTypes,HttpEntity}
 import akka.http.scaladsl.model.ws.{Message,TextMessage}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives._
@@ -47,27 +48,8 @@ object ServerMain extends App {
 
   val interface = config.getString("app.interface")
   val port = config.getInt("app.port")
-  val password = if(config.hasPath("app.password")) Some(config.getString("app.password")) else None
   val clientHeartbeatPeriodInSeconds = config.getDouble("akka.http.server.clientHeartbeatRate")
 
-  val randSeed:Long = {
-    if(config.hasPath("app.randSeed"))
-      config.getLong("app.randSeed")
-    else {
-      val secureRandom = new SecureRandom()
-      secureRandom.nextLong()
-    }
-  }
-  log("Random seed " + randSeed)
-  val setupRand = Rand(randSeed)
-  val spellRands = SideArray.ofArrayInplace(Array(
-    Rand(RandUtils.sha256Long(randSeed + "#spell0")),
-    Rand(RandUtils.sha256Long(randSeed + "#spell1"))
-  ))
-  val necroRands = SideArray.ofArrayInplace(Array(
-    Rand(RandUtils.sha256Long(randSeed + "#necro0")),
-    Rand(RandUtils.sha256Long(randSeed + "#necro1"))
-  ))
 
   //GAME ACTOR - singleton actor that maintains the state of the game being played
 
@@ -79,7 +61,7 @@ object ServerMain extends App {
   case class ShouldReportTimeLeft() extends GameActorEvent
   case class StartGame() extends GameActorEvent
 
-  private class GameActor extends Actor {
+  private class GameActor(blueSeconds: Double, redSeconds: Double, targetWins: Int, blueMana: Int, redMana: Int, techMana: Int, maps_opt: Option[List[String]], seed_opt: Option[Long]) extends Actor {
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
     //to the players logged into the server
     var usernameOfSession: Map[Int,String] = Map()
@@ -89,15 +71,53 @@ object ServerMain extends App {
     var teamMessages: SideArray[List[String]] = SideArray.create(List())
     var spectatorMessages: List[String] = List()
 
+    // Random seeds
+    val randSeed:Long = {
+      seed_opt match {
+        case None =>
+          val secureRandom = new SecureRandom()
+          secureRandom.nextLong()
+        case Some(seed) => seed
+      }
+    }
+    val setupRand = Rand(randSeed)
+    val spellRands = SideArray.ofArrayInplace(Array(
+      Rand(RandUtils.sha256Long(randSeed + "#spell0")),
+      Rand(RandUtils.sha256Long(randSeed + "#spell1"))
+    ))
+    val necroRands = SideArray.ofArrayInplace(Array(
+      Rand(RandUtils.sha256Long(randSeed + "#necro0")),
+      Rand(RandUtils.sha256Long(randSeed + "#necro1"))
+    ))
+
     //----------------------------------------------------------------------------------
     //GAME AND BOARD SETUP
 
-    val numBoards = config.getInt("app.numBoards")
+    val chosenMaps =
+      maps_opt match {
+        case None =>
+          val availableMaps = {
+            if(config.getBoolean("app.includeAdvancedMaps"))
+              BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList
+            else
+              BoardMaps.basicMaps.toList
+          }
+
+          if(targetWins > availableMaps.length)
+            throw new Exception("Configured for " + targetWins + " boards but only " + availableMaps.length + " available")
+          val chosenMaps = setupRand.shuffle(availableMaps).take(targetWins)
+          chosenMaps
+        case Some(chosenMaps) =>
+          val maps = BoardMaps.basicMaps ++ BoardMaps.advancedMaps
+          chosenMaps.map { mapName => (mapName, maps(mapName)) }
+      }
+
+    val numBoards = chosenMaps.length
     val game = {
-      val targetNumWins = config.getInt("app.targetNumWins")
+      val targetNumWins = targetWins
       val startingMana = SideArray.create(0)
-      startingMana(S0) = config.getInt("app.s0StartingManaPerBoard") * numBoards
-      startingMana(S1) = config.getInt("app.s1StartingManaPerBoard") * numBoards
+      startingMana(S0) = blueMana * numBoards
+      startingMana(S1) = redMana * numBoards
       val techsAlwaysAcquired: Array[Tech] =
         Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
       val lockedTechs: Array[(Tech,Int)] = {
@@ -121,7 +141,7 @@ object ServerMain extends App {
           (fixedTechs ++ interleaved).map { case (piece,origIdx) => (PieceTech(piece.name),origIdx+1) }
         }
       }
-      val extraTechCost = config.getInt("app.extraTechCostPerBoard") * numBoards
+      val extraTechCost = techMana * numBoards
       val extraManaPerTurn = config.getInt("app.extraManaPerTurn")
 
       val game = Game(
@@ -149,19 +169,7 @@ object ServerMain extends App {
     val externalInfo: ExternalInfo = ExternalInfo()
 
     val (boards,boardNames): (Array[Board],Array[String]) = {
-      val availableMaps = {
-        if(config.getBoolean("app.includeAdvancedMaps"))
-          BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList
-        else
-          BoardMaps.basicMaps.toList
-      }
-
-      if(numBoards > availableMaps.length)
-        throw new Exception("Configured for " + numBoards + " boards but only " + availableMaps.length + " available")
-
-      val chosenMaps = setupRand.shuffle(availableMaps).take(numBoards)
-
-      val boardsAndNames = chosenMaps.toArray.map { case (boardName,map) =>
+      val boardsAndNames = chosenMaps.toArray.map { case (boardName, map) =>
         val state = map()
         val necroNames = SideArray.create(Units.necromancer.name)
         state.resetBoard(necroNames, true, SideArray.create(Map()))
@@ -219,7 +227,7 @@ object ServerMain extends App {
 
     //----------------------------------------------------------------------------------
     //TIME LIMITS
-    val secondsPerTurn = SideArray.ofArrayInplace(Array(config.getDouble("app.s0SecondsPerTurn"), config.getDouble("app.s1SecondsPerTurn")))
+    val secondsPerTurn = SideArray.ofArrayInplace(Array(blueSeconds, redSeconds))
     //Server reports time left every this often
     val reportTimePeriod = 5.0
     def getNow(): Double = {
@@ -741,9 +749,7 @@ object ServerMain extends App {
   }
 
   var games = Map[String, ActorRef]()
-
-  //val gameActor = actorSystem.actorOf(Props(classOf[GameActor]))
-  //gameActor ! StartGame()
+  var passwords = Map[String, Option[String]]()
 
   //----------------------------------------------------------------------------------
   //WEBSOCKET MESSAGE HANDLING
@@ -757,16 +763,7 @@ object ServerMain extends App {
       case Some(s) => throw new Exception("Invalid side: " + s)
       case None => None
     }
-    val gameActor =
-      games.get(gameid) match {
-        case None =>
-          val gameActor = actorSystem.actorOf(Props(classOf[GameActor]))
-          gameActor ! StartGame()
-          games = games + (gameid -> gameActor)
-          gameActor
-        case Some(gameActor) => gameActor
-      }
-
+    val gameActor = games(gameid)
     val sessionId = nextSessionId.getAndIncrement()
 
     //Create output stream for the given user
@@ -804,26 +801,30 @@ object ServerMain extends App {
   //----------------------------------------------------------------------------------
   //DEFINE WEB SERVER ROUTES
 
-  def maybeRequirePassword(password: Option[String])(f: => Route) = {
-    parameter("password".?) { user_password =>
-      (user_password, password) match {
-        case (None, Some(_)) => complete("Please provide 'password=' in URL")
-        case (Some(_), None) | (None, None) => f
-        case (Some(x), Some(y)) =>
-          if(x==y) f
-          else complete("Wrong password")
-      }
-    }
-  }
-
   val route = get {
     pathEndOrSingleSlash {
-      maybeRequirePassword(password) {
+      parameter("game".?) { gameid_opt =>
         parameter("username".?) { username =>
-          username match {
-            case None => complete("Please provide 'username=' in URL")
-            case Some(_) =>
-              getFromFile(Paths.mainPage)
+          parameter("password".?) { password =>
+            gameid_opt match {
+              case None => complete("Please provide 'game=' in URL")
+              case Some(gameid) =>
+                username match {
+                  case None => complete("Please provide 'username=' in URL")
+                  case Some(_) =>
+                    passwords.get(gameid) match {
+                      case None => complete(s"Game $gameid does not exist")
+                      case Some(game_password) =>
+                        (password, game_password) match {
+                          case (None, Some(_)) => complete(gameid + " is password-protected; please provide 'password=' in URL")
+                          case (_, None) => getFromFile(Paths.mainPage)
+                          case (Some(x), Some(y)) =>
+                            if(x==y) getFromFile(Paths.mainPage)
+                            else complete(s"Wrong password for $gameid")
+                        }
+                    }
+                }
+            }
           }
         }
       }
@@ -836,18 +837,101 @@ object ServerMain extends App {
     }
   } ~
   path("playGame") {
-    maybeRequirePassword(password) {
-      parameter("username") { username =>
-        parameter("game") { gameid =>
-          parameter("side".?) { side =>
-            Try(websocketMessageFlow(gameid,username,side)) match {
-              case Failure(exn) => complete(exn.getLocalizedMessage)
-              case Success(flow) => handleWebSocketMessages(flow)
-            }
+    parameter("username") { username =>
+      parameter("game") { gameid =>
+        parameter("side".?) { side =>
+          Try(websocketMessageFlow(gameid,username,side)) match {
+            case Failure(exn) => complete(exn.getLocalizedMessage)
+            case Success(flow) => handleWebSocketMessages(flow)
           }
         }
       }
     }
+  } ~
+  path("newGame") {
+    get {
+      val game = "game" + (games.size.toString)
+      val blueSecondsPerTurn = config.getDouble("app.s0SecondsPerTurn")
+      val redSecondsPerTurn = config.getDouble("app.s1SecondsPerTurn")
+      val targetNumWins = config.getInt("app.targetNumWins")
+      val blueStartingMana = config.getInt("app.s0StartingManaPerBoard")
+      val redStartingMana = config.getInt("app.s1StartingManaPerBoard")
+      val extraTechCost = config.getInt("app.extraTechCostPerBoard")
+
+      val map_html =
+        (BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList).map { case (mapName, _) =>
+          s"""<p><label>$mapName</label><input type=checkbox name=map value="$mapName"></input><br>"""
+        }.mkString("\n")
+      complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
+        s"""
+        <head>
+          <style type="text/css">
+            form  { display: table;      }
+            p     { display: table-row;  }
+            label { display: table-cell; }
+            input { display: table-cell; }
+          </style>
+        </head>
+        <body>
+          <form method=post>
+            <p><label>Game name </label><input type="text" name="game" value=$game></input>
+            <p><label>Password (optional) </label><input type="text" name="password"></input>
+            <p><label>Random seed (optional) </label><input type="text" name="seed"></input><br>
+
+            <p><label>Blue seconds per turn </label><input type="text" name=blueSeconds value=$blueSecondsPerTurn></input><br>
+            <p><label>Red seconds per turn </label><input type="text" name=redSeconds value=$redSecondsPerTurn></input><br>
+
+            <p><label>Points to win </label><input type="text" name=targetWins value=$targetNumWins></input><br>
+
+            <p><label>Blue starting mana per board&nbsp&nbsp </label><input type="text" name=blueMana value=$blueStartingMana></input><br>
+            <p><label>Red starting mana per board </label><input type="text" name=redMana value=$redStartingMana></input><br>
+
+            <p><label>Tech cost per board </label><input type="text" name=techMana value=$extraTechCost></input><br>
+
+            <p>&nbsp
+            <p><label>Maps (optional)</label>
+            $map_html
+
+            <p><input type="submit" value="Start Game"></input>
+          </form>
+        </body>
+        """
+        ))
+      } ~ post {
+        formFields(('game, 'password, 'seed)) { (gameid, password, seed) =>
+          formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
+            formFields(('blueMana.as[Int], 'redMana.as[Int], 'techMana.as[Int], 'map.*)) { (blueMana, redMana, techMana, maps) =>
+              passwords.get(gameid) match {
+                case Some(_) =>
+                  complete(s"""A game named "$gameid" already exists; pick a different name""")
+                case None =>
+                  val seed_opt = if(seed=="") None else seed.toLong
+                  val mapsl = if(maps.isEmpty) None else maps.toList
+                  val game_actor = actorSystem.actorOf(Props(classOf[GameActor], blueSeconds, redSeconds, targetWins, blueMana, redMana, techMana, mapsl, seed_opt))
+                  passwords = passwords + (gameid -> (if(password == "") None else Some(password)))
+                  games = games + (gameid -> game_actor)
+                  println("Created game " + gameid)
+                  complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`,
+                    s"""
+                    Created game $gameid
+
+                    password=$password
+                    seed=$seed_opt
+                    blueSeconds=$blueSeconds
+                    redSeconds=$redSeconds
+                    targetWins=$targetWins
+                    blueMana=$blueMana
+                    redMana=$redMana
+                    techMana=$techMana
+                    maps=$mapsl
+                    seed=$seed
+                    """
+                    ))
+              }
+            }
+          }
+        }
+      }
   }
 
   //----------------------------------------------------------------------------------
