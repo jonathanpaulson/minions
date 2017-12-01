@@ -745,7 +745,8 @@ object ServerMain extends App {
         refillUpcomingSpells()
         game.startGame()
     }
-
+    refillUpcomingSpells()
+    game.startGame()
   }
 
   var games = Map[String, ActorRef]()
