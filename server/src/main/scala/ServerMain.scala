@@ -745,8 +745,6 @@ object ServerMain extends App {
         refillUpcomingSpells()
         game.startGame()
     }
-    refillUpcomingSpells()
-    game.startGame()
   }
 
   var games = Map[String, ActorRef]()
@@ -909,6 +907,7 @@ object ServerMain extends App {
                   val seed_opt = if(seed=="") None else Some(seed.toLong)
                   val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
                   val game_actor = actorSystem.actorOf(Props(classOf[GameActor], blueSeconds, redSeconds, targetWins, blueMana, redMana, techMana, maps_opt, seed_opt))
+                  game_actor ! StartGame()
                   passwords = passwords + (gameid -> (if(password == "") None else Some(password)))
                   games = games + (gameid -> game_actor)
                   println("Created game " + gameid)
