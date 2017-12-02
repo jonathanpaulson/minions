@@ -178,7 +178,7 @@ case object BlinkAbility extends PieceAbility {
 case object KillAdjacentAbility extends PieceAbility {
   val name = "scream"
   val displayName = "Scream"
-  val desc = "Kills everything next to the banshee"
+  val desc = "Kills all adjacent enemy minions"
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
