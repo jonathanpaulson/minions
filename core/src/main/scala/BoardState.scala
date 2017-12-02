@@ -1493,7 +1493,7 @@ case class BoardState private (
   private def updateAfterPieceKill(pieceSide: Side, pieceStats: PieceStats, loc: Loc): Unit = {
     //Rebate mana
     manaThisRound(pieceSide) += pieceStats.rebate
-    totalMana(pieceSide) += pieceStats.rebate
+    totalCosts(pieceSide) -= pieceStats.rebate
 
     //Death spawn
     pieceStats.deathSpawn.foreach { deathSpawn =>

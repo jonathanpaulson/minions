@@ -673,11 +673,13 @@ object Drawing {
         ctx.fillRect(pixelLoc.x - 10.0, pixelLoc.y - 16.0, 360.0, 24.0)
       }
 
-      def textAtLoc(s: String, dpx: Double, dpy: Double, style:String = "normal") =
-        text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left", fontSize = 14, style = style)
+      def textAtLoc(s: String, dpx: Double, dpy: Double, style:String = "normal", size:Int = 14) =
+        text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left", fontSize = size, style = style)
 
       textAtLoc("Souls: +" + board.endOfTurnMana(side) + "/turn", 0, 0)
-      textAtLoc("Net +souls: " + (board.totalMana(side) - board.totalCosts(side)), 110, 0)
+      textAtLoc("Total souls earned: " + board.totalMana(side), 100, -7, size=11)
+      textAtLoc("Total souls spent: " + board.totalCosts(side), 100, 3, size=11)
+
       if(side == board.side) {
         if(board.sorceryPower < 0)
           textAtLoc("Sorcery Power: " + board.sorceryPower, 220, 0, style = "bold")
