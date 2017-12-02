@@ -262,9 +262,25 @@ object ServerMain extends App {
       }
     }
     private def broadcastMessages(): Unit = {
-      broadcastToSide(Protocol.Messages(allMessages, teamMessages(S0)), S0)
-      broadcastToSide(Protocol.Messages(allMessages, teamMessages(S1)), S1)
-      broadcastToSpectators(Protocol.Messages(allMessages, spectatorMessages))
+      var spectators= List[String]()
+      val players = SideArray.create(List[String]())
+
+      userSides.foreach { case (sid, side) =>
+        val username = usernameOfSession(sid)
+        side match {
+          case None => spectators = spectators :+ username
+          case Some(side) => players(side) = players(side) :+ username
+        }
+      }
+      val blueMessage = "BLUE TEAM: " + players(S0).mkString(",")
+      val redMessage = "RED TEAM: " + players(S1).mkString(",")
+      val spectatorMessage = if(spectators.isEmpty) List() else List("SPECTATORS: " + spectators.mkString(","))
+
+      val toAll = allMessages ++ List(blueMessage, redMessage) ++ spectatorMessage
+
+      broadcastToSide(Protocol.Messages(toAll, teamMessages(S0)), S0)
+      broadcastToSide(Protocol.Messages(toAll, teamMessages(S1)), S1)
+      broadcastToSpectators(Protocol.Messages(toAll, spectatorMessages))
     }
 
     private def performAndBroadcastGameActionIfLegal(gameAction: GameAction): Try[Unit] = {
@@ -671,22 +687,11 @@ object ServerMain extends App {
       }
     }
 
-    def joinedOrLeftMessage(username : String, side : Option[Side], joined : Boolean) : String = {
-      val sideStr = side match {
-        case None => "as a spectator"
-        case Some(side) => "team " + side.toColorName
-      }
-      val joinedOrLeft = if(joined) "joined" else "left"
-      return "GAME: " + username + " " + joinedOrLeft + " " + sideStr
-    }
-
     override def receive: Receive = {
       case UserJoined(sessionId, username, side, out) =>
         usernameOfSession = usernameOfSession + (sessionId -> username)
         userSides = userSides + (sessionId -> side)
         userOuts = userOuts + (sessionId -> out)
-
-        allMessages = allMessages :+ joinedOrLeftMessage(username, side, true)
 
         out ! Protocol.Version(CurrentVersion.version)
         out ! Protocol.ClientHeartbeatRate(periodInSeconds=clientHeartbeatPeriodInSeconds)
@@ -700,23 +705,22 @@ object ServerMain extends App {
 
         out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
         getTimeLeftEvent().foreach { response => out ! response }
+        log("UserJoined: " + username + " Side: " + side)
         broadcastAll(Protocol.UserJoined(username,side))
         broadcastMessages()
-        log("UserJoined: " + username + " Side: " + side)
 
       case UserLeft(sessionId) =>
         if(usernameOfSession.contains(sessionId)) {
           val username = usernameOfSession(sessionId)
           val side = userSides(sessionId)
-          allMessages = allMessages :+ joinedOrLeftMessage(username, side, false)
-          broadcastAll(Protocol.UserLeft(username,side))
-          broadcastMessages()
           val out = userOuts(sessionId)
           usernameOfSession = usernameOfSession - sessionId
           userSides = userSides - sessionId
           userOuts = userOuts - sessionId
           out ! Status.Success("")
           log("UserLeft: " + username + " Side: " + side)
+          broadcastAll(Protocol.UserLeft(username,side))
+          broadcastMessages()
         }
       case QueryStr(sessionId, queryStr) =>
         if(usernameOfSession.contains(sessionId)) {
