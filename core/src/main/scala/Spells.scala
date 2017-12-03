@@ -408,33 +408,49 @@ case object Spells {
 
   def createDeck(): List[SpellName] = {
     List(
-      fester,fester,fester,fester,fester,fester,
-      unsummon,unsummon,unsummon,unsummon,unsummon,unsummon,
-      dismember,dismember,
-      lightningBolt,lightningBolt,
-      unholyMight,unholyMight,
+      (fester,10),
+      (unsummon, 10),
+      (reposition, 10),
+      (shield, 10),
+      (stumble, 10),
 
-      shield,shield,shield,shield,shield,shield,
-      protection,protection,
-      freezeRay,freezeRay,
-      weaken,weaken,
-      lumbering,lumbering,
-      shackle,shackle,
+      (dismember, 2),
+      (lightningBolt, 2),
+      (unholyMight, 2),
 
-      reposition,reposition,reposition,reposition,reposition,reposition,
-      stumble,stumble,stumble,stumble,stumble,stumble,
-      displace,displace,
-      spawn,spawn,spawn,spawn,
-      blink,blink,blink,blink,
-      raiseZombie,raiseZombie,raiseZombie,raiseZombie,
-      doubleCantrip,doubleCantrip,
-      raiseZombie,raiseZombie,raiseZombie,raiseZombie,
+      (protection, 2),
+      (freezeRay, 2),
+      (weaken, 2),
+      (lumbering, 2),
+      (shackle, 2),
 
-      earthquake, earthquake,
-      firestorm, firestorm,
-      flood, flood,
-      whirlwind, whirlwind,
-      normalize,normalize,
-    ).map(_.name)
+      (displace, 2),
+      (spawn,spawn, 2),
+      (blink,blink, 2),
+      (raiseZombie, 2),
+      (doubleCantrip, 2),
+
+      (earthquake, 2),
+      (firestorm, 2),
+      (flood, 2),
+      (whirlwind, 2),
+      (normalize, 2),
+      // TODO SPELLS:
+      // terraform (spawn phase) (2) Move one of the four terrain tiles to target empty Ground hex
+      // warp (sorcery) (spawn phase) (2) Spawn target minion in your reinforcements in any empty Ground hex
+      // lesser spawn (cantrip) (spawn phase) (2) Spawn target minion in your reinforcements next to target (friendly?) minion
+      // Portal (spawn phase) (2) exchange the position of two friendly minions
+      // Stored trength (2) - exchange this for one of the spells in the spell row
+      // Cleave (2) - Target minion does one damage to a minion in range iff it also attacked a different minion in range
+      // Sunder (2) (sorcery) - Target minions does 2 damage to a minion in range iff it also attacked a different minion in range
+      // Critical hit (sorcery) (2) - Target minion takes damage from the previous attack again
+      // Drain (2) (cantrip) - opponent has -1 sorcery power next turn (can sacrifice any unit to pay for it)
+      // Fireball (2) - Pick a hex. Any enemy units there at the end of your opponent's turn are destroyed
+      // Repeat (2) (sorcery) - take a spell you played this turn back into your hand
+      // Rising horde (sorcery) (2) - all your units have spawn
+      // Ward (2) - Your necromancer(s?) and all adjacent minions get +1 health
+    ).flatMap {case (spell:Spell, count:Int) =>
+      List.fill(count)(spell.name)
+    }
   }
 }
