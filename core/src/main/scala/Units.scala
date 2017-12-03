@@ -375,7 +375,6 @@ object Units {
     moveRange = 1,
     attackRange = 3,
     swarmMax = 3,
-    isFlying = true,
   )
 
   val vampire = createPieceStats(

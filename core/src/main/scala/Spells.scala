@@ -436,14 +436,19 @@ case object Spells {
       (whirlwind, 2),
       (normalize, 2),
       // TODO SPELLS:
-      // terraform (spawn phase) (2) Move one of the four terrain tiles to target empty Ground hex
+      // ReinforcementAndLocSpell
       // warp (sorcery) (spawn phase) (2) Spawn target minion in your reinforcements in any empty Ground hex
       // lesser spawn (cantrip) (spawn phase) (2) Spawn target minion in your reinforcements next to target (friendly?) minion
-      // Portal (spawn phase) (2) exchange the position of two friendly minions
-      // Stored trength (2) - exchange this for one of the spells in the spell row
-      // Cleave (2) - Target minion does one damage to a minion in range iff it also attacked a different minion in range
+
+      // terraform (spawn phase) (2) Move one of the four terrain tiles to target empty Ground hex
+
+      // PieceAndPieceSpell
+      // Cleave (2) - Target minion does 1 damage to a minion in range iff it also attacked a different minion in range
       // Sunder (2) (sorcery) - Target minions does 2 damage to a minion in range iff it also attacked a different minion in range
       // Critical hit (sorcery) (2) - Target minion takes damage from the previous attack again
+      // Portal (spawn phase) (2) exchange the position of two friendly minions
+
+      // Stored Strength (2) - exchange this for one of the spells in the spell row
       // Drain (2) (cantrip) - opponent has -1 sorcery power next turn (can sacrifice any unit to pay for it)
       // Fireball (2) - Pick a hex. Any enemy units there at the end of your opponent's turn are destroyed
       // Repeat (2) (sorcery) - take a spell you played this turn back into your hand
