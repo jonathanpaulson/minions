@@ -425,8 +425,8 @@ case object Spells {
       (shackle, 2),
 
       (displace, 2),
-      (spawn,spawn, 2),
-      (blink,blink, 2),
+      (spawn, 2),
+      (blink, 2),
       (raiseZombie, 2),
       (doubleCantrip, 2),
 
