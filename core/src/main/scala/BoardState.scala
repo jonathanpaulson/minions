@@ -573,7 +573,7 @@ case class BoardState private (
     //Remove tile modifiers
     tiles.transform { tile =>
       val newtile = tile.terrain match {
-        case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Mist =>
+        case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) | Mist =>
           tile
         case Earthquake | Firestorm | Flood | Whirlwind =>
           Tile(Ground, modsWithDuration = tile.modsWithDuration)
