@@ -137,14 +137,17 @@ object Drawing {
     def fillHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, rectangle: Boolean = false) : Unit = {
       drawHex(hexLoc,Some(color),None,scale,false,true,alpha,1.0, rectangle);
     }
-    def fillHexWithTexture(hexLoc : HexLoc, texture: String, scale : Double, alpha: Double = 1.0, rectangle:Boolean = false) : Unit = {
+    def fillHexWithTexture(hexLoc : HexLoc, texture: String, scale : Double, alpha: Double, rectangle:Boolean = false) : Unit = {
       drawHex(hexLoc,None,Some((texture,"repeat")),scale,false,true,alpha,1.0,rectangle);
     }
-    def fillHexWithImage(hexLoc : HexLoc, texture: String, scale : Double) : Unit = {
+    def fillHexWithImage(hexLoc : HexLoc, texture: String, scale: Double, alpha:Double) : Unit = {
       //Adjust so that the image is centered
       val img = textures(texture)
       val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
+      val oldAlpha = ctx.globalAlpha
+      ctx.globalAlpha = alpha
       ctx.drawImage(img, pixel.x - img.width*scale*0.5, pixel.y - img.height*scale*0.5, img.width*scale, img.height*scale)
+      ctx.globalAlpha = oldAlpha
     }
 
     //Based on murmurhash's avalanche mixer
@@ -158,57 +161,61 @@ object Drawing {
       ((h % n) + n) % n
     }
 
-    def drawTile(hexLoc: HexLoc, loc: Loc, tile: Tile, scaleBy: Double) : Unit = {
+    def drawTile(hexLoc: HexLoc, loc: Loc, tile: Tile, scaleBy: Double, alpha: Double = 1.0) : Unit = {
       val scale = scaleBy*tileScale
       tile.terrain match {
-        case Wall => fillHex(hexLoc, "white", scale)
+        case Wall => fillHex(hexLoc, "white", scale, alpha=alpha)
         case Ground | StartHex(_) =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, scale)
+          fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
           //fillHex(hexLoc, "green", scale)
-        case Water | Flood =>
+        case Water =>
           val texture = BoardMaps.waterImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, scale)
+          fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
+        case Flood =>
+          val texture = BoardMaps.waterImage(boardNames(boardIdx))
+          fillHexWithTexture(hexLoc, texture, scale, alpha=0.8*alpha)
+          strokeHex(hexLoc, "#bbeeff", scale, alpha=alpha, lineWidth=3.0)
         case Graveyard =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, scale)
-          fillHex(hexLoc, "#dddddd", scale)
-          strokeHex(hexLoc, "#666666", scale, alpha=0.5, lineWidth=1.5)
+          fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
+          fillHex(hexLoc, "#dddddd", scale, alpha=alpha)
+          strokeHex(hexLoc, "#666666", scale, alpha=0.5*alpha, lineWidth=1.5)
           val img = "img_terrain_graveyard" + deterministicRandom(loc.x,loc.y,4)
-          fillHexWithImage(hexLoc, img, scale)
+          fillHexWithImage(hexLoc, img, scale, alpha=alpha)
         case SorceryNode =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, scale)
-          fillHex(hexLoc, "#ffcc88", scale, alpha=0.15)
-          strokeHex(hexLoc, "#ffcc88", scale, alpha=0.5, lineWidth=2.0)
+          fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
+          fillHex(hexLoc, "#ffcc88", scale, alpha=0.15*alpha)
+          strokeHex(hexLoc, "#ffcc88", scale, alpha=0.5*alpha, lineWidth=2.0)
           val img = "img_terrain_leyline"
-          fillHexWithImage(hexLoc, img, scale)
+          fillHexWithImage(hexLoc, img, scale, alpha=alpha)
         case Teleporter =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, scale)
-          fillHex(hexLoc, "#ccff88", scale, alpha=0.15)
-          strokeHex(hexLoc, "#ccff88", scale, alpha=0.5, lineWidth=2.0)
+          fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
+          fillHex(hexLoc, "#ccff88", scale, alpha=0.15*alpha)
+          strokeHex(hexLoc, "#ccff88", scale, alpha=0.5*alpha, lineWidth=2.0)
           val img = "img_terrain_teleporter"
-          fillHexWithImage(hexLoc, img, scale)
+          fillHexWithImage(hexLoc, img, scale, alpha=alpha)
         case Spawner(_) =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, scale)
-          fillHex(hexLoc, "#ff55ff", scale, alpha=0.15)
-          strokeHex(hexLoc, "#ff55ff", scale, alpha=0.5, lineWidth=2.0)
+          fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
+          fillHex(hexLoc, "#ff55ff", scale, alpha=0.15*alpha)
+          strokeHex(hexLoc, "#ff55ff", scale, alpha=0.5*alpha, lineWidth=2.0)
           val img = "img_terrain_spawner"
-          fillHexWithImage(hexLoc, img, scale)
+          fillHexWithImage(hexLoc, img, scale, alpha=alpha)
         case Mist =>
-          fillHex(hexLoc, "#6E754C", scale)
-          strokeHex(hexLoc, "#6E754C", scale, alpha=0.8, lineWidth=2.0)
+          fillHex(hexLoc, "#6E754C", scale, alpha=alpha)
+          strokeHex(hexLoc, "#6E754C", scale, alpha=0.8*alpha, lineWidth=2.0)
         case Earthquake =>
-          fillHex(hexLoc, "#846935", scale)
-          strokeHex(hexLoc, "#846935", scale, alpha=0.8, lineWidth=2.0)
+          fillHex(hexLoc, "#846935", scale, alpha=alpha)
+          strokeHex(hexLoc, "#846935", scale, alpha=0.8*alpha, lineWidth=2.0)
         case Firestorm =>
-          fillHex(hexLoc, "#e25822", scale)
-          strokeHex(hexLoc, "#e25822", scale, alpha=0.8, lineWidth=2.0)
+          fillHex(hexLoc, "#e25822", scale, alpha=alpha)
+          strokeHex(hexLoc, "#e25822", scale, alpha=0.8*alpha, lineWidth=2.0)
         case Whirlwind =>
-          fillHex(hexLoc, "#8ECCCC", scale)
-          strokeHex(hexLoc, "8ECCCC", scale, alpha=0.8, lineWidth=2.0)
+          fillHex(hexLoc, "#8ECCCC", scale, alpha=alpha)
+          strokeHex(hexLoc, "#8ECCCC", scale, alpha=0.8*alpha, lineWidth=2.0)
       }
       if(showCoords) {
         text(loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
@@ -843,6 +850,15 @@ object Drawing {
       drawTile(hexLoc,loc,tile, 1.0)
     }
 
+    val preSpawnBoard = boards(boardIdx).preSpawnState()
+    preSpawnBoard.tiles.foreachi { case (loc, tile) =>
+      if(tile.terrain != board.tiles(loc).terrain && tile.terrain != Ground) {
+        val hexLoc = ui.MainBoard.hexLoc(loc)
+        drawTile(hexLoc,loc,tile, 1.0, alpha=0.4)
+      }
+    }
+
+
     def pieceCanStillDoThings(piece: Piece): Boolean = {
       piece.actState match {
         case Spawning | DoneActing => false
@@ -1043,8 +1059,6 @@ object Drawing {
         drawBoardPiece(piece,board)
       }
     }
-
-    val preSpawnBoard = boards(boardIdx).preSpawnState()
     preSpawnBoard.pieces.foreachi { case (loc,pieces) =>
       if(board.pieces(loc).isEmpty) {
         pieces.foreach { piece =>
