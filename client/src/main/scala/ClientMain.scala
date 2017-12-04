@@ -139,7 +139,9 @@ class Client() {
     playersBox.value = ""
     playersBox.value += blueMessage + "\n"
     playersBox.value += redMessage + "\n"
-    playersBox.value += spectatorMessage + "\n"
+    if(!spectators.isEmpty) {
+      playersBox.value += spectatorMessage + "\n"
+    }
   }
 
   val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
