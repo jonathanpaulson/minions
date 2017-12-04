@@ -572,9 +572,17 @@ case class BoardState private (
   def resetBoard(necroNames: SideArray[PieceName], canMoveFirstTurn: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
     //Remove tile modifiers
     tiles.transform { tile =>
-      if(tile.modsWithDuration.isEmpty)tile
-      else tile.copy(modsWithDuration = Nil)
+      val newtile = tile.terrain match {
+        case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Mist =>
+          tile
+        case Earthquake | Firestorm | Flood | Whirlwind =>
+          Tile(Ground, modsWithDuration = tile.modsWithDuration)
+      }
+
+      if(newtile.modsWithDuration.isEmpty) newtile
+      else newtile.copy(modsWithDuration = Nil)
     }
+
     //Remove all pieces and reinforcements
     pieces.transform { _ => Nil }
     pieceById = Map()
