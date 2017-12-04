@@ -49,12 +49,33 @@ class Client() {
 
   // Whether we are viewing the all chat or the team chat
   var allChat = true
-  var lastMessageSeen: Int = 0
+  var numMessagesSeen: Int = 0
   var allMessages: List[String] = Nil
   var teamMessages: List[String] = Nil
+  var allUnread = false
+  var teamUnread = false
+
+  def setAllUnread(b: Boolean): Unit = {
+    allUnread = b
+    if(allUnread)
+      jQuery("#global-chat-button").addClass("unread")
+    else
+      jQuery("#global-chat-button").removeClass("unread")
+    ()
+  }
+  def setTeamUnread(b: Boolean): Unit = {
+    teamUnread = b
+    if(teamUnread)
+      jQuery("#team-chat-button").addClass("unread")
+    else
+      jQuery("#team-chat-button").removeClass("unread")
+    ()
+  }
 
   def scrollMessages(): Unit = {
     messages.scrollTop = messages.scrollHeight.toDouble
+    if(allChat) setAllUnread(false)
+    else setTeamUnread(false)
   }
 
   def scrollMessagesIfAtEnd(): Unit = {
@@ -77,12 +98,24 @@ class Client() {
     jQuery("#board").addClass("errorborder")
     gotFatalError = true
   }
+  def updateChat(): Unit = {
+    val visibleMessages = if(allChat) allMessages else teamMessages
+    if(numMessagesSeen > visibleMessages.length)
+      resetChat()
+    else {
+      for(i <- numMessagesSeen until visibleMessages.length) {
+        reportMessage(visibleMessages(i))
+      }
+      numMessagesSeen = visibleMessages.length
+      scrollMessagesIfAtEnd()
+    }
+  }
   def resetChat(): Unit = {
     messages.value = ""
     val visibleMessages = if(allChat) allMessages else teamMessages
-    visibleMessages.foreach { s =>
-      reportMessage(s)
-    }
+    visibleMessages.foreach { s => reportMessage(s) }
+    numMessagesSeen = visibleMessages.length
+    scrollMessages()
   }
 
   def setAllChat(b: Boolean): Unit = {
@@ -98,9 +131,21 @@ class Client() {
     resetChat()
   }
 
+  def resetPlayers(players: SideArray[List[String]], spectators: List[String]): Unit = {
+    val blueMessage = "BLUE TEAM: " + players(S0).mkString(",")
+    val redMessage = "RED TEAM: " + players(S1).mkString(",")
+    val spectatorMessage = "SPECTATORS: " + spectators.mkString(",")
+
+    playersBox.value = ""
+    playersBox.value += blueMessage + "\n"
+    playersBox.value += redMessage + "\n"
+    playersBox.value += spectatorMessage + "\n"
+  }
+
   val canvas = jQuery("#board").get(0).asInstanceOf[Canvas]
   val ctx = canvas.getContext("2d").asInstanceOf[CanvasRenderingContext2D]
   val messages = jQuery("#messages").get(0).asInstanceOf[TextArea]
+  val playersBox = jQuery("#players").get(0).asInstanceOf[TextArea]
   val chat = jQuery("#chat-input").get(0).asInstanceOf[Input]
 
   //State of game, as far as we can tell from the server
@@ -318,10 +363,17 @@ class Client() {
       case Protocol.ReportTimeLeft(timeLeft) =>
         updateEstimatedTurnEndTime(timeLeft)
 
+      case Protocol.Players(players,spectators) =>
+        resetPlayers(players,spectators)
+
       case Protocol.Messages(all, team) =>
+        if(all.length != allMessages.length)
+          setAllUnread(true)
+        if(team.length != teamMessages.length)
+          setTeamUnread(true)
         allMessages = all
         teamMessages = team
-        resetChat()
+        updateChat()
     }
   }
 
@@ -529,6 +581,15 @@ class Client() {
   }
   jQuery("#team-chat-button").click { (_: JQueryEventObject) =>
     setAllChat(false)
+  }
+
+  jQuery("#messages").scroll { (_: JQueryEventObject) =>
+    if(messages.scrollHeight - messages.scrollTop <= messages.clientHeight + 20) {
+      if(allChat)
+        setAllUnread(false)
+      else
+        setTeamUnread(false)
+    }
   }
 
   window.addEventListener("blur", onBlur)

@@ -261,8 +261,8 @@ object ServerMain extends App {
         out ! response
       }
     }
-    private def broadcastMessages(): Unit = {
-      var spectators= List[String]()
+    private def broadcastPlayers(): Unit = {
+      var spectators = List[String]()
       val players = SideArray.create(List[String]())
 
       userSides.foreach { case (sid, side) =>
@@ -272,15 +272,14 @@ object ServerMain extends App {
           case Some(side) => players(side) = players(side) :+ username
         }
       }
-      val blueMessage = "BLUE TEAM: " + players(S0).mkString(",")
-      val redMessage = "RED TEAM: " + players(S1).mkString(",")
-      val spectatorMessage = if(spectators.isEmpty) List() else List("SPECTATORS: " + spectators.mkString(","))
-
-      val toAll = allMessages ++ List(blueMessage, redMessage) ++ spectatorMessage
-
-      broadcastToSide(Protocol.Messages(toAll, teamMessages(S0)), S0)
-      broadcastToSide(Protocol.Messages(toAll, teamMessages(S1)), S1)
-      broadcastToSpectators(Protocol.Messages(toAll, spectatorMessages))
+      broadcastToSide(Protocol.Players(players,spectators),S0)
+      broadcastToSide(Protocol.Players(players,spectators),S1)
+      broadcastToSpectators(Protocol.Players(players,spectators))
+    }
+    private def broadcastMessages(): Unit = {
+      broadcastToSide(Protocol.Messages(allMessages, teamMessages(S0)), S0)
+      broadcastToSide(Protocol.Messages(allMessages, teamMessages(S1)), S1)
+      broadcastToSpectators(Protocol.Messages(allMessages, spectatorMessages))
     }
 
     private def performAndBroadcastGameActionIfLegal(gameAction: GameAction): Try[Unit] = {
@@ -707,6 +706,7 @@ object ServerMain extends App {
         getTimeLeftEvent().foreach { response => out ! response }
         log("UserJoined: " + username + " Side: " + side)
         broadcastAll(Protocol.UserJoined(username,side))
+        broadcastPlayers()
         broadcastMessages()
 
       case UserLeft(sessionId) =>
@@ -720,6 +720,7 @@ object ServerMain extends App {
           out ! Status.Success("")
           log("UserLeft: " + username + " Side: " + side)
           broadcastAll(Protocol.UserLeft(username,side))
+          broadcastPlayers()
           broadcastMessages()
         }
       case QueryStr(sessionId, queryStr) =>

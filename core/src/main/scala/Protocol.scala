@@ -11,6 +11,7 @@ object Protocol {
   case class Version(version: String) extends Response
   case class QueryError(err: String) extends Response
   case class Messages(all: List[String], team: List[String]) extends Response
+  case class Players(players: SideArray[List[String]], spectators: List[String]) extends Response
   case class ClientHeartbeatRate(periodInSeconds: Double) extends Response
   case class OkHeartbeat(i: Int) extends Response
   case class Initialize(game: Game, summaries: Array[BoardSummary], boardNames: Array[String], boardSequences: Array[Int]) extends Response
@@ -468,6 +469,7 @@ object Protocol {
   implicit val clientHeartbeatRateFormat = Json.format[ClientHeartbeatRate]
   implicit val okHeartbeatFormat = Json.format[OkHeartbeat]
   implicit val messagesFormat = Json.format[Messages]
+  implicit val playersFormat = Json.format[Players]
   implicit val initializeFormat = Json.format[Initialize]
   implicit val userJoinedFormat = Json.format[UserJoined]
   implicit val userLeftFormat = Json.format[UserLeft]
@@ -487,6 +489,7 @@ object Protocol {
       "ClientHeartbeatRate" -> ((json:JsValue) => clientHeartbeatRateFormat.reads(json)),
       "OkHeartbeat" -> ((json:JsValue) => okHeartbeatFormat.reads(json)),
       "Messages" -> ((json:JsValue) => messagesFormat.reads(json)),
+      "Players" -> ((json:JsValue) => playersFormat.reads(json)),
       "Initialize" -> ((json:JsValue) => initializeFormat.reads(json)),
       "UserJoined" -> ((json:JsValue) => userJoinedFormat.reads(json)),
       "UserLeft" -> ((json:JsValue) => userLeftFormat.reads(json)),
@@ -507,6 +510,7 @@ object Protocol {
         case (t:ClientHeartbeatRate) => jsPair("ClientHeartbeatRate",clientHeartbeatRateFormat.writes(t))
         case (t:OkHeartbeat) => jsPair("OkHeartbeat",okHeartbeatFormat.writes(t))
         case (t:Messages) => jsPair("Messages",messagesFormat.writes(t))
+        case (t:Players) => jsPair("Players",playersFormat.writes(t))
         case (t:Initialize) => jsPair("Initialize",initializeFormat.writes(t))
         case (t:UserJoined) => jsPair("UserJoined",userJoinedFormat.writes(t))
         case (t:UserLeft) => jsPair("UserLeft",userLeftFormat.writes(t))

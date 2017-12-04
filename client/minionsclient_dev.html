@@ -40,6 +40,9 @@
         flex-flow:row;
         height:25px;
       }
+      #players {
+        overflow:hidden;
+      }
       #messages {
         flex-grow:1;
       }
@@ -86,6 +89,10 @@
       #team-chat-button {
         outline:0;
       }
+      button.unread {
+        border:3px solid #8899ff;
+      }
+
     </style>
   </head>
   <body>
@@ -93,9 +100,10 @@
     <canvas id="board" oncontextmenu="return false;"></canvas>
     <div id="chat">
       <div id="chat-tab-panel">
-	<button id="global-chat-button">Global Chat</button>
-	<button id="team-chat-button">Team Chat</button>
+  <button id="global-chat-button">Global Chat</button>
+  <button id="team-chat-button">Team Chat</button>
       </div>
+      <textarea id="players" rows="3" readonly></textarea>
       <textarea id="messages" readonly></textarea>
       <input id="chat-input" type="text"></input>
     </div>
@@ -113,7 +121,7 @@
         <span style="flex-grow:1"></span>
       </span>
       <span style="flex-grow:1"></span>
-   </div>
+    </div>
   </div>
   </body>
 </html>
