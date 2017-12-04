@@ -330,9 +330,15 @@ object Drawing {
           if(stats.isNecromancer && stats.defense.isEmpty) {
             // Immortal necromancer cannot be killed
           } else if(stats.isNecromancer && stats.swarmMax > 1) {
-            show("If they all die, you lose the board!")
+            if(side.map(_.opp) == client.ourSide)
+              show("If ANY of them die, you win the board!")
+            else
+              show("If ANY of them die, you lose the board!")
           } else if(stats.isNecromancer) {
-            show("If it dies, you lose the board!")
+            if(side.map(_.opp) == client.ourSide)
+              show("If it dies, you win the board!")
+            else
+              show("If it dies, you lose the board!")
           } else {
             val costStr = "Cost: " + stats.cost + " souls"
             stats.deathSpawn match {

@@ -1513,11 +1513,10 @@ case class BoardState private (
       }
     }
 
-    //Check for necromancers win condition
-    val opp = side.opp
-    if(!pieceById.values.exists { piece => piece.side == opp && piece.baseStats.isNecromancer }) {
+    //Check for necromancers win condition - win when one is killed
+    //(does not check side, simply relies on there not being a way to kill own necro on your turn)
+    if(pieceStats.isNecromancer)
       hasWon = true
-    }
   }
 
   //Kill a piece, for any reason
