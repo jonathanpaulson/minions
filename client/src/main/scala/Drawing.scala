@@ -241,7 +241,7 @@ object Drawing {
       strokeHex(hexLoc, "black", scale, alpha = 0.2 * alpha)
     }
 
-    def drawSpell(hexLoc: HexLoc, scale : Double, side: Option[Side], spellId: Option[SpellId], subLabel: Option[String] = None) : Unit = {
+    def drawSpell(hexLoc: HexLoc, scale : Double, side: Option[Side], spellId: Option[SpellId], subLabel: Option[String] = None, alpha: Double = 1.0) : Unit = {
       val color =
         side match {
           case None => "#aaaaaa"
@@ -254,20 +254,20 @@ object Drawing {
           case Some(S0) => "#0000bb"
           case Some(S1) => "#bb0000"
         }
-      fillHex(hexLoc, color, scale, rectangle=true)
-      strokeHex(hexLoc, strokeColor, scale, alpha=0.3, rectangle=true)
+      fillHex(hexLoc, color, scale, rectangle=true, alpha=alpha)
+      strokeHex(hexLoc, strokeColor, scale, alpha=0.4*alpha, rectangle=true)
       spellId.foreach { spellId =>
         externalInfo.spellsRevealed.get(spellId) match {
           case None =>
-            text("Unknown", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
-            text("Spell", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
+            text("Unknown", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black", alpha=alpha)
+            text("Spell", PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black", alpha=alpha)
           case Some(spellName) =>
             val spell = Spells.spellMap(spellName)
             subLabel match {
-              case None => text(spell.shortDisplayName, hexLoc, "black")
+              case None => text(spell.shortDisplayName, hexLoc, "black", alpha=alpha)
               case Some(subLabel) =>
-                text(spell.shortDisplayName, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black")
-                text(subLabel, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black")
+                text(spell.shortDisplayName, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,-4.0), "black", alpha=alpha)
+                text(subLabel, PixelLoc.ofHexLoc(hexLoc,gridSize) + PixelVec(0,7.0), "black", alpha=alpha)
             }
         }
       }
@@ -837,8 +837,12 @@ object Drawing {
                 upcomingLabeled = true
               }
             }
-          val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
-          drawSpell(hexLoc, spellScale, spellSide, Some(spellId))
+            val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
+
+            if(board.hasGainedSpell && game.spellsToChoose.contains(spellId))
+              drawSpell(hexLoc, spellScale, spellSide, Some(spellId), alpha=0.4)
+            else
+              drawSpell(hexLoc, spellScale, spellSide, Some(spellId), alpha=1.0)
         }
       }
     }
