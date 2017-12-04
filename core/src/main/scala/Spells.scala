@@ -269,7 +269,7 @@ case object Spells {
     displayName = "Raise Zombie",
     shortDisplayName = "RZombie",
     desc = List("Spawn a free zombie on target location", "next to a friendly unit."),
-    spellType = NormalSpell,
+    spellType = Cantrip,
     spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, loc: Loc, board: BoardState) =>
       if(board.pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
