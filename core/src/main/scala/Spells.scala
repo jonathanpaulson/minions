@@ -12,12 +12,48 @@ case object Spells {
     desc = List("Deal 1 damage to target minion", "that was dealt damage this turn."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
-    tryCanTarget = { (_: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
+    tryCanTarget = { (_: Side, piece:Piece, board:BoardState) =>
+      if(piece.curStats(board).isNecromancer) Failure(new Exception("Can only target minions"))
       else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
       else Success(())
     },
     effect = Damage(1)
+  )
+
+  val cleaveSunderTarget = { (side: Side, target:Piece, board:BoardState) =>
+    if(target.curStats(board).isNecromancer) Failure(new Exception("Can only target minions"))
+    else if(target.side == side) Failure(new Exception("Can only target enemies"))
+    else {
+      val existsCleaverInRange =
+        board.pieceById.values.exists { piece =>
+          val areEnemies = piece.side != target.side
+          val inRange = board.topology.distance(target.loc, piece.loc) <= piece.curStats(board).attackRange
+          val attackedAnother = piece.attackedPiecesThisTurn.exists { attacked => attacked.id != target.id }
+          areEnemies && inRange && attackedAnother
+        }
+      if(!existsCleaverInRange) Failure(new Exception("No friendly piece in range that attacked a different minion this turn"))
+      else Success(())
+    }
+  }
+  val cleave = TargetedSpell(
+    name = "cleave",
+    displayName = "Cleave",
+    shortDisplayName = "Cleave",
+    desc = List("Deal 1 damage to target minion", "within range of one of your minions", "that attacked a *different* minion this turn"),
+    spellType = NormalSpell,
+    spawnPhaseOnly = false,
+    tryCanTarget = cleaveSunderTarget,
+    effect = Damage(1)
+  )
+  val sunder = TargetedSpell(
+    name = "sunder",
+    displayName = "Sunder",
+    shortDisplayName = "Sunder",
+    desc = List("Deal 2 damage to target minion", "within range of one of your minions", "that attacked a *different* minion this turn"),
+    spellType = Sorcery,
+    spawnPhaseOnly = false,
+    tryCanTarget = cleaveSunderTarget,
+    effect = Damage(2)
   )
 
   val unsummon = TargetedSpell(
@@ -27,12 +63,13 @@ case object Spells {
     desc = List("Unsummon target damaged minion."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
+    tryCanTarget = {(side: Side, piece:Piece, board:BoardState) =>
+      val pieceStats = piece.curStats(board)
       if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
       else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
       else if(pieceStats.isPersistent) Failure(new Exception("Target is persistent"))
       else Success(())
-    ),
+    },
     effect = Unsummon
   )
 
@@ -43,8 +80,8 @@ case object Spells {
     desc = List("Deal 3 damage to target minion", "that was dealt damage this turn."),
     spellType = Sorcery,
     spawnPhaseOnly = false,
-    tryCanTarget = { (_: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(pieceStats.isNecromancer) Failure(new Exception("Can only target minions"))
+    tryCanTarget = { (_: Side, piece:Piece, board:BoardState) =>
+      if(piece.curStats(board).isNecromancer) Failure(new Exception("Can only target minions"))
       else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
       else Success(())
     },
@@ -58,8 +95,8 @@ case object Spells {
     desc = List("Deal 1 damage to target enemy minion."),
     spellType = Sorcery,
     spawnPhaseOnly = false,
-    tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+    tryCanTarget = { (side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side == side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
     },
     effect = Damage(1)
@@ -72,8 +109,8 @@ case object Spells {
     desc = List("Target friendly necromancer can", "attack twice this turn."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side != side || !pieceStats.isNecromancer) Failure(new Exception("Can only target friendly necromancers"))
+    tryCanTarget = ((side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side != side || !piece.curStats(board).isNecromancer) Failure(new Exception("Can only target friendly necromancers"))
       else Success(())
     ),
     effect = Enchant(PieceModWithDuration(PieceMods.DoubleAttack, turnsLeft=Some(1)))
@@ -88,8 +125,8 @@ case object Spells {
     desc = List("Target friendly minion is persistent.", "Double its health until the start", "of your next turn."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
-    tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
+    tryCanTarget = { (side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side != side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else Success(())
     },
     effect = Enchant(PieceModWithDuration(PieceMods.Shielded, turnsLeft=Some(2)))
@@ -102,8 +139,8 @@ case object Spells {
     desc = List("Target friendly minion gets +2 health until", "the end of your next turn."),
     spellType = Cantrip,
     spawnPhaseOnly = false,
-    tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
+    tryCanTarget = { (side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side != side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else Success(())
     },
     effect = Enchant(PieceModWithDuration(PieceMods.Protected, turnsLeft=Some(2)))
@@ -116,8 +153,8 @@ case object Spells {
     desc = List("Target enemy minion cannot attack", "until the start of your next turn"),
     spellType = Sorcery,
     spawnPhaseOnly = false,
-    tryCanTarget = { (side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+    tryCanTarget = { (side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side == side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
     },
     effect = Enchant(PieceModWithDuration(PieceMods.Frozen, turnsLeft=Some(2)))
@@ -130,8 +167,8 @@ case object Spells {
     desc = List("Target enemy minion has -1 attack", "until the start of your next turn", "(minions with < 1 attack cannot attack)."),
     spellType = Cantrip,
     spawnPhaseOnly = false,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+    tryCanTarget = ((side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side == side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
     ),
     effect = Enchant(PieceModWithDuration(PieceMods.Weakened, turnsLeft=Some(2)))
@@ -144,8 +181,8 @@ case object Spells {
     desc = List("Target enemy minion is lumbering", "until the start of your next turn."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+    tryCanTarget = ((side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side == side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
     ),
     effect = Enchant(PieceModWithDuration(PieceMods.Lumbering, turnsLeft=Some(2)))
@@ -158,8 +195,8 @@ case object Spells {
     desc = List("Reduce target enemy minion to move range 1", "and attack range 1 until the start of", "your next turn."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side == side || pieceStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
+    tryCanTarget = ((side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side == side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else Success(())
     ),
     effect = Enchant(PieceModWithDuration(PieceMods.Shackled, turnsLeft=Some(2)))
@@ -242,8 +279,8 @@ case object Spells {
     desc = List("Target friendly minion can spawn", "until end of turn."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
+    tryCanTarget = ((side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side != side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else if(piece.actState == DoneActing) Failure(new Exception("Piece cannot spawn or act this turn"))
       else Success(())
     ),
@@ -257,8 +294,8 @@ case object Spells {
     desc = List("Unsummon target friendly minion,", "even if it is persistent."),
     spellType = NormalSpell,
     spawnPhaseOnly = true,
-    tryCanTarget = ((side: Side, piece:Piece, pieceStats:PieceStats) =>
-      if(piece.side != side || pieceStats.isNecromancer) Failure(new Exception("Can only target friendly minions"))
+    tryCanTarget = ((side: Side, piece:Piece, board:BoardState) =>
+      if(piece.side != side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target friendly minions"))
       else Success(())
     ),
     effect = Unsummon
@@ -400,6 +437,9 @@ case object Spells {
     flood,
     whirlwind,
     normalize,
+
+    cleave,
+    sunder,
   )
   val spellMap: Map[SpellName,Spell] = spells.groupBy(spell => spell.name).mapValues { spells =>
     assert(spells.length == 1)
@@ -435,24 +475,28 @@ case object Spells {
       (flood, 2),
       (whirlwind, 2),
       (normalize, 2),
+
+      (cleave, 2),
+      (sunder, 2),
       // TODO SPELLS:
       // ReinforcementAndLocSpell
       // warp (sorcery) (spawn phase) (2) Spawn target minion in your reinforcements in any empty Ground hex
       // lesser spawn (cantrip) (spawn phase) (2) Spawn target minion in your reinforcements next to target (friendly?) minion
 
+      // NoTargetSpell
+      // Drain (2) (cantrip) - opponent has -1 sorcery power next turn (can sacrifice any unit to pay for it)
+      // Rising horde (sorcery) (2) - all your units have spawn
+
       // terraform (spawn phase) (2) Move one of the four terrain tiles to target empty Ground hex
 
       // PieceAndPieceSpell
-      // Cleave (2) - Target minion does 1 damage to a minion in range iff it also attacked a different minion in range
-      // Sunder (2) (sorcery) - Target minions does 2 damage to a minion in range iff it also attacked a different minion in range
       // Critical hit (sorcery) (2) - Target minion takes damage from the previous attack again
       // Portal (spawn phase) (2) exchange the position of two friendly minions
 
-      // Stored Strength (2) - exchange this for one of the spells in the spell row
-      // Drain (2) (cantrip) - opponent has -1 sorcery power next turn (can sacrifice any unit to pay for it)
       // Fireball (2) - Pick a hex. Any enemy units there at the end of your opponent's turn are destroyed
+
+      // Stored Strength (2) - exchange this for one of the spells in the spell row
       // Repeat (2) (sorcery) - take a spell you played this turn back into your hand
-      // Rising horde (sorcery) (2) - all your units have spawn
       // Ward (2) - Your necromancer(s?) and all adjacent minions get +1 health
     ).flatMap {case (spell:Spell, count:Int) =>
       List.fill(count)(spell.name)

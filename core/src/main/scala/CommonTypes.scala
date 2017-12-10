@@ -269,7 +269,7 @@ case class TargetedSpell(
   val desc: List[String],
   val spellType: SpellType,
   val spawnPhaseOnly: Boolean,
-  val tryCanTarget: (Side, Piece, PieceStats) => Try[Unit], //(spell caster side, target, target current stats)
+  val tryCanTarget: (Side, Piece, BoardState) => Try[Unit], //(spell caster side, target, board)
   val effect: TargetEffect
 ) extends Spell {
   override def equals(o: Any): Boolean = super.equals(o)
@@ -287,7 +287,7 @@ case class TileSpell(
   val desc: List[String],
   val spellType: SpellType,
   val spawnPhaseOnly: Boolean,
-  val tryCanTarget: (Side, Loc, BoardState) => Try[Unit], //(spell caster side, tile, pieces on tile)
+  val tryCanTarget: (Side, Loc, BoardState) => Try[Unit], //(spell caster side, tile, board)
   val effect: ((BoardState,Loc) => Unit)
 ) extends Spell {
   override def equals(o: Any): Boolean = super.equals(o)

@@ -1330,8 +1330,7 @@ object Drawing {
                   spell match {
                     case (spell: TargetedSpell) =>
                       board.pieceById.values.foreach { piece =>
-                        val stats = piece.curStats(board)
-                        spell.tryCanTarget(board.side,piece,stats) match {
+                        spell.tryCanTarget(board.side,piece,board) match {
                           case Failure(_) => ()
                           case Success(()) => highlightPiece(piece)
                         }

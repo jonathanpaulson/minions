@@ -214,6 +214,7 @@ object Piece {
       actState = DoneActing,
       hasMoved = false,
       hasAttacked = false,
+      attackedPiecesThisTurn = List(),
       spawnedThisTurn = Some(SpawnedThisTurn(pieceName,loc,nthAtLoc))
     )
   }
@@ -232,6 +233,7 @@ case class Piece private (
   //Indicates what this piece actually DID do this turn so far.
   var hasMoved: Boolean,
   var hasAttacked: Boolean,
+  var attackedPiecesThisTurn: List[Piece],
   //If the piece was newly spawned this turn
   var spawnedThisTurn: Option[SpawnedThisTurn]
 ) {
@@ -246,6 +248,7 @@ case class Piece private (
       hasMoved = hasMoved,
       actState = actState,
       hasAttacked = hasAttacked,
+      attackedPiecesThisTurn = attackedPiecesThisTurn,
       spawnedThisTurn = spawnedThisTurn
     )
   }
@@ -1108,7 +1111,7 @@ case class BoardState private (
       case (spell: TargetedSpell) =>
         findPiece(targets.target0) match {
           case None => failed("No target specified for spell")
-          case Some(target) => spell.tryCanTarget(side,target,target.curStats(this))
+          case Some(target) => spell.tryCanTarget(side,target,this)
         }
       case (spell: TileSpell) =>
         if(!tiles.inBounds(targets.loc0)) failed("Target location not in bounds")
@@ -1353,6 +1356,7 @@ case class BoardState private (
         val attackerStats = attacker.curStats(this)
         val attackEffect = attackerStats.attackEffect.get
         applyEffect(attackEffect,target)
+        attacker.attackedPiecesThisTurn = attacker.attackedPiecesThisTurn :+ target
         attacker.hasAttacked = true
         attacker.actState = attacker.actState match {
           case Moving(_) => Attacking(1)
@@ -1562,6 +1566,7 @@ case class BoardState private (
     piece.actState = Moving(0)
     piece.hasMoved = false
     piece.hasAttacked = false
+    piece.attackedPiecesThisTurn = List()
 
     piece.spawnedThisTurn.foreach { spawnedThisTurn => piecesSpawnedThisTurn = piecesSpawnedThisTurn - spawnedThisTurn }
     piece.spawnedThisTurn = None
