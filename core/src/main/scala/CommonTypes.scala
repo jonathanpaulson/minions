@@ -556,7 +556,7 @@ case object ManhattanTopology extends RegularTopology {
   }
 }
 case object HexTopology extends RegularTopology {
-  val adjOffsets: List[Vec] = List(Vec(0,-1),Vec(1,-1),Vec(-1,0),Vec(1,0),Vec(-1,1),Vec(0,1))
+  val adjOffsets: List[Vec] = List(Vec(0,-1),Vec(1,-1),Vec(1,0),Vec(0,1),Vec(-1,1),Vec(-1,0))
   def distance(loc0: Loc, loc1: Loc): Int = {
     Math.max(Math.max(Math.abs(loc1.x-loc0.x),Math.abs(loc1.y-loc0.y)),Math.abs((loc1.y-loc0.y) + (loc1.x-loc0.x)))
   }

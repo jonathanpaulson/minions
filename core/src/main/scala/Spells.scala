@@ -374,7 +374,7 @@ case object Spells {
   val whirlwind = TileSpell(
     name = "whirlwind",
     displayName = "Whirlwind",
-    shortDisplayName = "Wind",
+    shortDisplayName = "Air",
     desc = List("Move the Whirlwind to target empty Ground hex", "(only passable by persistent unit types)"),
     spellType = NormalSpell,
     spawnPhaseOnly = true,
