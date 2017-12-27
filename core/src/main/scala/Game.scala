@@ -92,7 +92,7 @@ case object Game {
     startingSide: Side,
     startingMana: SideArray[Int],
     extraTechCost: Int,
-    extraManaPerTurn: Int,
+    extraManaPerTurn: SideArray[Int],
     techsAlwaysAcquired: Array[Tech],
     lockedTechs: Array[(Tech,Int)]
   ) = {
@@ -168,7 +168,7 @@ case class Game (
 
   val targetNumWins: Int,
   val extraTechCost: Int,
-  val extraManaPerTurn: Int,
+  val extraManaPerTurn: SideArray[Int],
 
   //Flags set when user indicates that the board is done. Server ends the turn when all boards have this set.
   val isBoardDone: Array[Boolean],
@@ -270,7 +270,7 @@ case class Game (
     numTechsThisTurn = 0
     extraTechsAndSpellsThisTurn = 0
 
-    mana(curSide) += extraManaPerTurn
+    mana(curSide) += extraManaPerTurn(curSide)
 
     newTechsThisTurn = Vector()
     techLine.foreach { techState =>

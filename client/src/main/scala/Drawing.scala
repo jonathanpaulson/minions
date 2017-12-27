@@ -655,7 +655,7 @@ object Drawing {
       val mana = boards.foldLeft(game.mana(side)) { case (sum,board) =>
         sum + board.curState.manaThisRound(side)
       }
-      val newMana = boards.foldLeft(game.extraManaPerTurn) { case (sum, board) =>
+      val newMana = boards.foldLeft(game.extraManaPerTurn(side)) { case (sum, board) =>
         sum + board.curState.endOfTurnMana(side)
       }
 

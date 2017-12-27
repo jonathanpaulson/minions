@@ -61,7 +61,7 @@ object ServerMain extends App {
   case class ShouldReportTimeLeft() extends GameActorEvent
   case class StartGame() extends GameActorEvent
 
-  private class GameActor(blueSeconds: Double, redSeconds: Double, targetWins: Int, blueMana: Int, redMana: Int, techMana: Int, maps_opt: Option[List[String]], seed_opt: Option[Long]) extends Actor {
+  private class GameActor(secondsPerTurn: SideArray[Double], startingManaPerBoard: SideArray[Int], extraManaPerTurn: SideArray[Int], targetWins: Int, techMana: Int, maps_opt: Option[List[String]], seed_opt: Option[Long]) extends Actor {
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
     //to the players logged into the server
     var usernameOfSession: Map[Int,String] = Map()
@@ -81,14 +81,14 @@ object ServerMain extends App {
       }
     }
     val setupRand = Rand(randSeed)
-    val spellRands = SideArray.ofArrayInplace(Array(
+    val spellRands = SideArray.createTwo(
       Rand(RandUtils.sha256Long(randSeed + "#spell0")),
       Rand(RandUtils.sha256Long(randSeed + "#spell1"))
-    ))
-    val necroRands = SideArray.ofArrayInplace(Array(
+    )
+    val necroRands = SideArray.createTwo(
       Rand(RandUtils.sha256Long(randSeed + "#necro0")),
       Rand(RandUtils.sha256Long(randSeed + "#necro1"))
-    ))
+    )
 
     //----------------------------------------------------------------------------------
     //GAME AND BOARD SETUP
@@ -115,9 +115,7 @@ object ServerMain extends App {
     val numBoards = chosenMaps.length
     val game = {
       val targetNumWins = targetWins
-      val startingMana = SideArray.create(0)
-      startingMana(S0) = blueMana * numBoards
-      startingMana(S1) = redMana * numBoards
+      val startingMana = startingManaPerBoard.map(x => x*numBoards)
       val techsAlwaysAcquired: Array[Tech] =
         Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
       val lockedTechs: Array[(Tech,Int)] = {
@@ -142,7 +140,6 @@ object ServerMain extends App {
         }
       }
       val extraTechCost = techMana * numBoards
-      val extraManaPerTurn = config.getInt("app.extraManaPerTurn")
 
       val game = Game(
         numBoards = numBoards,
@@ -227,7 +224,6 @@ object ServerMain extends App {
 
     //----------------------------------------------------------------------------------
     //TIME LIMITS
-    val secondsPerTurn = SideArray.ofArrayInplace(Array(blueSeconds, redSeconds))
     //Server reports time left every this often
     val reportTimePeriod = 5.0
     def getNow(): Double = {
@@ -860,6 +856,8 @@ object ServerMain extends App {
       val targetNumWins = config.getInt("app.targetNumWins")
       val blueStartingMana = config.getInt("app.s0StartingManaPerBoard")
       val redStartingMana = config.getInt("app.s1StartingManaPerBoard")
+      val blueManaPerTurn = config.getInt("app.s0ExtraManaPerTurn")
+      val redManaPerTurn = config.getInt("app.s1ExtraManaPerTurn")
       val extraTechCost = config.getInt("app.extraTechCostPerBoard")
 
       val map_html =
@@ -880,21 +878,25 @@ object ServerMain extends App {
           <form method=post>
             <p><label>Game name </label><input type="text" name="game" value=$game></input>
             <p><label>Password (optional) </label><input type="text" name="password"></input>
-            <p><label>Random seed (optional) </label><input type="text" name="seed"></input><br>
 
             <p><label>Blue seconds per turn </label><input type="text" name=blueSeconds value=$blueSecondsPerTurn></input><br>
             <p><label>Red seconds per turn </label><input type="text" name=redSeconds value=$redSecondsPerTurn></input><br>
 
             <p><label>Points to win </label><input type="text" name=targetWins value=$targetNumWins></input><br>
 
-            <p><label>Blue starting mana per board&nbsp&nbsp </label><input type="text" name=blueMana value=$blueStartingMana></input><br>
-            <p><label>Red starting mana per board </label><input type="text" name=redMana value=$redStartingMana></input><br>
-
-            <p><label>Tech cost per board </label><input type="text" name=techMana value=$extraTechCost></input><br>
 
             <p>&nbsp
-            <p><label>Maps (optional)</label>
+            <p><h3>Maps (optional)</h3>
             $map_html
+
+            <p>&nbsp
+            <p><h3>Advanced Options</h3>
+            <p><label>Random seed (optional) </label><input type="text" name="seed"></input><br>
+            <p><label>Blue starting mana per board&nbsp&nbsp </label><input type="text" name=blueMana value=$blueStartingMana></input><br>
+            <p><label>Red starting mana per board </label><input type="text" name=redMana value=$redStartingMana></input><br>
+            <p><label>Blue extra mana per turn&nbsp&nbsp </label><input type="text" name=blueManaPerTurn value=$blueManaPerTurn></input><br>
+            <p><label>Red extra mana per turn</label><input type="text" name=redManaPerTurn value=$redManaPerTurn></input><br>
+            <p><label>Tech cost per board </label><input type="text" name=techMana value=$extraTechCost></input><br>
 
             <p><input type="submit" value="Start Game"></input>
           </form>
@@ -905,33 +907,41 @@ object ServerMain extends App {
         formFields(('game, 'password, 'seed)) { (gameid, password, seed) =>
           formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
             formFields(('blueMana.as[Int], 'redMana.as[Int], 'techMana.as[Int], 'map.*)) { (blueMana, redMana, techMana, maps) =>
-              passwords.get(gameid) match {
-                case Some(_) =>
-                  complete(s"""A game named "$gameid" already exists; pick a different name""")
-                case None =>
-                  val seed_opt = if(seed=="") None else Some(seed.toLong)
-                  val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
-                  val game_actor = actorSystem.actorOf(Props(classOf[GameActor], blueSeconds, redSeconds, targetWins, blueMana, redMana, techMana, maps_opt, seed_opt))
-                  game_actor ! StartGame()
-                  passwords = passwords + (gameid -> (if(password == "") None else Some(password)))
-                  games = games + (gameid -> game_actor)
-                  println("Created game " + gameid)
-                  complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`,
-                    s"""
-                    Created game $gameid
+              formFields(('blueManaPerTurn.as[Int], 'redManaPerTurn.as[Int])) { (blueManaPerTurn, redManaPerTurn) =>
+                passwords.get(gameid) match {
+                  case Some(_) =>
+                    complete(s"""A game named "$gameid" already exists; pick a different name""")
+                  case None =>
+                    val seed_opt = if(seed=="") None else Some(seed.toLong)
+                    val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
+                    val startingMana = SideArray.createTwo(blueMana, redMana)
+                    val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
+                    val extraManaPerTurn = SideArray.createTwo(blueManaPerTurn, redManaPerTurn)
+                    val game_actor = actorSystem.actorOf(Props(classOf[GameActor], secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt))
+                    game_actor ! StartGame()
+                    passwords = passwords + (gameid -> (if(password == "") None else Some(password)))
+                    games = games + (gameid -> game_actor)
+                    println("Created game " + gameid)
+                    complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`,
+                      s"""
+                      Created game $gameid
 
-                    password=$password
-                    seed=$seed_opt
-                    blueSeconds=$blueSeconds
-                    redSeconds=$redSeconds
-                    targetWins=$targetWins
-                    blueMana=$blueMana
-                    redMana=$redMana
-                    techMana=$techMana
-                    maps=$maps_opt
-                    seed=$seed_opt
-                    """
-                    ))
+                      password=$password
+                      seed=$seed_opt
+                      blueSeconds=$blueSeconds
+                      redSeconds=$redSeconds
+                      targetWins=$targetWins
+                      techMana=$techMana
+                      maps=$maps_opt
+                      seed=$seed_opt
+
+                      blueMana=$blueMana
+                      redMana=$redMana
+                      blueManaPerTurn=$blueManaPerTurn
+                      redManaPerTurn=$redManaPerTurn
+                      """
+                      ))
+                }
               }
             }
           }
@@ -955,5 +965,4 @@ object ServerMain extends App {
       log("Done")
       actorSystem.terminate()
   }
-
 }
