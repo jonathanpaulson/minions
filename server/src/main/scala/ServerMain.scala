@@ -12,7 +12,7 @@ import akka.actor.{ActorSystem, Actor, ActorRef, Cancellable, Terminated, Props,
 import akka.stream.{ActorMaterializer,OverflowStrategy}
 import akka.stream.scaladsl.{Flow,Sink,Source}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ContentTypes,HttpEntity}
+import akka.http.scaladsl.model.{ContentTypes,HttpEntity,StatusCodes}
 import akka.http.scaladsl.model.ws.{Message,TextMessage}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives._
@@ -20,6 +20,10 @@ import akka.event.Logging
 
 import minionsgame.core._
 import RichImplicits._
+
+import akka.http.scaladsl.Http
+import play.api.libs.json._
+import akka.stream.scaladsl.Keep
 
 object Paths {
   val applicationConf = "./application.conf"
@@ -61,7 +65,42 @@ object ServerMain extends App {
   case class ShouldReportTimeLeft() extends GameActorEvent
   case class StartGame() extends GameActorEvent
 
-  private class GameActor(secondsPerTurn: SideArray[Double], startingManaPerBoard: SideArray[Int], extraManaPerTurn: SideArray[Int], targetWins: Int, techMana: Int, maps_opt: Option[List[String]], seed_opt: Option[Long]) extends Actor {
+  private class AIActor(out: ActorRef, game: GameState) extends Actor {
+    var name = "igor"
+    var side = Some(S1)
+    var step = 0
+    override def receive: Receive = {
+      case Protocol.UserJoined(username, side) =>
+        side match {
+          case None => ()
+          case Some(S0) =>
+            out ! Protocol.Chat(name, side, true, s"Hello $username. Welcome to Minions of Darkness!")
+            out ! Protocol.Chat(name, side, true, s"You currently occupy the top left of the board.")
+            out ! Protocol.Chat(name, side, true, s"You begin the game with your necromancer and six zombies.")
+            out ! Protocol.Chat(name, side, true, s"Move units by clicking on them and dragging them to a new hex.")
+            out ! Protocol.Chat(name, side, true, s"Undo by right-clicking on the unit.")
+            out ! Protocol.Chat(name, side, true, s"For now, move zombies onto the two nearby graveyards.")
+          case Some(S1) => ()
+        }
+      case _ => {
+        if(step == 0 && game.boards(0).curState.endOfTurnMana(S0) == 4) {
+          step = 1
+          out ! Protocol.Chat(name, side, true, s"You now control the first graveyard.")
+          out ! Protocol.Chat(name, side, true, s"Your souls per turn went from 3 to 4.")
+          out ! Protocol.Chat(name, side, true, s"Each graveyard you control gives you +1 soul at the end of your turn.")
+          out ! Protocol.Chat(name, side, true, s"Souls are the most important resource in the game.")
+          out ! Protocol.Chat(name, side, true, s"You can spend them to buy more units or unlock new types of units.")
+          out ! Protocol.Chat(name, side, true, s"Claim the other graveyard.")
+        } else if(step <=1 && game.boards(0).curState.endOfTurnMana(S0) == 5) {
+          step = 2
+          out ! Protocol.Chat("igor", Some(S1), true, s"You now control both graveyards, and earn 5 souls per turn.")
+        }
+      }
+    }
+  }
+
+  private class GameState(secondsPerTurn: SideArray[Double], startingManaPerBoard: SideArray[Int], extraManaPerTurn: SideArray[Int], targetWins: Int, techMana: Int, maps_opt: Option[List[String]], seed_opt: Option[Long]) {
+
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
     //to the players logged into the server
     var usernameOfSession: Map[Int,String] = Map()
@@ -223,41 +262,26 @@ object ServerMain extends App {
     val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
 
     //----------------------------------------------------------------------------------
-    //TIME LIMITS
-    //Server reports time left every this often
-    val reportTimePeriod = 5.0
-    def getNow(): Double = {
-      System.currentTimeMillis.toDouble / 1000.0
-    }
-    var endOfTurnTime: Option[Double] = None
 
 
     //----------------------------------------------------------------------------------
 
-    val timeReportJob: Cancellable = {
-      import scala.concurrent.duration._
-      import scala.language.postfixOps
-      actorSystem.scheduler.schedule(reportTimePeriod seconds, reportTimePeriod seconds) {
-        self ! ShouldReportTimeLeft()
-      }
-    }
-
-    private def broadcastToSpectators(response: Protocol.Response): Unit = {
+    def broadcastToSpectators(response: Protocol.Response): Unit = {
       userOuts.foreach { case (sid,out) =>
         if(userSides(sid).isEmpty) out ! response
       }
     }
-    private def broadcastToSide(response: Protocol.Response, side: Side): Unit = {
+    def broadcastToSide(response: Protocol.Response, side: Side): Unit = {
       userOuts.foreach { case (sid,out) =>
         if(userSides(sid).contains(side)) out ! response
       }
     }
-    private def broadcastAll(response: Protocol.Response): Unit = {
+    def broadcastAll(response: Protocol.Response): Unit = {
       userOuts.foreach { case (_,out) =>
         out ! response
       }
     }
-    private def broadcastPlayers(): Unit = {
+    def broadcastPlayers(): Unit = {
       var spectators = List[String]()
       val players = SideArray.create(List[String]())
 
@@ -272,7 +296,7 @@ object ServerMain extends App {
       broadcastToSide(Protocol.Players(players,spectators),S1)
       broadcastToSpectators(Protocol.Players(players,spectators))
     }
-    private def broadcastMessages(): Unit = {
+    def broadcastMessages(): Unit = {
       broadcastToSide(Protocol.Messages(allMessages, teamMessages(S0)), S0)
       broadcastToSide(Protocol.Messages(allMessages, teamMessages(S1)), S1)
       broadcastToSpectators(Protocol.Messages(allMessages, spectatorMessages))
@@ -332,9 +356,9 @@ object ServerMain extends App {
       broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMove, reinforcements))
     }
 
-    private def maybeDoEndOfTurn(): Unit = {
+    private def maybeDoEndOfTurn(scheduleEndOfTurn: Int => Unit): Unit = {
       if(game.isBoardDone.forall { isDone => isDone })
-        doEndOfTurn()
+        doEndOfTurn(scheduleEndOfTurn)
     }
 
     private def doAddWin(side: Side, boardIdx: Int): Unit = {
@@ -361,7 +385,7 @@ object ServerMain extends App {
         broadcastToSpectators(Protocol.ReportRevealSpells(spellIdsAndNames))
     }
 
-    private def refillUpcomingSpells(): Unit = {
+    def refillUpcomingSpells(): Unit = {
       //Reveal extra spells beyond the end - players get to look ahead a little in the deck
       val extraSpellsRevealed = 10
       Side.foreach { side =>
@@ -387,7 +411,7 @@ object ServerMain extends App {
       }
     }
 
-    private def doEndOfTurn(): Unit = {
+    def doEndOfTurn(scheduleEndOfTurn: Int => Unit): Unit = {
       val oldSide = game.curSide
       val newSide = game.curSide.opp
 
@@ -486,36 +510,7 @@ object ServerMain extends App {
       broadcastMessages()
     }
 
-    private def getTimeLeftEvent(): Option[Protocol.Response] = {
-      if(game.winner.isEmpty) {
-        val timeLeft = endOfTurnTime.map { endOfTurnTime => endOfTurnTime - getNow() }
-        Some(Protocol.ReportTimeLeft(timeLeft))
-      }
-      else {
-        val (_: Boolean) = timeReportJob.cancel()
-        None
-      }
-    }
-
-    private def maybeBroadcastTimeLeft(): Unit = {
-      getTimeLeftEvent().foreach { response =>
-        broadcastAll(response)
-      }
-    }
-
-    private def scheduleEndOfTurn(turnNumber: Int): Unit = {
-      import scala.concurrent.duration._
-      import scala.language.postfixOps
-      endOfTurnTime = Some(getNow() + secondsPerTurn(game.curSide))
-      maybeBroadcastTimeLeft()
-      val (_: Cancellable) = actorSystem.scheduler.scheduleOnce(secondsPerTurn(game.curSide) seconds) {
-        //Make sure to do this via sending event to self, rather than directly, to
-        //take advantage of the actor's synchronization
-        self ! ShouldEndTurn(turnNumber)
-      }
-    }
-
-    private def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side]): Unit = {
+    def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side], scheduleEndOfTurn: Int => Unit): Unit = {
       query match {
         case Protocol.Heartbeat(i) =>
           out ! Protocol.OkHeartbeat(i)
@@ -645,7 +640,7 @@ object ServerMain extends App {
                       allMessages = allMessages :+ ("GAME: Team " + winner.toColorName + " won the game!")
                       broadcastMessages()
                     }
-                    maybeDoEndOfTurn()
+                    maybeDoEndOfTurn(scheduleEndOfTurn)
                 }
               }
           }
@@ -668,22 +663,7 @@ object ServerMain extends App {
       out ! Status.Success("")
     }
 
-    def handleUserLeft(sessionId: Int) = {
-      if(usernameOfSession.contains(sessionId)) {
-        val username = usernameOfSession(sessionId)
-        val side = userSides(sessionId)
-        broadcastAll(Protocol.UserLeft(username,side))
-        val out = userOuts(sessionId)
-        usernameOfSession = usernameOfSession - sessionId
-        userSides = userSides - sessionId
-        userOuts = userOuts - sessionId
-        terminateWebsocket(out)
-        log("UserLeft: " + username + " Side: " + side)
-      }
-    }
-
-    override def receive: Receive = {
-      case UserJoined(sessionId, username, side, out) =>
+    def handleUserJoined(sessionId: Int, username: String, side: Option[Side], out:ActorRef) = {
         usernameOfSession = usernameOfSession + (sessionId -> username)
         userSides = userSides + (sessionId -> side)
         userOuts = userOuts + (sessionId -> out)
@@ -699,29 +679,91 @@ object ServerMain extends App {
         out ! Protocol.ReportRevealSpells(spellIdsAndNames)
 
         out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
-        getTimeLeftEvent().foreach { response => out ! response }
         log("UserJoined: " + username + " Side: " + side)
         broadcastAll(Protocol.UserJoined(username,side))
         broadcastPlayers()
         broadcastMessages()
+    }
+
+    def handleUserLeft(sessionId: Int) = {
+      if(usernameOfSession.contains(sessionId)) {
+        val username = usernameOfSession(sessionId)
+        val side = userSides(sessionId)
+        broadcastAll(Protocol.UserLeft(username,side))
+        val out = userOuts(sessionId)
+        usernameOfSession = usernameOfSession - sessionId
+        userSides = userSides - sessionId
+        userOuts = userOuts - sessionId
+        terminateWebsocket(out)
+        log("UserLeft: " + username + " Side: " + side)
+        broadcastAll(Protocol.UserLeft(username,side))
+        broadcastPlayers()
+        broadcastMessages()
+      }
+    }
+
+    def currentSideSecondsPerTurn(): Double = {
+      secondsPerTurn(game.curSide)
+    }
+  }
+
+  private class GameActor(state: GameState) extends Actor {
+    //TIME LIMITS
+    //Server reports time left every this often
+    val reportTimePeriod = 5.0
+    var endOfTurnTime: Option[Double] = None
+    def getNow(): Double = {
+      System.currentTimeMillis.toDouble / 1000.0
+    }
+
+    private def getTimeLeftEvent(): Option[Protocol.Response] = {
+      if(state.game.winner.isEmpty) {
+        val timeLeft = endOfTurnTime.map { endOfTurnTime => endOfTurnTime - getNow() }
+        Some(Protocol.ReportTimeLeft(timeLeft))
+      }
+      else {
+        val (_: Boolean) = timeReportJob.cancel()
+        None
+      }
+    }
+
+    private def maybeBroadcastTimeLeft(): Unit = {
+      getTimeLeftEvent().foreach { response =>
+        state.broadcastAll(response)
+      }
+    }
+
+    private def scheduleEndOfTurn(turnNumber: Int): Unit = {
+      import scala.concurrent.duration._
+      import scala.language.postfixOps
+      endOfTurnTime = Some(getNow() + state.currentSideSecondsPerTurn)
+      maybeBroadcastTimeLeft()
+      val (_: Cancellable) = actorSystem.scheduler.scheduleOnce(state.currentSideSecondsPerTurn() seconds) {
+        //Make sure to do this via sending event to self, rather than directly, to
+        //take advantage of the actor's synchronization
+        self ! ShouldEndTurn(turnNumber)
+      }
+    }
+
+    val timeReportJob: Cancellable = {
+      import scala.concurrent.duration._
+      import scala.language.postfixOps
+      actorSystem.scheduler.schedule(reportTimePeriod seconds, reportTimePeriod seconds) {
+        self ! ShouldReportTimeLeft()
+      }
+    }
+
+    override def receive: Receive = {
+      case UserJoined(sessionId, username, side, out) =>
+        state.handleUserJoined(sessionId, username, side, out)
+        getTimeLeftEvent().foreach { response => out ! response }
 
       case UserLeft(sessionId) =>
-        if(usernameOfSession.contains(sessionId)) {
-          val username = usernameOfSession(sessionId)
-          val side = userSides(sessionId)
-          val out = userOuts(sessionId)
-          usernameOfSession = usernameOfSession - sessionId
-          userSides = userSides - sessionId
-          userOuts = userOuts - sessionId
-          out ! Status.Success("")
-          log("UserLeft: " + username + " Side: " + side)
-          broadcastAll(Protocol.UserLeft(username,side))
-          broadcastPlayers()
-          broadcastMessages()
-        }
+        state.handleUserLeft(sessionId)
+
       case QueryStr(sessionId, queryStr) =>
-        if(usernameOfSession.contains(sessionId)) {
-          val out = userOuts(sessionId)
+        if(state.usernameOfSession.contains(sessionId)) {
+          val out = state.userOuts(sessionId)
           import play.api.libs.json._
           Try(Json.parse(queryStr)) match {
             case Failure(err) => out ! Protocol.QueryError("Could not parse as json: " + err.getLocalizedMessage)
@@ -730,21 +772,21 @@ object ServerMain extends App {
                 case (e: JsError) => out ! Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
                 case (s: JsSuccess[Protocol.Query]) =>
                   val query = s.get
-                  handleQuery(query, out, userSides(sessionId))
+                  state.handleQuery(query, out, state.userSides(sessionId), scheduleEndOfTurn)
               }
           }
         }
       case ShouldEndTurn(turnNumberToEnd) =>
-        if(game.turnNumber == turnNumberToEnd && game.winner.isEmpty) {
-          doEndOfTurn()
+        if(state.game.turnNumber == turnNumberToEnd && state.game.winner.isEmpty) {
+          state.doEndOfTurn(scheduleEndOfTurn)
         }
 
       case ShouldReportTimeLeft() =>
         maybeBroadcastTimeLeft()
 
       case StartGame() =>
-        refillUpcomingSpells()
-        game.startGame()
+        state.refillUpcomingSpells()
+        state.game.startGame()
     }
   }
 
@@ -836,6 +878,52 @@ object ServerMain extends App {
       getFromDirectory(Paths.webimg)
     }
   } ~
+  path("tutorial") {
+    val secondsPerTurn = SideArray.create(1000.0)
+    val startingMana = SideArray.createTwo(0, 5)
+    val extraManaPerTurn = SideArray.createTwo(0, 0)
+    val targetWins = 1
+    val techMana = 4
+    val maps_opt = None
+    val seed_opt = None
+
+    val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
+    val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
+    val gameid = "tutorial" + games.size.toString
+    games = games + (gameid -> gameActor)
+    passwords = passwords + (gameid -> None)
+    gameActor ! StartGame()
+
+
+    val (actorRef, pub) = Source.actorRef[Protocol.Query](128, OverflowStrategy.fail).toMat(Sink.asPublisher(false))(Keep.both).run()
+    val source = Source.fromPublisher(pub)
+    val ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState))
+
+    val sink: Sink[Message,_] = {
+        Flow[Message].collect { message: Message =>
+          message match {
+            case TextMessage.Strict(text) =>
+              Future.successful(text)
+            case TextMessage.Streamed(textStream) =>
+              textStream.runFold("")(_ + _)
+          }
+        } .mapAsync(1)((str:Future[String]) => str)
+          .map { (str: String) =>
+            val json = Json.parse(str)
+            json.validate[Protocol.Response] match {
+                case (s: JsSuccess[Protocol.Response]) => s.get
+                case (e: JsError) => Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
+            }
+          }
+          .to(Sink.actorRef[Protocol.Response](ai, onCompleteMessage = Protocol.UserLeft("igor", Some(S1))))
+      }
+
+
+    val flow = websocketMessageFlow(gameid,"igor",Some("1"))
+    source.map { query => TextMessage(Json.stringify(Json.toJson(query))) }.via(flow).to(sink).run()
+
+    redirect(s"/?game=$gameid&username=player&side=0", StatusCodes.SeeOther)
+  } ~
   path("playGame") {
     parameter("username") { username =>
       parameter("game") { gameid =>
@@ -917,10 +1005,11 @@ object ServerMain extends App {
                     val startingMana = SideArray.createTwo(blueMana, redMana)
                     val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
                     val extraManaPerTurn = SideArray.createTwo(blueManaPerTurn, redManaPerTurn)
-                    val game_actor = actorSystem.actorOf(Props(classOf[GameActor], secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt))
-                    game_actor ! StartGame()
+                    val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
+                    val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
+                    gameActor ! StartGame()
                     passwords = passwords + (gameid -> (if(password == "") None else Some(password)))
-                    games = games + (gameid -> game_actor)
+                    games = games + (gameid -> gameActor)
                     println("Created game " + gameid)
                     complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`,
                       s"""
