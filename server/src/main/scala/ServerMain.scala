@@ -66,34 +66,54 @@ object ServerMain extends App {
   case class StartGame() extends GameActorEvent
 
   private class AIActor(out: ActorRef, game: GameState) extends Actor {
-    var name = "igor"
+    var name = "Igor"
     var side = Some(S1)
     var step = 0
+    def chat(message: String) = {
+      out ! Protocol.Chat(name, side, true, message)
+    }
     override def receive: Receive = {
+      case Protocol.ReportTimeLeft(_) => ()
       case Protocol.UserJoined(username, side) =>
         side match {
           case None => ()
           case Some(S0) =>
-            out ! Protocol.Chat(name, side, true, s"Hello $username. Welcome to Minions of Darkness!")
-            out ! Protocol.Chat(name, side, true, s"You currently occupy the top left of the board.")
-            out ! Protocol.Chat(name, side, true, s"You begin the game with your necromancer and six zombies.")
-            out ! Protocol.Chat(name, side, true, s"Move units by clicking on them and dragging them to a new hex.")
-            out ! Protocol.Chat(name, side, true, s"Undo by right-clicking on the unit.")
-            out ! Protocol.Chat(name, side, true, s"For now, move zombies onto the two nearby graveyards.")
+            if(step == 0) {
+              step = 1
+              chat(s"Hello $username. Welcome to Minions of Darkness!")
+              chat("You currently occupy the top left of the board.")
+              chat("You begin the game with your necromancer and six zombies.")
+              chat("Move units by clicking on them and dragging them to a new hex.")
+              chat("Undo by right-clicking on the unit.")
+              chat("For now, move zombies onto the two nearby graveyards.")
+            }
           case Some(S1) => ()
         }
+      case Protocol.ReportNewTurn(S1) =>
+        out ! Protocol.DoGameAction(SetBoardDone(0, true))
       case _ => {
-        if(step == 0 && game.boards(0).curState.endOfTurnMana(S0) == 4) {
-          step = 1
-          out ! Protocol.Chat(name, side, true, s"You now control the first graveyard.")
-          out ! Protocol.Chat(name, side, true, s"Your souls per turn went from 3 to 4.")
-          out ! Protocol.Chat(name, side, true, s"Each graveyard you control gives you +1 soul at the end of your turn.")
-          out ! Protocol.Chat(name, side, true, s"Souls are the most important resource in the game.")
-          out ! Protocol.Chat(name, side, true, s"You can spend them to buy more units or unlock new types of units.")
-          out ! Protocol.Chat(name, side, true, s"Claim the other graveyard.")
-        } else if(step <=1 && game.boards(0).curState.endOfTurnMana(S0) == 5) {
+        val board = game.boards(0).curState
+        if(step == 1 && board.endOfTurnMana(S0) == 4) {
           step = 2
-          out ! Protocol.Chat("igor", Some(S1), true, s"You now control both graveyards, and earn 5 souls per turn.")
+          chat("")
+          chat("You now control the first graveyard.")
+          chat("Your souls per turn went from 3 to 4.")
+          chat("Each graveyard you control gives you +1 soul at the end of your turn.")
+          chat("Souls are the most important resource in the game.")
+          chat("You can spend them to buy more units or unlock new types of units.")
+          chat("Claim the other graveyard.")
+        } else if(step <=2 && board.endOfTurnMana(S0) == 5) {
+          step = 3
+          chat("")
+          chat("You now control both graveyards, and earn 5 souls per turn.")
+          chat("Next, you should choose a spell.")
+        } else if(step == 3 && board.hasGainedSpell) {
+          step = 4
+          chat("")
+          chat("You can undo this choice by right-clicking on the spell (either in your hand or in the spell row)")
+          chat("You can cast the spell by clicking on it and dragging it to a valid target")
+          chat("You can undo casting the spell by right clicking it near the bottom of the screen")
+          chat("That's about all for your first turn! Click 'End Turn'")
         }
       }
     }
