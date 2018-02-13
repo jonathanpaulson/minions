@@ -24,6 +24,34 @@ object ClientMain extends JSApp {
   }
 }
 
+object MainPageMain extends JSApp {
+  def main(): Unit = {
+    jQuery { () => new MainPageClient().init() }
+    ()
+  }
+}
+
+class MainPageClient() {
+  val username = {
+    val params = (new java.net.URI(window.location.href)).getQuery()
+    val fields = params.split("&").flatMap { piece =>
+      case Nil => None
+      case _ :: Nil => None
+      case k :: v :: Nil => Some((k,v))
+      case _ :: _ :: _ :: _ => None
+    }
+    fields("username")
+  }
+
+  def init(): Unit = {
+    ()
+  }
+
+  var messages: List[String] = Nil
+  var numMessagesSeen: Int = 0
+  var unread = false
+}
+
 class Client() {
   val (gameid: String, username: String, password: Option[String], ourSide: Option[Side]) = {
     val params = (new java.net.URI(window.location.href)).getQuery()

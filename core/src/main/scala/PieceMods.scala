@@ -15,6 +15,7 @@ sealed trait PieceMod {
     case PieceMods.DoubleAttack => "DoubleAttack"
     case PieceMods.UnsummonAttack => "UnsummonAttack"
     case PieceMods.MoveThree => "MoveThree"
+    case PieceMods.RangeTwo => "RangeTwo"
     case PieceMods.AirStrike => "AirStrike"
     case PieceMods.Spawner => "Spawner"
     case PieceMods.Lumbering => "Lumbering"
@@ -28,7 +29,7 @@ sealed trait PieceMod {
     case PieceMods.Protected => true
     case PieceMods.DoubleAttack => true
     case PieceMods.UnsummonAttack => true
-    case PieceMods.MoveThree => true
+    case PieceMods.RangeTwo => true
     case PieceMods.AirStrike => true
     case PieceMods.Spawner => true
     case PieceMods.Lumbering => false
@@ -45,7 +46,7 @@ object PieceMod {
       case "Protected" => PieceMods.Protected
       case "DoubleAttack" => PieceMods.DoubleAttack
       case "UnsummonAttack" => PieceMods.UnsummonAttack
-      case "MoveThree" => PieceMods.MoveThree
+      case "RangeTwo" => PieceMods.RangeTwo
       case "AirStrike" => PieceMods.AirStrike
       case "Spawner" => PieceMods.Spawner
       case "Lumbering" => PieceMods.Lumbering
@@ -116,6 +117,17 @@ object PieceMods {
       pieceStats.copy(
         isBaseStats = false,
         moveRange = Math.max(pieceStats.moveRange, 3)
+      )
+    }
+  }
+
+  case object RangeTwo extends PieceMod {
+    val displayName = "Range Two"
+    val desc = "Can attack at range two"
+    def apply(pieceStats : PieceStats): PieceStats = {
+      pieceStats.copy(
+        isBaseStats = false,
+        attackRange = Math.max(pieceStats.attackRange, 2)
       )
     }
   }

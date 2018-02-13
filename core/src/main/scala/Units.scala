@@ -206,21 +206,21 @@ object Units {
 
   val spire = createPieceStats(
     name = "spire",
-    cost = 7,
-    rebate = 4,
-    attackEffect = Some(Damage(4)),
+    cost = 5,
+    rebate = 2,
+    attackEffect = Some(Damage(5)),
     defense = Some(4),
     moveRange = 0,
     attackRange = 1,
-    isPersistent = true
+    spawnRange = Some(1),
   )
 
   val initiate = createPieceStats(
     name = "initiate",
     cost = 5,
     rebate = 3,
-    attackEffect = Some(Damage(5)),
-    defense = Some(5),
+    attackEffect = Some(Damage(4)),
+    defense = Some(4),
     moveRange = 2,
     attackRange = 1,
     spawnRange = Some(1),
@@ -231,7 +231,7 @@ object Units {
     name = "skeleton",
     cost = 4,
     rebate = 2,
-    attackEffect = Some(Damage(5)),
+    attackEffect = Some(Damage(4)),
     defense = Some(2),
     moveRange = 1,
     attackRange = 1,
@@ -245,6 +245,7 @@ object Units {
     defense = Some(1),
     moveRange = 2,
     attackRange = 1,
+    // TODO SPAWN FLOOD
   )
 
   val bat = createPieceStats(
@@ -301,20 +302,31 @@ object Units {
     moveRange = 0,
     attackRange = 3,
     abilities = Map(BlinkAbility.name -> BlinkAbility)
+    // TODO SPAWN Earthquake
   )
 
   val shrieker = createPieceStats(
     name = "shrieker",
-    cost = 2,
-    rebate = 0,
+    cost = 7,
+    rebate = 4,
     attackEffect = Some(Damage(1)),
     defense = Some(2),
-    moveRange = 3,
+    moveRange = 2,
     attackRange = 1,
-    numAttacks = 2,
-    isWailing = true,
-    canHurtNecromancer = false,
-    abilities = Map(SuicideAbility.name -> SuicideAbility)
+    numAttacks = 3,
+    abilities = Map("rangetwo" -> SelfEnchantAbility(
+      name = "rangetwo",
+      displayName = "Range Two (sorcery)",
+      desc = "Pay 1 sorcery power: Range 2",
+      isSorcery = true,
+      tryIsUsableNow = { (piece: Piece) =>
+        piece.actState match {
+          case DoneActing | Spawning => Failure(new Exception("Piece has already finished its turn"))
+          case Moving(_) | Attacking(_) => Success(())
+        }
+      },
+      mod = PieceModWithDuration(PieceMods.RangeTwo, turnsLeft = Some(1))
+    ))
   )
 
   val warg = createPieceStats(
@@ -331,15 +343,16 @@ object Units {
     name = "dark_tower",
     shortDisplayName = "DTower",
     displayName = "Dark Tower",
-    cost = 8,
+    cost = 7,
     rebate = 0,
     deathSpawn = Some(spire.name),
-    attackEffect = Some(Damage(4)),
+    attackEffect = Some(Damage(5)),
     defense = Some(4),
     moveRange = 0,
     attackRange = 2,
     isPersistent = true,
     spawnRange = Some(1)
+    // SPAWN FREE ZOMBIES
   )
 
   val bone_rat = createPieceStats(
@@ -379,13 +392,13 @@ object Units {
 
   val vampire = createPieceStats(
     name = "vampire",
-    cost = 5,
-    rebate = 1,
+    cost = 6,
+    rebate = 3,
     moveRange = 1,
     attackRange = 1,
     numAttacks = 2,
     attackEffect = Some(Damage(1)),
-    defense = Some(4),
+    defense = Some(5),
     isPersistent = true,
     isFlying = true,
     abilities = Map("movethree" -> SelfEnchantAbility(
@@ -437,6 +450,7 @@ object Units {
     attackEffect = Some(Unsummon),
     defense = Some(2),
     abilities = Map(BlinkAbility.name -> BlinkAbility)
+    // SPAWN WHIRLWIND
   )
 
   val hell_hound = createPieceStats(
@@ -450,6 +464,7 @@ object Units {
     attackEffect = Some(Damage(1)),
     defense = Some(2),
     swarmMax = 3,
+    // SPAWN FIRESTORM
   )
 
   val wraith = createPieceStats(
@@ -488,13 +503,12 @@ object Units {
 
   val banshee = createPieceStats(
     name = "banshee",
-    cost = 3,
-    rebate = 0,
+    cost = 6,
+    rebate = 3,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Kill),
     defense = Some(2),
-    isWailing = true,
     canHurtNecromancer = false,
     abilities = Map("scream" -> KillAdjacentAbility)
   )

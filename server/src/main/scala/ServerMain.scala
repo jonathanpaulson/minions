@@ -812,6 +812,7 @@ object ServerMain extends App {
 
   var games = Map[String, ActorRef]()
   var passwords = Map[String, Option[String]]()
+  var globalChat: List[String] = List()
 
   //----------------------------------------------------------------------------------
   //WEBSOCKET MESSAGE HANDLING
@@ -865,6 +866,15 @@ object ServerMain extends App {
 
   val route = get {
     pathEndOrSingleSlash {
+      parameter("username".?) { username =>
+        username match {
+          case None => complete("Please add 'username=<your name>' to the URL")
+          case Some(user) =>
+            complete(s"Welcome to minionsgame.com $user")
+        }
+      }
+    } ~
+    path("play") {
       parameter("game".?) { gameid_opt =>
         parameter("username".?) { username =>
           parameter("password".?) { password =>
@@ -942,7 +952,7 @@ object ServerMain extends App {
     val flow = websocketMessageFlow(gameid,"igor",Some("1"))
     source.map { query => TextMessage(Json.stringify(Json.toJson(query))) }.via(flow).to(sink).run()
 
-    redirect(s"/?game=$gameid&username=player&side=0", StatusCodes.SeeOther)
+    redirect(s"/play?game=$gameid&username=player&side=0", StatusCodes.SeeOther)
   } ~
   path("playGame") {
     parameter("username") { username =>
