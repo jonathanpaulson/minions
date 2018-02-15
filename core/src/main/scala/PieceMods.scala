@@ -30,6 +30,7 @@ sealed trait PieceMod {
     case PieceMods.DoubleAttack => true
     case PieceMods.UnsummonAttack => true
     case PieceMods.RangeTwo => true
+    case PieceMods.MoveThree => true
     case PieceMods.AirStrike => true
     case PieceMods.Spawner => true
     case PieceMods.Lumbering => false
