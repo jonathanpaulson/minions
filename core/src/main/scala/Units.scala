@@ -351,8 +351,8 @@ object Units {
     moveRange = 0,
     attackRange = 2,
     isPersistent = true,
-    spawnRange = Some(1)
-    // SPAWN FREE ZOMBIES
+    spawnRange = Some(1),
+    abilities = Map("zombies" -> SpawnZombiesAbility),
   )
 
   val bone_rat = createPieceStats(

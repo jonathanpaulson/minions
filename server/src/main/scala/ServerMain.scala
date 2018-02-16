@@ -248,7 +248,7 @@ object ServerMain extends App {
          */
          /*state.tiles.foreachi { (loc, tile) =>
             if (tile.terrain == Graveyard) {
-              val _ = state.spawnPieceInitial(S0, Units.fallen_angel.name, loc)
+              val _ = state.spawnPieceInitial(S0, Units.dark_tower.name, loc)
             }
           }*/
           /*

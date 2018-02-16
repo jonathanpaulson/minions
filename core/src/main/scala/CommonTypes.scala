@@ -183,6 +183,14 @@ case object KillAdjacentAbility extends PieceAbility {
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 
+case object SpawnZombiesAbility extends PieceAbility {
+  val name = "spawn_zombies"
+  val displayName = "Spawn Zombies"
+  val desc = "Summons as many zombies as possible around the dark tower"
+  val isSorcery = true
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
+}
+
 //Discard abilities that target the piece itself
 case class SelfEnchantAbility(
   val name: AbilityName,

@@ -1270,6 +1270,7 @@ case class BoardState private (
                   case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) => ()
                   case KillAdjacentAbility =>
                     failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
+                  case SpawnZombiesAbility => ()
                   case (ability:TargetedAbility) =>
                     findPiece(targets.target0) match {
                       case None => fail("No target specified for ability")
@@ -1411,6 +1412,16 @@ case class BoardState private (
             killPiece(piece)
           case BlinkAbility =>
             unsummonPiece(piece)
+          case SpawnZombiesAbility =>
+            println(piece.curStats(this).name)
+            println(piece.loc)
+            pieces.topology.forEachAdj(piece.loc) { loc =>
+              println(loc)
+              spawnPieceInternal(piece.side,Units.zombie.name,loc) match {
+                case Some(_: Piece) => ()
+                case None => ()
+              }
+            }
           case KillAdjacentAbility =>
             pieces.topology.forEachAdj(piece.loc) { loc =>
               pieces(loc).foreach { p =>
