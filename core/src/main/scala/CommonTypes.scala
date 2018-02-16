@@ -186,7 +186,7 @@ case object KillAdjacentAbility extends PieceAbility {
 case object SpawnZombiesAbility extends PieceAbility {
   val name = "spawn_zombies"
   val displayName = "Spawn Zombies"
-  val desc = "Summons as many zombies as possible around the dark tower"
+  val desc = "Spawn a zombie in every adjacent hex"
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
