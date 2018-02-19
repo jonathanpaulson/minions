@@ -187,35 +187,35 @@ case object SpawnZombiesAbility extends PieceAbility {
 case object MoveEarthquake extends PieceAbility {
   val name = "move_earthquake"
   val displayName = "Move Earthquake"
-  val desc = List("Move the Earthquake to target empty Ground hex", "(only passable by unit types with at least two speed)")
+  val desc = List("Move Earthquake (only passable by unit types with >= 2 speed)", "to empty Ground hex within attack range")
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 case object MoveFlood extends PieceAbility {
   val name = "move_flood"
   val displayName = "Move Flood"
-  val desc = List("Move the Flood to target empty Ground hex", "(only passable by flying unit types)")
+  val desc = List("Move Flood (only passable by flying unit types)", "to empty Ground hex within attack range")
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 case object MoveWhirlwind extends PieceAbility {
   val name = "move_whirlwind"
   val displayName = "Move Whirlwind"
-  val desc = List("Move the Whirlwind to target empty Ground hex", "(only passable by persistent unit types)")
+  val desc = List("Move Whirlwind (only passable by persistent unit types)", "to empty Ground hex within attack range")
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 case object MoveFirestorm extends PieceAbility {
   val name = "move_firestorm"
   val displayName = "Move Firestorm"
-  val desc = List("Move the Firestorm to target empty Ground hex", "(only passable by unit types with at least four health)")
+  val desc = List("Move Firestorm (only passable by unit types with >= 4 health)", "to empty Ground hex within attack range")
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 case object MoveTerrain extends PieceAbility {
   val name = "move_terrain"
   val displayName = "Move Terrain"
-  val desc = List("Move any of the four terrain tiles to target empty Ground hex within attack")
+  val desc = List("Move one of the four terrain tiles", "to target empty Ground hex within attack range")
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }

@@ -65,14 +65,30 @@ object Units {
     shortDisplayName = "Necro",
     cost = 0,
     rebate = 0,
-    attackEffect = Some(Unsummon),
-    defense = Some(7),
     moveRange = 1,
     attackRange = 1,
+    attackEffect = Some(Unsummon),
+    defense = Some(7),
+    spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = Some(1),
     extraMana = 3
+  )
+  val swarm_necromancer = createPieceStats(
+    name = "swarm_necromancer",
+    shortDisplayName = "SNec",
+    displayName = "Swarm Necromancer",
+    cost = 0,
+    rebate = 0,
+    moveRange = 1,
+    attackRange = 1,
+    attackEffect = Some(Unsummon),
+    defense = Some(7),
+    spawnRange = Some(1),
+    isPersistent = true,
+    swarmMax = 3,
+    isNecromancer = true,
+    extraMana = 1,
   )
   val arcane_necromancer = createPieceStats(
     name = "arcane_necromancer",
@@ -80,29 +96,14 @@ object Units {
     displayName = "Arcane Necromancer",
     cost = 0,
     rebate = 0,
+    moveRange = 1,
+    attackRange = 0,
     attackEffect = None,
     defense = Some(7),
-    moveRange = 1,
-    attackRange = 1,
+    spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = Some(1),
     extraMana = 5,
-  )
-  val ranged_necromancer = createPieceStats(
-    name = "ranged_necromancer",
-    shortDisplayName = "RngNec",
-    displayName = "Ranged Necromancer",
-    cost = 0,
-    rebate = 0,
-    attackEffect = Some(Unsummon),
-    defense = Some(10),
-    moveRange = 1,
-    attackRange = 3,
-    isPersistent = true,
-    isNecromancer = true,
-    spawnRange = Some(1),
-    extraMana = 3,
   )
   val mounted_necromancer = createPieceStats(
     name = "mounted_necromancer",
@@ -110,29 +111,28 @@ object Units {
     displayName = "Mounted Necromancer",
     cost = 0,
     rebate = 0,
-    attackEffect = Some(Unsummon),
-    defense = Some(7),
     moveRange = 2,
     attackRange = 1,
+    attackEffect = Some(Unsummon),
+    defense = Some(7),
+    spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = Some(1),
     extraMana = 3,
   )
-  val immortal_necromancer = createPieceStats(
-    name = "immortal_necromancer",
-    shortDisplayName = "ImmNec",
-    displayName = "Immortal Necromancer",
+  val ranged_necromancer = createPieceStats(
+    name = "ranged_necromancer",
+    shortDisplayName = "RngNec",
+    displayName = "Ranged Necromancer",
     cost = 0,
     rebate = 0,
-    attackEffect = Some(Unsummon),
-    defense = None,
     moveRange = 1,
-    attackRange = 1,
-    isFlying = true,
+    attackRange = 3,
+    attackEffect = Some(Unsummon),
+    defense = Some(10),
+    spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = Some(1),
     extraMana = 3,
   )
   val deadly_necromancer = createPieceStats(
@@ -141,31 +141,31 @@ object Units {
     displayName = "Deadly Necromancer",
     cost = 0,
     rebate = 0,
-    attackEffect = Some(Kill),
-    defense = Some(10),
     moveRange = 1,
     attackRange = 1,
+    attackEffect = Some(Kill),
+    defense = Some(10),
+    spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = Some(1),
     extraMana = 3,
     canHurtNecromancer = false,
   )
-  val swarm_necromancer = createPieceStats(
-    name = "swarm_necromancer",
-    shortDisplayName = "SNec",
-    displayName = "Swarm Necromancer",
+  val immortal_necromancer = createPieceStats(
+    name = "immortal_necromancer",
+    shortDisplayName = "ImmNec",
+    displayName = "Immortal Necromancer",
     cost = 0,
     rebate = 0,
-    attackEffect = Some(Unsummon),
-    defense = Some(7),
     moveRange = 1,
+    isFlying = true,
     attackRange = 1,
+    attackEffect = Some(Unsummon),
+    defense = None,
+    spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    swarmMax = 3,
-    spawnRange = Some(1),
-    extraMana = 1,
+    extraMana = 3,
   )
   val summoner_necromancer = createPieceStats(
     name = "summoner_necromancer",
@@ -173,36 +173,35 @@ object Units {
     displayName = "Summoner Necromancer",
     cost = 0,
     rebate = 0,
-    attackEffect = Some(Unsummon),
-    defense = Some(7),
     moveRange = 1,
     attackRange = 1,
+    attackEffect = Some(Unsummon),
+    defense = Some(7),
+    spawnRange = Some(2),
     isPersistent = true,
     isNecromancer = true,
-    spawnRange = Some(2),
     extraMana = 3,
   )
-
 
   val zombie = createPieceStats(
     name = "zombie",
     cost = 2,
     rebate = 0,
+    moveRange = 1,
+    isLumbering = true
+    attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(2),
-    moveRange = 1,
-    attackRange = 1,
-    isLumbering = true
   )
 
   val acolyte = createPieceStats(
     name = "acolyte",
     cost = 5,
     rebate = 3,
-    attackEffect = None,
-    defense = Some(2),
     moveRange = 2,
     attackRange = 0,
+    attackEffect = None,
+    defense = Some(2),
     spawnRange = Some(1)
   )
 
@@ -210,10 +209,10 @@ object Units {
     name = "spire",
     cost = 5,
     rebate = 2,
-    attackEffect = Some(Damage(5)),
-    defense = Some(4),
     moveRange = 0,
     attackRange = 1,
+    attackEffect = Some(Damage(5)),
+    defense = Some(4),
     spawnRange = Some(1),
   )
 
@@ -221,32 +220,32 @@ object Units {
     name = "initiate",
     cost = 5,
     rebate = 3,
-    attackEffect = Some(Damage(4)),
-    defense = Some(4),
     moveRange = 2,
-    attackRange = 1,
-    spawnRange = Some(1),
     isLumbering = true
+    attackRange = 1,
+    attackEffect = Some(Damage(5)),
+    defense = Some(5),
+    spawnRange = Some(1),
   )
 
   val skeleton = createPieceStats(
     name = "skeleton",
     cost = 4,
     rebate = 2,
-    attackEffect = Some(Damage(4)),
-    defense = Some(2),
     moveRange = 1,
     attackRange = 1,
+    attackEffect = Some(Damage(5)),
+    defense = Some(2),
   )
 
   val serpent = createPieceStats(
     name = "serpent",
     cost = 5,
     rebate = 3,
-    attackEffect = Some(Damage(3)),
-    defense = Some(1),
     moveRange = 2,
     attackRange = 1,
+    attackEffect = Some(Damage(3)),
+    defense = Some(1),
     abilities = Map(MoveFlood.name -> MoveFlood)
   )
 
@@ -254,22 +253,22 @@ object Units {
     name = "bat",
     cost = 4,
     rebate = 2,
+    moveRange = 3,
+    isFlying = true
+    attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(1),
-    moveRange = 3,
-    attackRange = 1,
-    isFlying = true
   )
 
   val ghost = createPieceStats(
     name = "ghost",
     cost = 3,
     rebate = 0,
+    moveRange = 1,
+    isFlying = true,
+    attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(4),
-    moveRange = 1,
-    attackRange = 1,
-    isFlying = true,
     isPersistent = true
   )
 
@@ -277,11 +276,11 @@ object Units {
     name = "wight",
     cost = 5,
     rebate = 0,
-    deathSpawn = Some(zombie.name),
-    attackEffect = Some(Damage(3)),
-    defense = Some(3),
     moveRange = 1,
     attackRange = 1,
+    attackEffect = Some(Damage(3)),
+    defense = Some(3),
+    deathSpawn = Some(zombie.name),
     abilities = Map("doubleattack" -> SelfEnchantAbility(
       name = "doubleattack",
       displayName = "Double Strike (sorcery)",
@@ -299,10 +298,10 @@ object Units {
     name = "haunt",
     cost = 5,
     rebate = 1,
-    attackEffect = Some(Damage(2)),
-    defense = Some(2),
     moveRange = 0,
     attackRange = 3,
+    attackEffect = Some(Damage(2)),
+    defense = Some(2),
     canBlink = true,
     abilities = Map(MoveEarthquake.name -> MoveEarthquake)
   )
@@ -311,11 +310,11 @@ object Units {
     name = "shrieker",
     cost = 7,
     rebate = 4,
-    attackEffect = Some(Damage(1)),
-    defense = Some(2),
     moveRange = 2,
     attackRange = 1,
+    attackEffect = Some(Damage(1)),
     numAttacks = 3,
+    defense = Some(2),
     abilities = Map("rangetwo" -> SelfEnchantAbility(
       name = "rangetwo",
       displayName = "Range Two (sorcery)",
@@ -335,10 +334,10 @@ object Units {
     name = "warg",
     cost = 7,
     rebate = 5,
-    attackEffect = Some(Damage(2)),
-    defense = Some(3),
     moveRange = 3,
     attackRange = 1,
+    attackEffect = Some(Damage(2)),
+    defense = Some(3),
   )
 
   val dark_tower = createPieceStats(
@@ -347,14 +346,13 @@ object Units {
     displayName = "Dark Tower",
     cost = 7,
     rebate = 0,
-    deathSpawn = Some(spire.name),
-    attackEffect = Some(Damage(5)),
-    defense = Some(4),
     moveRange = 0,
     attackRange = 2,
-    isPersistent = true,
+    attackEffect = Some(Damage(5)),
+    defense = Some(4),
     spawnRange = Some(1),
-    abilities = Map("zombies" -> SpawnZombiesAbility),
+    deathSpawn = Some(spire.name),
+    abilities = Map(SpawnZombiesAbility.name -> SpawnZombiesAbility),
   )
 
   val bone_rat = createPieceStats(
@@ -363,10 +361,10 @@ object Units {
     displayName = "Bone Rat",
     cost = 2,
     rebate = 1,
-    attackEffect = Some(Damage(1)),
-    defense = Some(1),
     moveRange = 1,
     attackRange = 1,
+    attackEffect = Some(Damage(1)),
+    defense = Some(1),
     swarmMax = 3,
     abilities = Map("unsummonattack" -> SelfEnchantAbility(
       name = "unsummonattack",
@@ -385,10 +383,10 @@ object Units {
     name = "witch",
     cost = 4,
     rebate = 0,
-    attackEffect = Some(Damage(1)),
-    defense = Some(2),
     moveRange = 1,
     attackRange = 3,
+    attackEffect = Some(Damage(1)),
+    defense = Some(2),
     swarmMax = 3,
   )
 
@@ -397,12 +395,12 @@ object Units {
     cost = 6,
     rebate = 3,
     moveRange = 1,
+    isFlying = true,
     attackRange = 1,
-    numAttacks = 2,
     attackEffect = Some(Damage(1)),
+    numAttacks = 2,
     defense = Some(5),
     isPersistent = true,
-    isFlying = true,
     abilities = Map("movethree" -> SelfEnchantAbility(
       name = "movethree",
       displayName = "Move Three (sorcery)",
@@ -422,24 +420,24 @@ object Units {
     name = "mummy",
     cost = 8,
     rebate = 0,
-    attackEffect = Some(Damage(5)),
-    defense = Some(8),
     moveRange = 1,
     attackRange = 1,
-    deathSpawn = Some(initiate.name),
+    attackEffect = Some(Damage(5)),
+    defense = Some(8),
     spawnRange = Some(1),
+    deathSpawn = Some(initiate.name),
   )
 
   val lich = createPieceStats(
     name = "lich",
     cost = 8,
-    deathSpawn = Some(skeleton.name),
     rebate = 0,
+    moveRange = 1,
+    isLumbering = true,
+    attackRange = 3,
     attackEffect = Some(Kill),
     defense = Some(3),
-    moveRange = 1,
-    attackRange = 3,
-    isLumbering = true,
+    deathSpawn = Some(skeleton.name),
     canHurtNecromancer = false,
   )
 
@@ -487,8 +485,8 @@ object Units {
     rebate = 3,
     moveRange = 1,
     attackRange = 1,
-    numAttacks = 9,
     attackEffect = Some(Damage(1)),
+    numAttacks = 9,
     defense = Some(9),
     abilities = Map("airstrike" -> SelfEnchantAbility(
       name = "airstrike",
@@ -518,12 +516,11 @@ object Units {
   val elemental = createPieceStats(
     name = "elemental",
     shortDisplayName = "Element",
-    cost = 10,
-    rebate = 5,
+    cost = 9,
+    rebate = 4,
     moveRange = 1,
     attackRange = 3,
-    numAttacks = 3,
-    attackEffect = Some(Damage(1)),
+    attackEffect = Some(Damage(3)),
     defense = Some(3),
     abilities = Map(MoveTerrain.name -> MoveTerrain)
   )
@@ -537,8 +534,8 @@ object Units {
     moveRange = 2,
     isFlying = true,
     attackRange = 2,
-    numAttacks = 4,
     attackEffect = Some(Damage(1)),
+    numAttacks = 4,
     defense = Some(7),
     spawnRange = Some(1),
   )
