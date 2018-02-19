@@ -512,7 +512,7 @@ object Units {
     attackEffect = Some(Kill),
     defense = Some(2),
     canHurtNecromancer = false,
-    abilities = Map("scream" -> KillAdjacentAbility)
+    abilities = Map(KillAdjacentAbility.name -> KillAdjacentAbility)
   )
 
   val elemental = createPieceStats(
@@ -525,7 +525,7 @@ object Units {
     numAttacks = 3,
     attackEffect = Some(Damage(1)),
     defense = Some(3),
-    // TODO: sorcery move terrain tile
+    abilities = Map(MoveTerrain.name -> MoveTerrain)
   )
 
   val fallen_angel = createPieceStats(

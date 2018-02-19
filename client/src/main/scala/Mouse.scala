@@ -22,7 +22,7 @@ sealed trait MouseTarget {
       case MouseEndTurn(_) => None
       case MouseNextBoard => None
       case MousePrevBoard => None
-      case MouseTerrain(_) => None
+      case MouseTerrain(_,_) => None
       case MouseResignBoard(_) => None
     }
   }
@@ -41,7 +41,7 @@ sealed trait MouseTarget {
       case MouseEndTurn(loc) => Some(loc)
       case MouseNextBoard => None
       case MousePrevBoard => None
-      case MouseTerrain(loc) => Some(loc)
+      case MouseTerrain(_,loc) => Some(loc)
       case MouseResignBoard(loc) => Some(loc)
     }
   }
@@ -59,7 +59,7 @@ case class MouseExtraTechAndSpell(loc: Loc) extends MouseTarget
 case class MouseEndTurn(loc: Loc) extends MouseTarget
 case object MouseNextBoard extends MouseTarget
 case object MousePrevBoard extends MouseTarget
-case class MouseTerrain(loc: Loc) extends MouseTarget
+case class MouseTerrain(terrain: Terrain, loc: Loc) extends MouseTarget
 case class MouseResignBoard(loc: Loc) extends MouseTarget
 
 //Different modes the mouse can be in for selecting different things
@@ -442,7 +442,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           }
         }
 
-      case MouseTerrain(_) => ()
+      case MouseTerrain(_,_) => ()
 
       case MousePrevBoard =>
         if(curTarget == dragTarget) {
@@ -574,11 +574,31 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                               target.getLoc() match {
                                 case None => ()
                                 case Some(loc) =>
-                                  val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.singleLoc(loc)))
-                                  mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions, makeActionId()))
+                                  mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(loc)), makeActionId()))
                               }
                             }
                           }
+                        case MoveTerrain =>
+                          mouseState.mode = SelectTerrainMouseMode(mouseState) { (terrainOpt: Option[Terrain]) =>
+                            terrainOpt match {
+                              case None => ()
+                              case Some(terrain) =>
+                                def makeAction(loc:Loc) = {
+                                  ActivateAbility(spec, abilityName, SpellOrAbilityTargets.terrainAndLoc(terrain,loc))
+                                }
+                                val locTargets = board.tiles.filterLocs { loc =>
+                                  board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
+                                }
+                                mouseState.mode = SelectTargetMouseMode(mouseState, List(), locTargets) { (target:MouseTarget) =>
+                                  target.getLoc() match {
+                                    case None => ()
+                                    case Some(loc) =>
+                                      mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(loc)), makeActionId()))
+                                  }
+                                }
+                            }
+                          }
+
                         case (_:TargetedAbility) =>
                           val pieceTargets = List() // TODO: FIXME
                           mouseState.mode = SelectTargetMouseMode(mouseState, pieceTargets, List()) { (target:MouseTarget) =>
@@ -675,7 +695,7 @@ case class DragPieceToLocMouseMode(val mouseState: MouseState, val pieceTargets:
       case MouseEndTurn(_) => None
       case MouseNextBoard => None
       case MousePrevBoard => None
-      case MouseTerrain(_) => None
+      case MouseTerrain(_,_) => None
       case MouseResignBoard(_) => None
     }
 
@@ -687,5 +707,36 @@ case class DragPieceToLocMouseMode(val mouseState: MouseState, val pieceTargets:
         f(piece,loc)
       }
     }
+  }
+}
+
+case class SelectTerrainMouseMode(val mouseState: MouseState)(f: Option[Terrain] => Unit) extends MouseMode {
+  def handleMouseDown(curTarget: MouseTarget, game: Game, board: BoardState, undo: Boolean, ourSide: Option[Side]): Unit = {
+    val _ = (curTarget,game,board, undo, ourSide)
+  }
+  def handleMouseMove(dragTarget: MouseTarget, curTarget: MouseTarget, game: Game, board: BoardState, ourSide: Option[Side]): Unit = {
+    val _ = (dragTarget,curTarget,game,board, ourSide)
+  }
+  def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, game: Game, board: BoardState, boardIdx: Int, undo: Boolean, ourSide: Option[Side]): Unit = {
+    val _ = (game,board,boardIdx,undo, ourSide)
+    val terrain = curTarget match {
+      case MousePiece(_,_) => None
+      case MouseTile(_) => None
+      case MouseNone => None
+      case MouseSpellChoice(_,_,_) => None
+      case MouseSpellHand(_,_,_) => None
+      case MouseSpellPlayed(_,_,_,_) => None
+      case MouseTech(_,_) => None
+      case MouseReinforcement(_,_,_) => None
+      case MouseDeadPiece(_,_) => None
+      case MouseExtraTechAndSpell(_) => None
+      case MouseEndTurn(_) => None
+      case MouseNextBoard => None
+      case MousePrevBoard => None
+      case MouseTerrain(terrain,_) => Some(terrain)
+      case MouseResignBoard(_) => None
+    }
+    mouseState.mode = NormalMouseMode(mouseState)
+    f(terrain)
   }
 }

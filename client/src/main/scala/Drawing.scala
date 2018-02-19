@@ -695,7 +695,7 @@ object Drawing {
 
       if(side == board.side) {
         ctx.fillStyle = rectColorOfSide(side)
-        ctx.fillRect(pixelLoc.x - 10.0, pixelLoc.y - 16.0, 360.0, 24.0)
+        ctx.fillRect(pixelLoc.x - 5.0, pixelLoc.y - 16.0, 345.0, 24.0)
       }
 
       def textAtLoc(s: String, dpx: Double, dpy: Double, style:String = "normal", size:Int = 14) =
@@ -1235,6 +1235,10 @@ object Drawing {
         mode.locTargets.foreach { loc =>
           highlightHex(ui.MainBoard.hexLoc(loc),alpha=0.7)
         }
+      case (_: SelectTerrainMouseMode) =>
+        ui.Terrain.terrains.zipWithIndex.foreach { case(_,i) =>
+          highlightHex(ui.Terrain.hexLoc(Loc(i,0)), alpha=0.7, scale=ui.Terrain.gridSizeScale)
+        }
 
       case (mode: DragPieceToLocMouseMode) =>
         mode.pieceTargets.foreach { pieceSpec =>
@@ -1294,9 +1298,9 @@ object Drawing {
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", ui.NextBoard.hexLocs(0), "darkgreen", textAlign="center", textBaseline="top", fontSize=12)
-          case MouseTerrain(loc) =>
+          case MouseTerrain(terrain,loc) =>
             strokeHex(ui.Terrain.hexLoc(loc), "black", ui.Terrain.gridSizeScale, alpha=0.5)
-            drawSidebar(tile=Some(Tile(ui.Terrain.terrains(loc.x))))
+            drawSidebar(tile=Some(Tile(terrain)))
           case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
               strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
@@ -1413,7 +1417,7 @@ object Drawing {
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", ui.NextBoard.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
-          case MouseTerrain(loc) =>
+          case MouseTerrain(_,loc) =>
             highlightHex(ui.Terrain.hexLoc(loc), scale=ui.Terrain.gridSizeScale)
           case MouseTech(techIdx,loc) =>
             if(client.ourSide == Some(game.curSide)) {
@@ -1584,7 +1588,7 @@ object Drawing {
         case MouseEndTurn(_) => (ui.EndTurn, false)
         case MouseNextBoard => (ui.NextBoard, false)
         case MousePrevBoard => (ui.PrevBoard, false)
-        case MouseTerrain(_) => (ui.Terrain, false)
+        case MouseTerrain(_,_) => (ui.Terrain, false)
         case MouseResignBoard(_) => (ui.ResignBoard, false)
       }
       strokeHex(component.hexLoc(hoverLoc), "black", tileScale*component.gridSizeScale, alpha=0.3, rectangle=rectangle)

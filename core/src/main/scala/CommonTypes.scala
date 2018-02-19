@@ -212,6 +212,13 @@ case object MoveFirestorm extends PieceAbility {
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
+case object MoveTerrain extends PieceAbility {
+  val name = "move_terrain"
+  val displayName = "Move Terrain"
+  val desc = List("Move any of the four terrain tiles to target empty Ground hex within attack")
+  val isSorcery = true
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
+}
 
 //Discard abilities that target the piece itself
 case class SelfEnchantAbility(

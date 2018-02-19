@@ -238,6 +238,7 @@ object ServerMain extends App {
          state.spawnPieceInitial(S0, Units.serpent.name, Loc(3,4))
          state.spawnPieceInitial(S0, Units.void.name, Loc(2,4))
          state.spawnPieceInitial(S0, Units.haunt.name, Loc(4,3))
+         state.spawnPieceInitial(S0, Units.elemental.name, Loc(4,4))
          state.sorceryPower = 5*/
 
          /*

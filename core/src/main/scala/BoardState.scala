@@ -151,16 +151,18 @@ case class SpellOrAbilityTargets(
   val target0: PieceSpec,
   val target1: PieceSpec,
   val loc0: Loc,
-  val loc1: Loc
+  val loc1: Loc,
+  val terrain: Option[Terrain]
 )
 object SpellOrAbilityTargets {
-  val none = new SpellOrAbilityTargets(PieceSpec.none,PieceSpec.none,Loc(-1,-1),Loc(-1,-1))
+  val none = new SpellOrAbilityTargets(PieceSpec.none,PieceSpec.none,Loc(-1,-1),Loc(-1,-1),None)
   def singlePiece(pieceSpec: PieceSpec) =
-    new SpellOrAbilityTargets(pieceSpec,PieceSpec.none,Loc(-1,-1),Loc(-1,-1))
+    new SpellOrAbilityTargets(pieceSpec,PieceSpec.none,Loc(-1,-1),Loc(-1,-1),None)
   def singleLoc(loc: Loc) =
-    new SpellOrAbilityTargets(PieceSpec.none,PieceSpec.none,loc,Loc(-1,-1))
+    new SpellOrAbilityTargets(PieceSpec.none,PieceSpec.none,loc,Loc(-1,-1),None)
   def pieceAndLoc(pieceSpec: PieceSpec, loc: Loc) =
-    new SpellOrAbilityTargets(pieceSpec,PieceSpec.none,loc,Loc(-1,-1))
+    new SpellOrAbilityTargets(pieceSpec,PieceSpec.none,loc,Loc(-1,-1),None)
+  def terrainAndLoc(terrain: Terrain, loc: Loc) = new SpellOrAbilityTargets(PieceSpec.none, PieceSpec.none, loc, Loc(-1,-1), Some(terrain))
 }
 
 /** GeneralBoardAction:
@@ -1295,7 +1297,7 @@ case class BoardState private (
                   case SuicideAbility | (_:SelfEnchantAbility) => ()
                   case KillAdjacentAbility =>
                     failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
-                  case MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm  =>
+                  case MoveTerrain | MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm  =>
                     failUnless(topology.distance(piece.loc,targets.loc0) <= piece.curStats(this).attackRange, "Must place terrain within attack range")
                     requireSuccess(canMoveTerrain(targets.loc0))
                   case SpawnZombiesAbility => ()
@@ -1447,10 +1449,7 @@ case class BoardState private (
           case SuicideAbility =>
             killPiece(piece)
           case SpawnZombiesAbility =>
-            println(piece.curStats(this).name)
-            println(piece.loc)
             pieces.topology.forEachAdj(piece.loc) { loc =>
-              println(loc)
               spawnPieceInternal(piece.side,Units.zombie.name,loc) match {
                 case Some(_: Piece) => ()
                 case None => ()
@@ -1465,6 +1464,8 @@ case class BoardState private (
               }
             }
             killPiece(piece)
+          case MoveTerrain =>
+            moveTerrain(targets.terrain.get, targets.loc0)
           case MoveEarthquake =>
             moveTerrain(Earthquake, targets.loc0)
           case MoveFlood =>

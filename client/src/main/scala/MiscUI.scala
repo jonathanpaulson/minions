@@ -90,14 +90,14 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
   }
 
   object Terrain extends UI.Component with UI.Clickable {
-    val origin = HexLoc(5.7,-1.1)
-    val gridSizeScale = 0.35
+    val origin = HexLoc(5.5,-1.1)
+    val gridSizeScale = 0.4
     val terrains:  Array[Terrain] = Array(Earthquake, Flood, Whirlwind, Firestorm)
 
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
       val (loc,_) = getLocAndDelta(hexLoc)
       if(loc.y == 0 && 0<=loc.x && loc.x<terrains.length) {
-        MouseTerrain(loc)
+        MouseTerrain(terrains(loc.x), loc)
       } else {
         MouseNone
       }
