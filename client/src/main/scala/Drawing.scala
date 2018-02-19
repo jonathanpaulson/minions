@@ -481,6 +481,9 @@ object Drawing {
           if(stats.isWailing) {
             show("Dies after the turn it attacks.")
           }
+          if(stats.canBlink) {
+            show("Can move to reinforcements.")
+          }
           if(!stats.canHurtNecromancer) {
             show("Cannot attack necromancers.")
           }
@@ -981,7 +984,7 @@ object Drawing {
       }
 
       val str = {
-        if(curStats.abilities.contains(BlinkAbility.name)) "M*"
+        if(curStats.canBlink) "M*"
         else if(!curStats.isFlying && curStats.moveRange == 1) ""
         else if(curStats.isFlying && curStats.moveRange == 1) "F"
         else if(curStats.isFlying) "F" + displayedMoveRange
@@ -991,10 +994,10 @@ object Drawing {
         actState match {
           case Spawning | DoneActing => "#777777"
           case Attacking(_) =>
-            if(curStats.abilities.contains(BlinkAbility.name)) "black"
+            if(curStats.canBlink) "black"
             else "#777777"
           case Moving(stepsUsed) =>
-            if(curStats.abilities.contains(BlinkAbility.name)) "black"
+            if(curStats.canBlink) "black"
             else if(stepsUsed >= curStats.moveRange) "#777777"
             else if(curStats.moveRange < baseStats.moveRange) "magenta"
             else if(curStats.moveRange > baseStats.moveRange) "green"
@@ -1153,6 +1156,8 @@ object Drawing {
               strokeHex(ui.MainBoard.hexLoc(loc), "black", tileScale)
             }
           }
+        case Blink(_, src) =>
+          strokeHex(ui.MainBoard.hexLoc(src), "black", tileScale)
         case Teleport(_,src,dest) =>
           strokeHex(ui.MainBoard.hexLoc(src), "black", tileScale)
           strokeHex(ui.MainBoard.hexLoc(dest), "black", tileScale)
@@ -1287,22 +1292,26 @@ object Drawing {
               strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
             }
             drawSidebar(stats=Some(game.techLine(techIdx).tech.pieceStats))
-          case MouseReinforcement(pieceName,side,loc) =>
-            strokeHex(ui.Reinforcements.hexLoc(loc), "black", pieceScale, alpha=0.5)
-            if(undoing) {
-              val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_,_) =>
-                if(pieceName == name) Some(pieceSpec) else None
-              }
-              pieceSpec match {
-                case Some(pieceSpec) => highlightUndoneActionsForPieceSpec(pieceSpec)
-                case None =>
-                  boards(boardIdx).findBuyReinforcementUndoAction(pieceName) match {
-                    case Some(action) => highlightUndoneGeneralAction(action)
-                    case None => ()
+          case MouseReinforcement(pieceNameOpt,side,loc) =>
+            pieceNameOpt match {
+              case None => ()
+              case Some(pieceName) =>
+                strokeHex(ui.Reinforcements.hexLoc(loc), "black", pieceScale, alpha=0.5)
+                if(undoing) {
+                  val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_,_) =>
+                    if(pieceName == name) Some(pieceSpec) else None
                   }
-              }
+                  pieceSpec match {
+                    case Some(pieceSpec) => highlightUndoneActionsForPieceSpec(pieceSpec)
+                    case None =>
+                      boards(boardIdx).findBuyReinforcementUndoAction(pieceName) match {
+                        case Some(action) => highlightUndoneGeneralAction(action)
+                        case None => ()
+                      }
+                  }
+                }
+                drawSidebar(stats=Some(Units.pieceMap(pieceName)), side=Some(side))
             }
-            drawSidebar(stats=Some(Units.pieceMap(pieceName)), side=Some(side))
           case MouseDeadPiece(pieceSpec,loc) =>
             strokeHex(ui.DeadPieces.hexLoc(loc), "black", pieceScale, alpha=0.5)
             if(undoing)
@@ -1412,17 +1421,20 @@ object Drawing {
                 }
               }
             }
-          case MouseReinforcement(pieceName,side,loc) =>
-            if(side==game.curSide && client.ourSide == Some(side)) {
-              highlightHex(ui.Reinforcements.hexLoc(loc),scale=pieceScale)
-              if(!undoing) {
-                val locs = board.legalSpawnLocs(pieceName)
-                for(loc <- locs) {
-                  highlightHex(ui.MainBoard.hexLoc(loc))
+          case MouseReinforcement(pieceNameOpt,side,loc) =>
+            pieceNameOpt match {
+              case None => ()
+              case Some(pieceName) =>
+                if(side==game.curSide && client.ourSide == Some(side)) {
+                  highlightHex(ui.Reinforcements.hexLoc(loc),scale=pieceScale)
+                  if(!undoing) {
+                    val locs = board.legalSpawnLocs(pieceName)
+                    for(loc <- locs) {
+                      highlightHex(ui.MainBoard.hexLoc(loc))
+                    }
+                  }
                 }
-              }
             }
-
           case MouseDeadPiece(_,loc) =>
             if(client.ourSide == Some(game.curSide)) {
               if(undoing) {
@@ -1455,8 +1467,16 @@ object Drawing {
                           //If teleporting, highlight the teleport location
                           strokeHex(ui.MainBoard.hexLoc(hoverLoc), "cyan", scale, alpha=0.3, lineWidth=2)
                           fillHex(ui.MainBoard.hexLoc(hoverLoc), "cyan", scale, alpha=0.05)
-                        case (_ : Attack) | (_ : Spawn) | (_ : ActivateTile) | (_ : ActivateAbility) | (_ : PlaySpell) | (_ : DiscardSpell) =>
+                        case (_ : Blink) | (_ : Attack) | (_ : Spawn) | (_ : ActivateTile) | (_ : ActivateAbility) | (_ : PlaySpell) | (_ : DiscardSpell) =>
                           ()
+                      }
+                    }
+
+                    val attackerStats = piece.curStats(board)
+
+                    if(attackerStats.canBlink) {
+                      ui.Reinforcements.getLocs(piece.side).foreach { loc =>
+                        highlightHex(ui.Reinforcements.hexLoc(loc))
                       }
                     }
 
@@ -1466,7 +1486,6 @@ object Drawing {
                       highlightHex(ui.MainBoard.hexLoc(loc))
                     }
 
-                    val attackerStats = piece.curStats(board)
                     val attackerState = piece.actState
                     def canAttackIfInRange(targetPiece: Piece, attackerHasMoved: Boolean): Boolean = {
                       val targetStats = targetPiece.curStats(board)

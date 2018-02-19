@@ -106,6 +106,7 @@ case class PieceStats(
   val isPersistent: Boolean, //Cannot be unsummoned (sent back to reinforcements/hand)
   val isEldritch: Boolean,   //Can spawn next to any unit
   val isWailing: Boolean,    //At the end of turn if it attacked, piece dies
+  val canBlink: Boolean,     //Can move to reinforcements
   val canHurtNecromancer: Boolean, //Piece not allowed to attack necromancer
 
   val swarmMax: Int,   //Number of copies of piece with same name that can occupy a space
@@ -163,14 +164,6 @@ case object SuicideAbility extends PieceAbility {
   val name = "suicide"
   val displayName = "Suicide"
   val desc = List("Kills this piece (without having spent all attacks).")
-  val isSorcery = false
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-
-case object BlinkAbility extends PieceAbility {
-  val name = "blink"
-  val displayName = "Blink"
-  val desc = List("Unsummons this piece.")
   val isSorcery = false
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }

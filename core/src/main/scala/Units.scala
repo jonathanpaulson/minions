@@ -21,6 +21,7 @@ object Units {
     isPersistent : Boolean = false,
     isEldritch : Boolean = false,
     isWailing : Boolean = false,
+    canBlink : Boolean = false,
     canHurtNecromancer : Boolean = true,
     swarmMax : Int = 1,
     spawnRange : Option[Int] = None,
@@ -48,6 +49,7 @@ object Units {
       isPersistent = isPersistent,
       isEldritch = isEldritch,
       isWailing = isWailing,
+      canBlink = canBlink,
       canHurtNecromancer = canHurtNecromancer,
       swarmMax = swarmMax,
       spawnRange = spawnRange,
@@ -301,7 +303,8 @@ object Units {
     defense = Some(2),
     moveRange = 0,
     attackRange = 3,
-    abilities = Map(BlinkAbility.name -> BlinkAbility, MoveEarthquake.name -> MoveEarthquake)
+    canBlink = true,
+    abilities = Map(MoveEarthquake.name -> MoveEarthquake)
   )
 
   val shrieker = createPieceStats(
@@ -448,7 +451,8 @@ object Units {
     attackRange = 2,
     attackEffect = Some(Unsummon),
     defense = Some(2),
-    abilities = Map(BlinkAbility.name -> BlinkAbility, MoveWhirlwind.name -> MoveWhirlwind)
+    canBlink = true,
+    abilities = Map(MoveWhirlwind.name -> MoveWhirlwind)
   )
 
   val hell_hound = createPieceStats(

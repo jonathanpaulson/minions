@@ -338,13 +338,13 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
               case None => None
               case Some(_) =>
                 if(i == selectedIdx)
-                  Some(MouseReinforcement(stats.name, side, loc))
+                  Some(MouseReinforcement(Some(stats.name), side, loc))
                 else {
                   i += 1
                   None
                 }
             }
-          }
+          }.orElse(Some(MouseReinforcement(None, side, loc)))
         }
       }.getOrElse(MouseNone)
     }

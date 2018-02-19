@@ -51,7 +51,7 @@ case class MouseSpellPlayed(spellId: SpellId, side: Side, targets: Option[SpellO
 case class MousePiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int, loc: Loc) extends MouseTarget
-case class MouseReinforcement(pieceName: PieceName, side:Side, loc: Loc) extends MouseTarget
+case class MouseReinforcement(pieceName: Option[PieceName], side:Side, loc: Loc) extends MouseTarget
 case class MouseDeadPiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
 case class MouseExtraTechAndSpell(loc: Loc) extends MouseTarget
 case class MouseEndTurn(loc: Loc) extends MouseTarget
@@ -318,16 +318,19 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
       }
       else movementFromPath
     }
-    /*TODO: FIXME
     val blink =
       curTarget match {
         case MouseReinforcement(_,_,_) =>
-          Some(ActivateAbility(piece.spec,BlinkAbility.name,SpellOrAbilityTargets.none))
+          if(piece.curStats(board).canBlink) {
+            Some(Blink(piece.spec, piece.loc))
+          } else {
+            None
+          }
         case _ =>
           None
-      }*/
+      }
 
-    List(movement,attack).flatten
+    List(movement,attack,blink).flatten
   }
 
   def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, game: Game, board: BoardState, boardIdx: Int, undo: Boolean, ourSide: Option[Side]): Unit = {
@@ -484,27 +487,31 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           }
         }
 
-      case MouseReinforcement(pieceName,side,_) =>
-        if(ourSide == Some(game.curSide) && side == game.curSide) {
-          if(undo) {
-            //Require mouse down and up on the same target
-            if(curTarget == dragTarget) {
-              val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_,_) =>
-                if(pieceName == name) Some(pieceSpec) else None
+      case MouseReinforcement(pieceNameOpt,side,_) =>
+        pieceNameOpt match {
+          case None => ()
+          case Some(pieceName) =>
+            if(ourSide == Some(game.curSide) && side == game.curSide) {
+              if(undo) {
+                //Require mouse down and up on the same target
+                if(curTarget == dragTarget) {
+                  val pieceSpec = board.unsummonedThisTurn.reverse.findMap { case (pieceSpec,name,_,_) =>
+                    if(pieceName == name) Some(pieceSpec) else None
+                  }
+                  pieceSpec match {
+                    case Some(pieceSpec) =>
+                      mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
+                    case None =>
+                      mouseState.client.doActionOnCurBoard(BuyReinforcementUndo(pieceName,makeActionId()))
+                  }
+                }
               }
-              pieceSpec match {
-                case Some(pieceSpec) =>
-                  mouseState.client.doActionOnCurBoard(LocalPieceUndo(pieceSpec,makeActionId()))
-                case None =>
-                  mouseState.client.doActionOnCurBoard(BuyReinforcementUndo(pieceName,makeActionId()))
+              else {
+                curTarget.getLoc().foreach { curLoc =>
+                  mouseState.client.doActionOnCurBoard(PlayerActions(List(Spawn(curLoc,pieceName)),makeActionId()))
+                }
               }
             }
-          }
-          else {
-            curTarget.getLoc().foreach { curLoc =>
-              mouseState.client.doActionOnCurBoard(PlayerActions(List(Spawn(curLoc,pieceName)),makeActionId()))
-            }
-          }
         }
 
       case MouseTile(loc) =>
@@ -542,7 +549,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                       val ability = pieceStats.abilities(abilityName)
                       val spec = piece.spec
                       ability match {
-                        case SuicideAbility | BlinkAbility | SpawnZombiesAbility | KillAdjacentAbility | (_:SelfEnchantAbility) =>
+                        case SuicideAbility | SpawnZombiesAbility | KillAdjacentAbility | (_:SelfEnchantAbility) =>
                           val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.none))
                           mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions,makeActionId()))
                         case MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm =>

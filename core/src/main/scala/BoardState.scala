@@ -82,6 +82,8 @@ sealed trait PlayerAction {
         pieceSpec == spec ||
         pieceSpec == targets.target0 ||
         pieceSpec == targets.target1
+      case Blink(spec,_) =>
+        pieceSpec == spec
       case Teleport(spec,_,_) =>
         pieceSpec == spec
       case PlaySpell(_,targets) =>
@@ -101,6 +103,7 @@ sealed trait PlayerAction {
       case ActivateTile(_) => false
       case ActivateAbility(_,_,_) => false
       case Teleport(_,_,_) => false
+      case Blink(_,_) => false
       case PlaySpell(id,_) => spellId == id
       case DiscardSpell(id) => spellId == id
     }
@@ -114,6 +117,7 @@ sealed trait PlayerAction {
       case Spawn(_,_) => List()
       case ActivateTile(_) => List()
       case ActivateAbility(_,_,_) => List()
+      case Blink(spec,_) => List(spec)
       case Teleport(spec,_,_) => List(spec)
       case PlaySpell(_,_) => List()
       case DiscardSpell(_) => List()
@@ -126,6 +130,7 @@ case class Attack(attackerSpec: PieceSpec, targetSpec: PieceSpec) extends Player
 case class Spawn(spawnLoc: Loc, pieceName: PieceName) extends PlayerAction
 case class ActivateTile(loc: Loc) extends PlayerAction
 case class ActivateAbility(spec: PieceSpec, abilityName: AbilityName, targets: SpellOrAbilityTargets) extends PlayerAction
+case class Blink(pieceSpec: PieceSpec, src:Loc) extends PlayerAction
 case class Teleport(pieceSpec: PieceSpec, src: Loc, dest: Loc) extends PlayerAction
 case class PlaySpell(spellId: SpellId, targets: SpellOrAbilityTargets) extends PlayerAction
 case class DiscardSpell(spellId: SpellId) extends PlayerAction
@@ -1284,7 +1289,7 @@ case class BoardState private (
                 requireSuccess(ability.tryIsUsableNow(piece))
                 failIf(ability.isSorcery && sorceryPower + sorceryPowerInHand(side,externalInfo) <= 0, "No sorcery power (must first play cantrip or discard spell)")
                 ability match {
-                  case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) => ()
+                  case SuicideAbility | (_:SelfEnchantAbility) => ()
                   case KillAdjacentAbility =>
                     failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
                   case MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm  =>
@@ -1298,6 +1303,14 @@ case class BoardState private (
                     }
                 }
             }
+        }
+
+      case Blink(pieceSpec,_) =>
+        findPiece(pieceSpec) match {
+          case None => fail("Blinking a nonexistent or dead piece")
+          case Some(piece) =>
+            failUnless(piece.side == side, "Piece controlled by other side")
+            failUnless(piece.curStats(this).canBlink, "Piece cannot blink")
         }
 
       case Teleport(pieceSpec,src,dest) =>
@@ -1430,8 +1443,6 @@ case class BoardState private (
         ability match {
           case SuicideAbility =>
             killPiece(piece)
-          case BlinkAbility =>
-            unsummonPiece(piece)
           case SpawnZombiesAbility =>
             println(piece.curStats(this).name)
             println(piece.loc)
@@ -1465,6 +1476,10 @@ case class BoardState private (
             val target = findPiece(targets.target0).get
             applyEffect(ability.effect,target)
         }
+
+      case Blink(pieceSpec,_) =>
+        val piece = findPiece(pieceSpec).get
+        unsummonPiece(piece)
 
       case Teleport(pieceSpec,src,dest) =>
         val piece = findPiece(pieceSpec).get
