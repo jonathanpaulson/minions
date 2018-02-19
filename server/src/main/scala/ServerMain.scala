@@ -119,7 +119,7 @@ object ServerMain extends App {
     }
   }
 
-  private class GameState(secondsPerTurn: SideArray[Double], startingManaPerBoard: SideArray[Int], extraManaPerTurn: SideArray[Int], targetWins: Int, techMana: Int, maps_opt: Option[List[String]], seed_opt: Option[Long]) {
+  class GameState(secondsPerTurn: SideArray[Double], startingManaPerBoard: SideArray[Int], extraManaPerTurn: SideArray[Int], targetWins: Int, techMana: Int, maps_opt: Option[List[String]], seed_opt: Option[Long]) {
 
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
     //to the players logged into the server
@@ -810,8 +810,7 @@ object ServerMain extends App {
     }
   }
 
-  var games = Map[String, ActorRef]()
-  var passwords = Map[String, Option[String]]()
+  var games = Map[String, Tuple3[ActorRef, GameState, Option[String]]]()
   var globalChat: List[String] = List()
 
   //----------------------------------------------------------------------------------
@@ -826,7 +825,7 @@ object ServerMain extends App {
       case Some(s) => throw new Exception("Invalid side: " + s)
       case None => None
     }
-    val gameActor = games(gameid)
+    val (gameActor,_,_) = games(gameid)
     val sessionId = nextSessionId.getAndIncrement()
 
     //Create output stream for the given user
@@ -866,13 +865,73 @@ object ServerMain extends App {
 
   val route = get {
     pathEndOrSingleSlash {
-      parameter("username".?) { username =>
-        username match {
-          case None => complete("Please add 'username=<your name>' to the URL")
-          case Some(user) =>
-            complete(s"Welcome to minionsgame.com $user")
+      val html = new StringBuilder
+      html ++= """
+<style>
+.button {
+    background-color: #4CAF50; /* Green */
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+}
+
+table {
+    font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+td, th {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+tr:nth-child(even){background-color: #f2f2f2;}
+
+tr:hover {background-color: #ddd;}
+
+th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: left;
+    background-color: #4CAF50;
+    color: white;
+}
+</style>
+      """
+      html ++= "<a href=\"/newGame\" class=\"button\">New Game</a><p>"
+      if(!games.isEmpty) {
+        html ++= "<table border=1><tr><th>Game</th><th>Access</th><th>Boards</th><th>Blue Team</th><th>Red Team</th></tr>"
+        for((game, (_,state,password)) <- games) {
+          val hasPassword = if(password.isEmpty) "Public" else "Password"
+          val nBoards = state.numBoards
+          def teamString(side : Option[Side]) : String = {
+            var players = List[String]()
+            for((sid, sid_side) <- state.userSides) {
+              if(sid_side == side) {
+                players = players :+ state.usernameOfSession(sid)
+              }
+            }
+            return players.mkString(",")
+          }
+          val blue = teamString(Some(S0))
+          val red = teamString(Some(S1))
+
+          html ++= s"""<tr>
+  <td>$game</td>
+  <td>$hasPassword</td>
+  <td>$nBoards</td>
+  <td><a href='/play?game=$game&side=0'>Join</a> $blue</td>
+  <td><a href='/play?game=$game&side=1'>Join</a> $red</td>
+  </tr>"""
         }
+        html ++= "</table>"
       }
+      complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, html.toString))
     } ~
     path("play") {
       parameter("game".?) { gameid_opt =>
@@ -882,11 +941,22 @@ object ServerMain extends App {
               case None => complete("Please provide 'game=' in URL")
               case Some(gameid) =>
                 username match {
-                  case None => complete("Please provide 'username=' in URL")
+                  case None =>
+                    val html = """<script type="text/javascript">
+var username = window.prompt('Username?', '')
+if(!username || username.length == 0) {
+  window.history.back()
+} else {
+  window.location = window.location.href + '&username=' + username
+}
+</script>
+"""
+                    complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, html))
+                    //complete("Please provide 'username=' in URL")
                   case Some(_) =>
-                    passwords.get(gameid) match {
+                    games.get(gameid) match {
                       case None => complete(s"Game $gameid does not exist")
-                      case Some(game_password) =>
+                      case Some((_,_,game_password)) =>
                         (password, game_password) match {
                           case (None, Some(_)) => complete(gameid + " is password-protected; please provide 'password=' in URL")
                           case (_, None) => getFromFile(Paths.mainPage)
@@ -920,8 +990,7 @@ object ServerMain extends App {
     val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
     val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
     val gameid = "tutorial" + games.size.toString
-    games = games + (gameid -> gameActor)
-    passwords = passwords + (gameid -> None)
+    games = games + (gameid -> ((gameActor, gameState, None)))
     gameActor ! StartGame()
 
 
@@ -1026,38 +1095,44 @@ object ServerMain extends App {
           formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
             formFields(('blueMana.as[Int], 'redMana.as[Int], 'techMana.as[Int], 'map.*)) { (blueMana, redMana, techMana, maps) =>
               formFields(('blueManaPerTurn.as[Int], 'redManaPerTurn.as[Int])) { (blueManaPerTurn, redManaPerTurn) =>
-                passwords.get(gameid) match {
+                games.get(gameid) match {
                   case Some(_) =>
                     complete(s"""A game named "$gameid" already exists; pick a different name""")
                   case None =>
                     val seed_opt = if(seed=="") None else Some(seed.toLong)
                     val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
+                    val passwordOpt = if(password == "") None else Some(password)
                     val startingMana = SideArray.createTwo(blueMana, redMana)
                     val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
                     val extraManaPerTurn = SideArray.createTwo(blueManaPerTurn, redManaPerTurn)
                     val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
                     val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
                     gameActor ! StartGame()
-                    passwords = passwords + (gameid -> (if(password == "") None else Some(password)))
-                    games = games + (gameid -> gameActor)
+                    games = games + (gameid -> ((gameActor, gameState, passwordOpt)))
                     println("Created game " + gameid)
-                    complete(HttpEntity(ContentTypes.`text/plain(UTF-8)`,
+                    complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
                       s"""
-                      Created game $gameid
+<pre>
+Created game $gameid
 
-                      password=$password
-                      seed=$seed_opt
-                      blueSeconds=$blueSeconds
-                      redSeconds=$redSeconds
-                      targetWins=$targetWins
-                      techMana=$techMana
-                      maps=$maps_opt
-                      seed=$seed_opt
+password=$password
+seed=$seed_opt
+blueSeconds=$blueSeconds
+redSeconds=$redSeconds
+targetWins=$targetWins
+techMana=$techMana
+maps=$maps_opt
+seed=$seed_opt
 
-                      blueMana=$blueMana
-                      redMana=$redMana
-                      blueManaPerTurn=$blueManaPerTurn
-                      redManaPerTurn=$redManaPerTurn
+blueMana=$blueMana
+redMana=$redMana
+blueManaPerTurn=$blueManaPerTurn
+redManaPerTurn=$redManaPerTurn
+</pre>
+
+<a href="/play?game=$gameid&side=0">Join blue</a><br>
+<a href="/play?game=$gameid&side=1">Join red</a><br>
+<a href="/">Back</a>
                       """
                       ))
                 }
