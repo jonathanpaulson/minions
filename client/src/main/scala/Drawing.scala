@@ -493,7 +493,9 @@ object Drawing {
           stats.abilities.foreach { case (_,ability) =>
             show("")
             show("Ability: " + ability.displayName)
-            show(ability.desc)
+            ability.desc.foreach { line =>
+              show(line)
+            }
           }
           piece.foreach { piece =>
             piece.modsWithDuration.foreach { mod =>
@@ -1212,8 +1214,15 @@ object Drawing {
     }
 
     mouseState.mode match {
-      //TODO highlight legal targets
-      case (_: SelectTargetMouseMode) => ()
+      case (mode: SelectTargetMouseMode) =>
+        mode.pieceTargets.foreach { pieceSpec =>
+          board.findPiece(pieceSpec).foreach { piece =>
+            highlightPiece(piece,alpha=0.7)
+          }
+        }
+        mode.locTargets.foreach { loc =>
+          highlightHex(ui.MainBoard.hexLoc(loc),alpha=0.7)
+        }
 
       case (mode: DragPieceToLocMouseMode) =>
         mode.pieceTargets.foreach { pieceSpec =>

@@ -318,6 +318,15 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
       }
       else movementFromPath
     }
+    /*TODO: FIXME
+    val blink =
+      curTarget match {
+        case MouseReinforcement(_,_,_) =>
+          Some(ActivateAbility(piece.spec,BlinkAbility.name,SpellOrAbilityTargets.none))
+        case _ =>
+          None
+      }*/
+
     List(movement,attack).flatten
   }
 
@@ -536,8 +545,31 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                         case SuicideAbility | BlinkAbility | SpawnZombiesAbility | KillAdjacentAbility | (_:SelfEnchantAbility) =>
                           val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.none))
                           mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions,makeActionId()))
+                        case MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm =>
+                          def makeAction(loc:Loc) = {
+                            ActivateAbility(spec, abilityName, SpellOrAbilityTargets.singleLoc(loc))
+                          }
+                          val locTargets = board.tiles.filterLocs { loc =>
+                            board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
+                          }
+                          // TODO: It would be nice to distinguish:
+                          // 1) "This is illegal regardless of the target" (e.g. no sorcery power)
+                          // 2) "There happen to be no legal targets right now"
+                          if(locTargets.isEmpty) { // No legal targets, get error message
+                            mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(piece.loc)), makeActionId()))
+                          } else {
+                            mouseState.mode = SelectTargetMouseMode(mouseState, List(), locTargets) { (target:MouseTarget) =>
+                              target.getLoc() match {
+                                case None => ()
+                                case Some(loc) =>
+                                  val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.singleLoc(loc)))
+                                  mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions, makeActionId()))
+                              }
+                            }
+                          }
                         case (_:TargetedAbility) =>
-                          mouseState.mode = SelectTargetMouseMode(mouseState) { (target:MouseTarget) =>
+                          val pieceTargets = List() // TODO: FIXME
+                          mouseState.mode = SelectTargetMouseMode(mouseState, pieceTargets, List()) { (target:MouseTarget) =>
                             target.findPiece(board) match {
                               case None => ()
                               case Some(targetPiece) =>
@@ -574,7 +606,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
 //---------------------------------------------------------------------------------------
 //Mouse mode for selecting a target of spell or ability
 
-case class SelectTargetMouseMode(val mouseState: MouseState)(f:MouseTarget => Unit) extends MouseMode {
+case class SelectTargetMouseMode(val mouseState: MouseState, val pieceTargets: List[PieceSpec], val locTargets: List[Loc])(f:MouseTarget => Unit) extends MouseMode {
 
   def handleMouseDown(curTarget: MouseTarget, game: Game, board: BoardState, undo: Boolean, ourSide: Option[Side]): Unit = {
     val _ = (curTarget,game,board, undo, ourSide)

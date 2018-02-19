@@ -235,7 +235,12 @@ object ServerMain extends App {
          /*state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
          state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
          state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
+         state.spawnPieceInitial(S0, Units.serpent.name, Loc(3,4))
+         state.spawnPieceInitial(S0, Units.void.name, Loc(2,4))
+         state.spawnPieceInitial(S0, Units.haunt.name, Loc(4,3))
+         state.sorceryPower = 5*/
 
+         /*
          state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
          state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
          state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
@@ -248,7 +253,7 @@ object ServerMain extends App {
          */
          /*state.tiles.foreachi { (loc, tile) =>
             if (tile.terrain == Graveyard) {
-              val _ = state.spawnPieceInitial(S0, Units.dark_tower.name, loc)
+              val _ = state.spawnPieceInitial(S0, Units.serpent.name, loc)
             }
           }*/
           /*
@@ -952,7 +957,6 @@ if(!username || username.length == 0) {
 </script>
 """
                     complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, html))
-                    //complete("Please provide 'username=' in URL")
                   case Some(_) =>
                     games.get(gameid) match {
                       case None => complete(s"Game $gameid does not exist")

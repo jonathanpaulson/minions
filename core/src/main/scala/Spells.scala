@@ -323,21 +323,12 @@ case object Spells {
     }
   )
 
-  val canMoveTerrain = { (side: Side, loc: Loc, board: BoardState) =>
-    if(board.pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
-    else if(board.tiles(loc).terrain != Ground) Failure(new Exception("Target terrain is not Ground"))
-    else Success(())
+  val canMoveTerrain = { (_: Side, loc: Loc, board: BoardState) =>
+    board.canMoveTerrain(loc)
   }
   def moveTerrain(terrain: Terrain) = {
     { (board: BoardState, loc: Loc) =>
-        board.tiles.transform { tile =>
-          if(tile.terrain == terrain) {
-            Tile(Ground, modsWithDuration = tile.modsWithDuration)
-          } else {
-            tile
-          }
-        }
-        board.tiles(loc) = Tile(terrain, modsWithDuration = board.tiles(loc).modsWithDuration)
+      board.moveTerrain(terrain, loc)
     }
   }
 

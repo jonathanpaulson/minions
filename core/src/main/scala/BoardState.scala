@@ -1099,6 +1099,23 @@ case class BoardState private (
     }
   }
 
+  def canMoveTerrain(loc: Loc) : Try[Unit] = {
+    if(pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
+    else if(tiles(loc).terrain != Ground) Failure(new Exception("Target terrain is not Ground"))
+    else Success(())
+  }
+
+  def moveTerrain(terrain: Terrain, loc: Loc) = {
+    tiles.transform { tile =>
+      if(tile.terrain == terrain) {
+        Tile(Ground, modsWithDuration = tile.modsWithDuration)
+      } else {
+        tile
+      }
+    }
+    tiles(loc) = Tile(terrain, modsWithDuration = tiles(loc).modsWithDuration)
+  }
+
   private def killAttackingWailingUnits(otherThan: Option[PieceSpec] = None): Unit = {
     val attackedWailings = pieceById.iterator.filter { case (_,piece) =>
       piece.curStats(this).isWailing && piece.hasAttacked && otherThan.forall { spec => piece.spec != spec }
@@ -1270,6 +1287,9 @@ case class BoardState private (
                   case SuicideAbility | BlinkAbility | (_:SelfEnchantAbility) => ()
                   case KillAdjacentAbility =>
                     failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
+                  case MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm  =>
+                    failUnless(topology.distance(piece.loc,targets.loc0) <= piece.curStats(this).attackRange, "Must place terrain within attack range")
+                    requireSuccess(canMoveTerrain(targets.loc0))
                   case SpawnZombiesAbility => ()
                   case (ability:TargetedAbility) =>
                     findPiece(targets.target0) match {
@@ -1431,6 +1451,14 @@ case class BoardState private (
               }
             }
             killPiece(piece)
+          case MoveEarthquake =>
+            moveTerrain(Earthquake, targets.loc0)
+          case MoveFlood =>
+            moveTerrain(Flood, targets.loc0)
+          case MoveWhirlwind =>
+            moveTerrain(Whirlwind, targets.loc0)
+          case MoveFirestorm =>
+            moveTerrain(Firestorm, targets.loc0)
           case (ability:SelfEnchantAbility) =>
             piece.modsWithDuration = piece.modsWithDuration :+ ability.mod
           case (ability:TargetedAbility) =>

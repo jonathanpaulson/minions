@@ -147,7 +147,7 @@ case class PieceModWithDuration(
 sealed trait PieceAbility {
   val name: AbilityName  //MUST be a UNIQUE key for different modifiers!
   val displayName: String
-  val desc: String
+  val desc: List[String]
   val isSorcery: Boolean //Requires a discarded spell
   val tryIsUsableNow: Piece => Try[Unit]
 
@@ -162,7 +162,7 @@ sealed trait PieceAbility {
 case object SuicideAbility extends PieceAbility {
   val name = "suicide"
   val displayName = "Suicide"
-  val desc = "Kills this piece (without having spent all attacks)."
+  val desc = List("Kills this piece (without having spent all attacks).")
   val isSorcery = false
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
@@ -170,7 +170,7 @@ case object SuicideAbility extends PieceAbility {
 case object BlinkAbility extends PieceAbility {
   val name = "blink"
   val displayName = "Blink"
-  val desc = "Unsummons this piece."
+  val desc = List("Unsummons this piece.")
   val isSorcery = false
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
@@ -178,7 +178,7 @@ case object BlinkAbility extends PieceAbility {
 case object KillAdjacentAbility extends PieceAbility {
   val name = "scream"
   val displayName = "Scream"
-  val desc = "Kills all adjacent enemy minions"
+  val desc = List("Kills all adjacent enemy minions")
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
@@ -186,7 +186,36 @@ case object KillAdjacentAbility extends PieceAbility {
 case object SpawnZombiesAbility extends PieceAbility {
   val name = "spawn_zombies"
   val displayName = "Spawn Zombies"
-  val desc = "Spawn a zombie in every adjacent hex"
+  val desc = List("Spawn a zombie in every adjacent hex")
+  val isSorcery = true
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
+}
+
+case object MoveEarthquake extends PieceAbility {
+  val name = "move_earthquake"
+  val displayName = "Move Earthquake"
+  val desc = List("Move the Earthquake to target empty Ground hex", "(only passable by unit types with at least two speed)")
+  val isSorcery = true
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
+}
+case object MoveFlood extends PieceAbility {
+  val name = "move_flood"
+  val displayName = "Move Flood"
+  val desc = List("Move the Flood to target empty Ground hex", "(only passable by flying unit types)")
+  val isSorcery = true
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
+}
+case object MoveWhirlwind extends PieceAbility {
+  val name = "move_flood"
+  val displayName = "Move Flood"
+  val desc = List("Move the Whirlwind to target empty Ground hex", "(only passable by persistent unit types)")
+  val isSorcery = true
+  val tryIsUsableNow = { (_:Piece) => Success(()) }
+}
+case object MoveFirestorm extends PieceAbility {
+  val name = "move_firestorm"
+  val displayName = "Move Firestorm"
+  val desc = List("Move the Firestorm to target empty Ground hex", "(only passable by unit types with at least four health)")
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
@@ -195,7 +224,7 @@ case object SpawnZombiesAbility extends PieceAbility {
 case class SelfEnchantAbility(
   val name: AbilityName,
   val displayName: String,
-  val desc: String,
+  val desc: List[String],
   val isSorcery: Boolean,
   val tryIsUsableNow: Piece => Try[Unit],
   val mod: PieceModWithDuration
@@ -207,7 +236,7 @@ case class SelfEnchantAbility(
 case class TargetedAbility(
   val name: AbilityName,
   val displayName: String,
-  val desc: String,
+  val desc: List[String],
   val isSorcery: Boolean,
   val tryIsUsableNow: Piece => Try[Unit],
   val tryCanTarget: (Piece, Piece) => Try[Unit], //(piece, target)

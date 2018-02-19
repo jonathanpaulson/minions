@@ -245,7 +245,7 @@ object Units {
     defense = Some(1),
     moveRange = 2,
     attackRange = 1,
-    // TODO SPAWN FLOOD
+    abilities = Map(MoveFlood.name -> MoveFlood)
   )
 
   val bat = createPieceStats(
@@ -283,7 +283,7 @@ object Units {
     abilities = Map("doubleattack" -> SelfEnchantAbility(
       name = "doubleattack",
       displayName = "Double Strike (sorcery)",
-      desc = "Pay 1 sorcery power: Attacks twice",
+      desc = List("Pay 1 sorcery power: Attacks twice"),
       isSorcery = true,
       tryIsUsableNow = { (piece: Piece) =>
         if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
@@ -301,8 +301,7 @@ object Units {
     defense = Some(2),
     moveRange = 0,
     attackRange = 3,
-    abilities = Map(BlinkAbility.name -> BlinkAbility)
-    // TODO SPAWN Earthquake
+    abilities = Map(BlinkAbility.name -> BlinkAbility, MoveEarthquake.name -> MoveEarthquake)
   )
 
   val shrieker = createPieceStats(
@@ -317,7 +316,7 @@ object Units {
     abilities = Map("rangetwo" -> SelfEnchantAbility(
       name = "rangetwo",
       displayName = "Range Two (sorcery)",
-      desc = "Pay 1 sorcery power: Range 2",
+      desc = List("Pay 1 sorcery power: Range 2"),
       isSorcery = true,
       tryIsUsableNow = { (piece: Piece) =>
         piece.actState match {
@@ -369,7 +368,7 @@ object Units {
     abilities = Map("unsummonattack" -> SelfEnchantAbility(
       name = "unsummonattack",
       displayName = "Unsummon Strike (sorcery)",
-      desc = "Pay 1 sorcery power: Attack unsummons",
+      desc = List("Pay 1 sorcery power: Attack unsummons"),
       isSorcery = true,
       tryIsUsableNow = { (piece: Piece) =>
         if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
@@ -404,7 +403,7 @@ object Units {
     abilities = Map("movethree" -> SelfEnchantAbility(
       name = "movethree",
       displayName = "Move Three (sorcery)",
-      desc = "Pay 1 sorcery power: Move 3",
+      desc = List("Pay 1 sorcery power: Move 3"),
       isSorcery = true,
       tryIsUsableNow = { (piece: Piece) =>
         piece.actState match {
@@ -449,8 +448,7 @@ object Units {
     attackRange = 2,
     attackEffect = Some(Unsummon),
     defense = Some(2),
-    abilities = Map(BlinkAbility.name -> BlinkAbility)
-    // SPAWN WHIRLWIND
+    abilities = Map(BlinkAbility.name -> BlinkAbility, MoveWhirlwind.name -> MoveWhirlwind)
   )
 
   val hell_hound = createPieceStats(
@@ -464,7 +462,7 @@ object Units {
     attackEffect = Some(Damage(1)),
     defense = Some(2),
     swarmMax = 3,
-    // SPAWN FIRESTORM
+    abilities = Map(MoveFirestorm.name -> MoveFirestorm)
   )
 
   val wraith = createPieceStats(
@@ -491,7 +489,7 @@ object Units {
     abilities = Map("airstrike" -> SelfEnchantAbility(
       name = "airstrike",
       displayName = "Air Strike (sorcery)",
-      desc = "Pay 1 sorcery power: Attack range 3 vs flying",
+      desc = List("Pay 1 sorcery power: Attack range 3 vs flying"),
       isSorcery = true,
       tryIsUsableNow = { (piece: Piece) =>
         if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
