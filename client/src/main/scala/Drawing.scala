@@ -124,9 +124,9 @@ object Drawing {
         line(hexCorner(hexLoc,scale,5))
       }
       line(hexCorner(hexLoc,scale,0))
+      ctx.closePath()
       if(doStroke) ctx.stroke()
       if(doFill)  ctx.fill()
-      ctx.closePath()
       ctx.globalAlpha = oldAlpha
     }
     def strokeHex(hexLoc : HexLoc, color : String, scale : Double, alpha: Double = 1.0, lineWidth: Double = 1.0, rectangle: Boolean = false) : Unit = {
@@ -175,47 +175,47 @@ object Drawing {
         case Flood =>
           val texture = BoardMaps.waterImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale, alpha=0.8*alpha)
-          strokeHex(hexLoc, "#bbeeff", scale, alpha=alpha, lineWidth=3.0)
+          strokeHex(hexLoc, "#bbeeff", scale, alpha=alpha, lineWidth=2.0*scaleBy)
         case Graveyard =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
           fillHex(hexLoc, "#dddddd", scale, alpha=alpha)
-          strokeHex(hexLoc, "#666666", scale, alpha=0.5*alpha, lineWidth=1.5)
+          strokeHex(hexLoc, "#666666", scale, alpha=0.5*alpha, lineWidth=2.0*scaleBy)
           val img = "img_terrain_graveyard" + deterministicRandom(loc.x,loc.y,4)
           fillHexWithImage(hexLoc, img, scale, alpha=alpha)
         case SorceryNode =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
           fillHex(hexLoc, "#ffcc88", scale, alpha=0.15*alpha)
-          strokeHex(hexLoc, "#ffcc88", scale, alpha=0.5*alpha, lineWidth=2.0)
+          strokeHex(hexLoc, "#ffcc88", scale, alpha=0.5*alpha, lineWidth=2.0*scaleBy)
           val img = "img_terrain_leyline"
           fillHexWithImage(hexLoc, img, scale, alpha=alpha)
         case Teleporter =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
           fillHex(hexLoc, "#ccff88", scale, alpha=0.15*alpha)
-          strokeHex(hexLoc, "#ccff88", scale, alpha=0.5*alpha, lineWidth=2.0)
+          strokeHex(hexLoc, "#ccff88", scale, alpha=0.5*alpha, lineWidth=2.0*scaleBy)
           val img = "img_terrain_teleporter"
           fillHexWithImage(hexLoc, img, scale, alpha=alpha)
         case Spawner(_) =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
           fillHex(hexLoc, "#ff55ff", scale, alpha=0.15*alpha)
-          strokeHex(hexLoc, "#ff55ff", scale, alpha=0.5*alpha, lineWidth=2.0)
+          strokeHex(hexLoc, "#ff55ff", scale, alpha=0.5*alpha, lineWidth=2.0*scaleBy)
           val img = "img_terrain_spawner"
           fillHexWithImage(hexLoc, img, scale, alpha=alpha)
         case Mist =>
           fillHex(hexLoc, "#6E754C", scale, alpha=alpha)
-          strokeHex(hexLoc, "#6E754C", scale, alpha=0.8*alpha, lineWidth=2.0)
+          strokeHex(hexLoc, "#6E754C", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
         case Earthquake =>
           fillHex(hexLoc, "#846935", scale, alpha=alpha)
-          strokeHex(hexLoc, "#846935", scale, alpha=0.8*alpha, lineWidth=2.0)
+          strokeHex(hexLoc, "#846935", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
         case Firestorm =>
           fillHex(hexLoc, "#e25822", scale, alpha=alpha)
-          strokeHex(hexLoc, "#e25822", scale, alpha=0.8*alpha, lineWidth=2.0)
+          strokeHex(hexLoc, "#e25822", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
         case Whirlwind =>
           fillHex(hexLoc, "#8ECCCC", scale, alpha=alpha)
-          strokeHex(hexLoc, "#8ECCCC", scale, alpha=0.8*alpha, lineWidth=2.0)
+          strokeHex(hexLoc, "#8ECCCC", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
       }
       if(showCoords) {
         text(loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
@@ -678,6 +678,13 @@ object Drawing {
       if(side == game.curSide) {
         textAtLoc("Techs Used: " + game.numTechsThisTurn + "/" + (game.extraTechsAndSpellsThisTurn + 1), 345.0, -10.0)
       }
+    }
+
+    // Terrain
+    for((terrain, i) <- ui.Terrain.terrains.zipWithIndex) {
+      val loc = Loc(i,0)
+      val alpha = if(board.tiles.find({ tile => tile.terrain == terrain}).isEmpty) 1.0 else 0.2
+      drawTile(ui.Terrain.hexLoc(loc), loc, Tile(terrain), ui.Terrain.gridSizeScale*0.8, alpha=alpha)
     }
 
     //Board-specific info text
@@ -1287,6 +1294,9 @@ object Drawing {
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", ui.NextBoard.hexLocs(0), "darkgreen", textAlign="center", textBaseline="top", fontSize=12)
+          case MouseTerrain(loc) =>
+            strokeHex(ui.Terrain.hexLoc(loc), "black", ui.Terrain.gridSizeScale, alpha=0.5)
+            drawSidebar(tile=Some(Tile(ui.Terrain.terrains(loc.x))))
           case MouseTech(techIdx,loc) =>
             if(canClickOnTech(techIdx)) {
               strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
@@ -1403,6 +1413,8 @@ object Drawing {
           case MouseNextBoard =>
             if(boardIdx < boardNames.length-1)
               text("Next Board ->", ui.NextBoard.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
+          case MouseTerrain(loc) =>
+            highlightHex(ui.Terrain.hexLoc(loc), scale=ui.Terrain.gridSizeScale)
           case MouseTech(techIdx,loc) =>
             if(client.ourSide == Some(game.curSide)) {
               if(undoing) {
@@ -1572,9 +1584,10 @@ object Drawing {
         case MouseEndTurn(_) => (ui.EndTurn, false)
         case MouseNextBoard => (ui.NextBoard, false)
         case MousePrevBoard => (ui.PrevBoard, false)
+        case MouseTerrain(_) => (ui.Terrain, false)
         case MouseResignBoard(_) => (ui.ResignBoard, false)
       }
-      strokeHex(component.hexLoc(hoverLoc), "black", tileScale, alpha=0.3, rectangle=rectangle)
+      strokeHex(component.hexLoc(hoverLoc), "black", tileScale*component.gridSizeScale, alpha=0.3, rectangle=rectangle)
     }
   }
 }

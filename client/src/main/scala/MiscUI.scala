@@ -89,6 +89,21 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     }
   }
 
+  object Terrain extends UI.Component with UI.Clickable {
+    val origin = HexLoc(5.7,-1.1)
+    val gridSizeScale = 0.35
+    val terrains:  Array[Terrain] = Array(Earthquake, Flood, Whirlwind, Firestorm)
+
+    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
+      val (loc,_) = getLocAndDelta(hexLoc)
+      if(loc.y == 0 && 0<=loc.x && loc.x<terrains.length) {
+        MouseTerrain(loc)
+      } else {
+        MouseNone
+      }
+    }
+  }
+
   //Positioning for end turn hex button
   object EndTurn extends UI.Component with UI.Clickable {
     val origin = HexLoc(14.35,-1.7)
@@ -416,6 +431,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     SpellChoice,
     SpellHand,
     SpellPlayed,
+    Terrain
   )
 
 }

@@ -199,8 +199,8 @@ case object MoveFlood extends PieceAbility {
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 case object MoveWhirlwind extends PieceAbility {
-  val name = "move_flood"
-  val displayName = "Move Flood"
+  val name = "move_whirlwind"
+  val displayName = "Move Whirlwind"
   val desc = List("Move the Whirlwind to target empty Ground hex", "(only passable by persistent unit types)")
   val isSorcery = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }

@@ -195,6 +195,9 @@ case class GainSpell(spellId: SpellId) extends GeneralBoardAction
  *  A single tile on the board
  *  Possibly enchanted due to spells. Later in list -> spells were played later.
  */
+object Tile {
+  def apply(terrain: Terrain): Tile = { new Tile(terrain, List()) }
+}
 case class Tile(
   val terrain: Terrain,
   val modsWithDuration: List[PieceModWithDuration]
