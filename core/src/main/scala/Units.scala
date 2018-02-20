@@ -188,7 +188,7 @@ object Units {
     cost = 2,
     rebate = 0,
     moveRange = 1,
-    isLumbering = true
+    isLumbering = true,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(2),
@@ -221,7 +221,7 @@ object Units {
     cost = 5,
     rebate = 3,
     moveRange = 2,
-    isLumbering = true
+    isLumbering = true,
     attackRange = 1,
     attackEffect = Some(Damage(5)),
     defense = Some(5),
@@ -254,7 +254,7 @@ object Units {
     cost = 4,
     rebate = 2,
     moveRange = 3,
-    isFlying = true
+    isFlying = true,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(1),
