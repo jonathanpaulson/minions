@@ -128,7 +128,7 @@ object PieceMods {
     def apply(pieceStats : PieceStats): PieceStats = {
       pieceStats.copy(
         isBaseStats = false,
-        attackRange = Math.max(pieceStats.attackRange, 2)
+        attackRange = Math.max(pieceStats.attackRange, 2),
         attackRangeVsFlying = Math.max(pieceStats.attackRangeVsFlying, 2)
       )
     }
