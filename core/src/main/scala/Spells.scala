@@ -446,7 +446,6 @@ case object Spells {
       (stumble, 10),
 
       (dismember, 2),
-      (lightningBolt, 2),
       (unholyMight, 2),
 
       (protection, 2),

@@ -129,6 +129,7 @@ object PieceMods {
       pieceStats.copy(
         isBaseStats = false,
         attackRange = Math.max(pieceStats.attackRange, 2)
+        attackRangeVsFlying = Math.max(pieceStats.attackRangeVsFlying, 2)
       )
     }
   }
