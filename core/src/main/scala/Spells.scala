@@ -372,6 +372,16 @@ case object Spells {
     tryCanTarget = canMoveTerrain,
     effect = moveTerrain(Whirlwind)
   )
+  val terraform = TerrainAndTileSpell(
+    name = "terraform",
+    displayName = "Terraform",
+    shortDisplayName = "Terrain",
+    desc = List("Move one of the four terrain tiles to an empty Ground hex"),
+    spellType = Sorcery,
+    spawnPhaseOnly = true,
+    tryCanTarget = {(_: Side, _: Terrain, loc: Loc, board: BoardState) => board.canMoveTerrain(loc)},
+    effect = { (board: BoardState, terrain: Terrain, loc: Loc) => board.moveTerrain(terrain, loc) },
+  )
 
   val normalize = TileSpell(
     name = "normalize",
@@ -428,6 +438,7 @@ case object Spells {
     flood,
     whirlwind,
     normalize,
+    terraform,
 
     cleave,
     sunder,
@@ -465,19 +476,17 @@ case object Spells {
       (flood, 2),
       (whirlwind, 2),
       (normalize, 2),
+      (terraform, 2),
 
       (cleave, 2),
       (sunder, 2),
       // TODO SPELLS:
       // ReinforcementAndLocSpell
-      // warp (sorcery) (spawn phase) (2) Spawn target minion in your reinforcements in any empty Ground hex
       // lesser spawn (cantrip) (spawn phase) (2) Spawn target minion in your reinforcements next to target (friendly?) minion
 
       // NoTargetSpell
       // Drain (2) (cantrip) - opponent has -1 sorcery power next turn (can sacrifice any unit to pay for it)
       // Rising horde (sorcery) (2) - all your units have spawn
-
-      // terraform (spawn phase) (2) Move one of the four terrain tiles to target empty Ground hex
 
       // PieceAndPieceSpell
       // Critical hit (sorcery) (2) - Target minion takes damage from the previous attack again

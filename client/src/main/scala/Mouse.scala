@@ -397,6 +397,22 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                           }
                       }
                     }
+                  case (_: TerrainAndTileSpell) =>
+                    curTarget match {
+                      case MouseTerrain(terrain,_) =>
+                        def makeAction(loc:Loc) = {
+                          PlaySpell(spellId, SpellOrAbilityTargets.terrainAndLoc(terrain, loc))
+                        }
+                        val locTargets = board.tiles.filterLocs { loc =>
+                          board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
+                        }
+                        mouseState.mode = SelectTargetMouseMode(mouseState, List(), locTargets) { (target:MouseTarget) =>
+                          target.getLoc().foreach { loc =>
+                            mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(loc)), makeActionId()))
+                          }
+                        }
+                      case _ => ()
+                    }
 
                   case (_: NoEffectSpell) =>
                     ()

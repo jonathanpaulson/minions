@@ -1381,6 +1381,10 @@ object Drawing {
                           case Success(()) => highlightPiece(piece)
                         }
                       }
+                    case (_: TerrainAndTileSpell) =>
+                      ui.Terrain.terrains.zipWithIndex.foreach { case(_,i) =>
+                        highlightHex(ui.Terrain.hexLoc(Loc(i,0)), scale=ui.Terrain.gridSizeScale)
+                      }
                     case (_: NoEffectSpell) =>
                       ()
                   }

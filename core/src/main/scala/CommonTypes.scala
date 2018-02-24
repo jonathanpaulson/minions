@@ -350,6 +350,20 @@ case class PieceAndLocSpell(
   override def hashCode: Int = super.hashCode
 }
 
+case class TerrainAndTileSpell(
+  val name: SpellName,
+  val displayName: String,
+  val shortDisplayName: String,
+  val desc: List[String],
+  val spellType: SpellType,
+  val spawnPhaseOnly: Boolean,
+  val tryCanTarget: (Side, Terrain, Loc, BoardState) => Try[Unit], //(spell caster side, tile, board)
+  val effect: ((BoardState, Terrain, Loc) => Unit)
+) extends Spell {
+  override def equals(o: Any): Boolean = super.equals(o)
+  override def hashCode: Int = super.hashCode
+}
+
 
 /**
  * Terrain:

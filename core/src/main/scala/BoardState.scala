@@ -1150,6 +1150,10 @@ case class BoardState private (
             if(!tiles.inBounds(targets.loc0)) failed("Target location not in bounds")
             else spell.tryCanTarget(side,target,targets.loc0,this)
         }
+      case (spell: TerrainAndTileSpell) =>
+        if(targets.terrain.isEmpty) failed("No target specified for spell")
+        if(!tiles.inBounds(targets.loc0)) failed("Target location not in bounds")
+        spell.tryCanTarget(side,targets.terrain.get,targets.loc0,this)
       case (_: NoEffectSpell) =>
         Success(())
     }
@@ -1513,6 +1517,8 @@ case class BoardState private (
           case (spell: PieceAndLocSpell) =>
             val target = findPiece(targets.target0).get
             spell.effect(this,target,targets.loc0)
+          case (spell: TerrainAndTileSpell) =>
+            spell.effect(this,targets.terrain.get,targets.loc0)
         }
         spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
         spellsPlayed = spellsPlayed :+ SpellPlayedInfo(spellId, side, Some(targets))
