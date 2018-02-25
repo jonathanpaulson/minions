@@ -12,7 +12,7 @@ sealed trait MouseTarget {
       case MouseNone => None
       case MouseSpellChoice(_,_,_) => None
       case MouseSpellHand(_,_,_) => None
-      case MouseSpellPlayed(_,_,_,_) => None
+      case MouseSpellPlayed(_,_) => None
       case MousePiece(spec,_) => board.findPiece(spec)
       case MouseTile(_) => None
       case MouseTech(_,_) => None
@@ -31,7 +31,7 @@ sealed trait MouseTarget {
       case MouseNone => None
       case MouseSpellChoice(_,_,loc) => Some(loc)
       case MouseSpellHand(_,_,loc) => Some(loc)
-      case MouseSpellPlayed(_,_,_,loc) => Some(loc)
+      case MouseSpellPlayed(_,loc) => Some(loc)
       case MousePiece(_,loc) => Some(loc)
       case MouseTile(loc) => Some(loc)
       case MouseTech(_,loc) => Some(loc)
@@ -49,7 +49,7 @@ sealed trait MouseTarget {
 case object MouseNone extends MouseTarget
 case class MouseSpellChoice(spellId: SpellId, side: Option[Side], loc: Loc) extends MouseTarget
 case class MouseSpellHand(spellId: SpellId, side: Side, loc: Loc) extends MouseTarget
-case class MouseSpellPlayed(spellId: SpellId, side: Side, targets: Option[SpellOrAbilityTargets], loc: Loc) extends MouseTarget
+case class MouseSpellPlayed(played: Option[SpellPlayedInfo], loc: Loc) extends MouseTarget
 case class MousePiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
 case class MouseTile(loc: Loc) extends MouseTarget
 case class MouseTech(techIdx: Int, loc: Loc) extends MouseTarget
@@ -366,65 +366,73 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
               mouseState.client.doActionOnCurBoard(GainSpellUndo(spellId, makeActionId()))
             }
           } else {
-            if(curTarget == dragTarget && didDoubleClick) {
-              mouseState.client.doActionOnCurBoard(PlayerActions(List(DiscardSpell(spellId)),makeActionId()))
-            } else {
-              mouseState.client.externalInfo.spellsRevealed.get(spellId).foreach { spellName =>
-                val spell = Spells.spellMap(spellName)
-                spell match {
-                  case (_: TargetedSpell) =>
-                    curTarget.findPiece(board).foreach { piece =>
-                      val targets = SpellOrAbilityTargets.singlePiece(piece.spec)
-                      mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
-                    }
-                  case (_: TileSpell) =>
-                    curTarget.getLoc().foreach { loc =>
-                      val targets = SpellOrAbilityTargets.singleLoc(loc)
-                      mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
-                    }
-                  case (spell: PieceAndLocSpell) =>
-                    curTarget.findPiece(board).foreach { piece =>
-                      spell.tryCanTargetPiece(side,piece) match {
-                        case Failure(err) => mouseState.client.reportError(err.getLocalizedMessage)
-                        case Success(()) =>
-                          val pieceTargets = List(piece.spec)
-                          val locTargets = board.tiles.filterLocs { loc =>
-                            spell.tryCanTarget(side,piece,loc,board).isSuccess
-                          }
-                          mouseState.mode = DragPieceToLocMouseMode(mouseState,pieceTargets,locTargets) { case (piece,loc) =>
-                            val targets = SpellOrAbilityTargets.pieceAndLoc(piece.spec,loc)
-                            mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
-                          }
+            curTarget match {
+              case MouseSpellPlayed(_,_) =>
+                mouseState.client.doActionOnCurBoard(PlayerActions(List(DiscardSpell(spellId)),makeActionId()))
+              case _ =>
+                mouseState.client.externalInfo.spellsRevealed.get(spellId).foreach { spellName =>
+                  val spell = Spells.spellMap(spellName)
+                  spell match {
+                    case (_: TargetedSpell) =>
+                      curTarget.findPiece(board).foreach { piece =>
+                        val targets = SpellOrAbilityTargets.singlePiece(piece.spec)
+                        mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
                       }
-                    }
-                  case (_: TerrainAndTileSpell) =>
-                    curTarget match {
-                      case MouseTerrain(terrain,_) =>
-                        def makeAction(loc:Loc) = {
-                          PlaySpell(spellId, SpellOrAbilityTargets.terrainAndLoc(terrain, loc))
+                    case (_: TileSpell) =>
+                      curTarget.getLoc().foreach { loc =>
+                        val targets = SpellOrAbilityTargets.singleLoc(loc)
+                        mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+                      }
+                    case (spell: PieceAndLocSpell) =>
+                      curTarget.findPiece(board).foreach { piece =>
+                        spell.tryCanTargetPiece(side,piece) match {
+                          case Failure(err) => mouseState.client.reportError(err.getLocalizedMessage)
+                          case Success(()) =>
+                            val pieceTargets = List(piece.spec)
+                            val locTargets = board.tiles.filterLocs { loc =>
+                              spell.tryCanTarget(side,piece,loc,board).isSuccess
+                            }
+                            mouseState.mode = DragPieceToLocMouseMode(mouseState,pieceTargets,locTargets) { case (piece,loc) =>
+                              val targets = SpellOrAbilityTargets.pieceAndLoc(piece.spec,loc)
+                              mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, targets)),makeActionId()))
+                            }
                         }
-                        val locTargets = board.tiles.filterLocs { loc =>
-                          board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
-                        }
-                        mouseState.mode = SelectTargetMouseMode(mouseState, List(), locTargets) { (target:MouseTarget) =>
-                          target.getLoc().foreach { loc =>
-                            mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(loc)), makeActionId()))
+                      }
+                    case (_: TerrainAndTileSpell) =>
+                      curTarget match {
+                        case MouseTerrain(terrain,_) =>
+                          def makeAction(loc:Loc) = {
+                            PlaySpell(spellId, SpellOrAbilityTargets.terrainAndLoc(terrain, loc))
                           }
-                        }
-                      case _ => ()
-                    }
+                          val locTargets = board.tiles.filterLocs { loc =>
+                            board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
+                          }
+                          mouseState.mode = SelectTargetMouseMode(mouseState, List(), locTargets) { (target:MouseTarget) =>
+                            target.getLoc().foreach { loc =>
+                              mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(loc)), makeActionId()))
+                            }
+                          }
+                          case _ => ()
+                      }
+                    case (_: NoTargetSpell) =>
+                      if(curTarget == dragTarget && didDoubleClick) {
+                        mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, SpellOrAbilityTargets.none)),makeActionId()))
+                      }
 
-                  case (_: NoEffectSpell) =>
-                    ()
+                    case (_: NoEffectSpell) =>
+                      ()
+                  }
                 }
-              }
             }
           }
         }
-
-      case MouseSpellPlayed(spellId,side,_,_) =>
-        if(ourSide == Some(game.curSide) && undo && side == game.curSide && curTarget == dragTarget) {
-          mouseState.client.doActionOnCurBoard(SpellUndo(spellId, makeActionId()))
+      case MouseSpellPlayed(info,_) =>
+        info match {
+          case None =>
+          case Some(info) =>
+            if(ourSide == Some(game.curSide) && undo && info.side == game.curSide && curTarget == dragTarget) {
+              mouseState.client.doActionOnCurBoard(SpellUndo(info.spellId, makeActionId()))
+            }
         }
 
       case MouseExtraTechAndSpell(_) =>
@@ -703,7 +711,7 @@ case class DragPieceToLocMouseMode(val mouseState: MouseState, val pieceTargets:
       case MouseNone => None
       case MouseSpellChoice(_,_,_) => None
       case MouseSpellHand(_,_,_) => None
-      case MouseSpellPlayed(_,_,_,_) => None
+      case MouseSpellPlayed(_,_) => None
       case MouseTech(_,_) => None
       case MouseReinforcement(_,_,_) => None
       case MouseDeadPiece(_,_) => None
@@ -741,7 +749,7 @@ case class SelectTerrainMouseMode(val mouseState: MouseState)(f: Option[Terrain]
       case MouseNone => None
       case MouseSpellChoice(_,_,_) => None
       case MouseSpellHand(_,_,_) => None
-      case MouseSpellPlayed(_,_,_,_) => None
+      case MouseSpellPlayed(_,_) => None
       case MouseTech(_,_) => None
       case MouseReinforcement(_,_,_) => None
       case MouseDeadPiece(_,_) => None

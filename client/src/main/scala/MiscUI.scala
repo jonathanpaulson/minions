@@ -208,11 +208,16 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
 
   object SpellPlayed extends UI.Component with UI.Clickable {
     val origin = HexLoc(boardYSize.toDouble / 2 - 1, boardYSize.toDouble + 1) + HexVec(-0.3,-0.6)
+    val maxShown = 8
     val gridSizeScale = 1
     val descLoc: HexLoc = hexLoc(Loc(-1,0))
 
+    def getLocs(): Array[Loc] = {
+      Array.range(0, maxShown).map { i => Loc(i, 0) }
+    }
+
     def getHexLocsAndContents(board: BoardState): Array[(HexLoc,SpellId,Side,Option[SpellOrAbilityTargets])] = {
-      board.spellsPlayed.reverse.zipWithIndex.map { case (info, i) =>
+      board.spellsPlayed.reverse.take(maxShown).zipWithIndex.map { case (info, i) =>
         (hexLoc(Loc(i,0)), info.spellId, info.side, info.targets)
       }.toArray
     }
@@ -221,9 +226,12 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
       val _ = (game)
       val (loc,_) = getLocAndDelta(hexLoc)
       val idx = loc.x
-      if(loc.y == 0 && idx >= 0 && idx < board.spellsPlayed.length) {
-        val info = board.spellsPlayed.reverse(idx)
-        MouseSpellPlayed(info.spellId, info.side, info.targets, loc)
+      if(loc.y == 0 && idx >= 0 && idx < maxShown) {
+        if(idx < board.spellsPlayed.length) {
+          MouseSpellPlayed(Some(board.spellsPlayed.reverse(idx)), loc)
+        } else {
+          MouseSpellPlayed(None, loc)
+        }
       }
       else
         MouseNone

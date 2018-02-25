@@ -1278,11 +1278,15 @@ object Drawing {
             drawSidebar(side=Some(side), spell=Some(spellId))
           case MouseSpellChoice(spellId,side,_) =>
             drawSidebar(side=side, spell=Some(spellId))
-          case MouseSpellPlayed(spellId, side, targets, _) =>
-            drawSidebar(side=Some(side), spell=Some(spellId), spellTargets=Some(targets))
-            targets match {
-              case None => highlightUndoneAction(DiscardSpell(spellId))
-              case Some(targets) => highlightUndoneAction(PlaySpell(spellId, targets))
+          case MouseSpellPlayed(infoOpt, _) =>
+            infoOpt match {
+              case None => ()
+              case Some(info) =>
+                drawSidebar(side=Some(info.side), spell=Some(info.spellId), spellTargets=Some(info.targets))
+                info.targets match {
+                  case None => highlightUndoneAction(DiscardSpell(info.spellId))
+                  case Some(targets) => highlightUndoneAction(PlaySpell(info.spellId, targets))
+                }
             }
           case MouseTile(loc) =>
             drawSidebar(tile=Some(board.tiles(loc)))
@@ -1354,6 +1358,9 @@ object Drawing {
           case MouseSpellHand(spellId,_,loc) =>
             if(client.ourSide == Some(game.curSide)) {
               highlightHex(ui.SpellHand.hexLoc(loc), rectangle=true)
+              ui.SpellPlayed.getLocs().foreach { loc =>
+                highlightHex(ui.SpellPlayed.hexLoc(loc), rectangle=true)
+              }
               if(undoing)
                 highlightUndoneActionsForSpell(spellId)
               else {
@@ -1385,6 +1392,8 @@ object Drawing {
                       ui.Terrain.terrains.zipWithIndex.foreach { case(_,i) =>
                         highlightHex(ui.Terrain.hexLoc(Loc(i,0)), scale=ui.Terrain.gridSizeScale)
                       }
+                    case (_: NoTargetSpell) =>
+                      ()
                     case (_: NoEffectSpell) =>
                       ()
                   }
@@ -1396,7 +1405,7 @@ object Drawing {
             if(client.ourSide == Some(game.curSide)) {
               highlightHex(ui.SpellChoice.hexLoc(loc), rectangle=true)
             }
-          case MouseSpellPlayed(_,_,_,loc) =>
+          case MouseSpellPlayed(_,loc) =>
             if(client.ourSide == Some(game.curSide)) {
               if(undoing) {
                 highlightHex(ui.SpellPlayed.hexLoc(loc), rectangle=true)
@@ -1582,7 +1591,7 @@ object Drawing {
         case MouseNone => (ui.MainBoard, false)
         case MouseSpellChoice(_,_,_) => (ui.SpellChoice, true)
         case MouseSpellHand(_,_,_) => (ui.SpellHand, true)
-        case MouseSpellPlayed(_,_,_,_) => (ui.SpellPlayed, true)
+        case MouseSpellPlayed(_,_) => (ui.SpellPlayed, true)
         case MousePiece(_,_) => (ui.MainBoard, false)
         case MouseTile(_) => (ui.MainBoard, false)
         case MouseTech(_,_) => (ui.Tech, false)

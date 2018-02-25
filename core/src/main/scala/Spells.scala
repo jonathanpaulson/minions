@@ -286,6 +286,24 @@ case object Spells {
     ),
     effect = Enchant(PieceModWithDuration(PieceMods.Spawner, turnsLeft=Some(1)))
   )
+  val rising_horde = NoTargetSpell(
+    name = "rising_horde",
+    displayName = "Rising Horde",
+    shortDisplayName = "Horde",
+    desc = List("All your units can spawn", "until end of turn"),
+    spellType = Sorcery,
+    spawnPhaseOnly = false,
+    effect = {(board: BoardState, side: Side) =>
+      board.pieces.transform { pieces =>
+        pieces.map { piece =>
+          if(piece.side == side) {
+            piece.modsWithDuration = piece.modsWithDuration :+ PieceModWithDuration(PieceMods.Spawner, turnsLeft=Some(1))
+          }
+          piece
+        }
+      }
+    }
+  )
 
   val blink = TargetedSpell(
     name = "blink",
@@ -429,6 +447,7 @@ case object Spells {
     displace,
     stumble,
     spawn,
+    rising_horde,
     blink,
     raiseZombie,
     doubleCantrip,
@@ -467,6 +486,7 @@ case object Spells {
 
       (displace, 2),
       (spawn, 2),
+      (rising_horde, 2),
       (blink, 2),
       (raiseZombie, 2),
       (doubleCantrip, 2),
@@ -486,7 +506,6 @@ case object Spells {
 
       // NoTargetSpell
       // Drain (2) (cantrip) - opponent has -1 sorcery power next turn (can sacrifice any unit to pay for it)
-      // Rising horde (sorcery) (2) - all your units have spawn
 
       // PieceAndPieceSpell
       // Critical hit (sorcery) (2) - Target minion takes damage from the previous attack again
