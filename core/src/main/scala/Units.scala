@@ -208,7 +208,7 @@ object Units {
   val spire = createPieceStats(
     name = "spire",
     cost = 5,
-    rebate = 2,
+    rebate = 1,
     moveRange = 0,
     attackRange = 1,
     attackEffect = Some(Damage(5)),
@@ -344,7 +344,7 @@ object Units {
     name = "dark_tower",
     shortDisplayName = "DTower",
     displayName = "Dark Tower",
-    cost = 7,
+    cost = 6,
     rebate = 0,
     moveRange = 0,
     attackRange = 2,
@@ -359,24 +359,13 @@ object Units {
     name = "bone_rat",
     shortDisplayName = "BnRat",
     displayName = "Bone Rat",
-    cost = 2,
-    rebate = 1,
+    cost = 3,
+    rebate = 2,
     moveRange = 1,
     attackRange = 1,
-    attackEffect = Some(Damage(1)),
+    attackEffect = Some(Damage(3)),
     defense = Some(1),
     swarmMax = 3,
-    abilities = Map("unsummonattack" -> SelfEnchantAbility(
-      name = "unsummonattack",
-      displayName = "Unsummon Strike (sorcery)",
-      desc = List("Pay 1 sorcery power: Attack unsummons"),
-      isSorcery = true,
-      tryIsUsableNow = { (piece: Piece) =>
-        if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
-        else Success(())
-      },
-      mod = PieceModWithDuration(PieceMods.UnsummonAttack,turnsLeft = Some(1))
-    ))
   )
 
   val witch = createPieceStats(

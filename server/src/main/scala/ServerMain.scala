@@ -69,6 +69,13 @@ object ServerMain extends App {
     var name = "Igor"
     var side = Some(S1)
     var step = 0
+    val aiRand = Rand(RandUtils.sha256Long(game.randSeed + "#ai"))
+    var nextActionIdSuffix: Int = 0
+
+    def makeActionId(): String = {
+      nextActionIdSuffix = nextActionIdSuffix + 1
+      name + nextActionIdSuffix.toString
+    }
     def chat(message: String) = {
       out ! Protocol.Chat(name, side, true, message)
     }
@@ -90,6 +97,69 @@ object ServerMain extends App {
           case Some(S1) => ()
         }
       case Protocol.ReportNewTurn(S1) =>
+        out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
+
+        val techs = game.game.techLine
+        val availableTechs = techs.indices.filter { i =>
+          techs(i).level(S1) != TechAcquired && (i==0 || techs(i-1).level(S1) != TechLocked)
+        }
+        val unlockedTechs = techs.indices.filter { i =>
+          techs(i).level(S1) == TechAcquired
+        }
+
+        // Do this multiple times
+        val unlockedUnits = unlockedTechs.flatMap { i =>
+          techs(i).tech match {
+            case PieceTech(pieceName) =>
+              val stats = Units.pieceMap(pieceName)
+              if(stats.moveRange > 0 && stats.cost <= game.game.mana(S1) && !stats.attackEffect.isEmpty) {
+                Some(stats)
+              } else {
+                None
+              }
+          }
+        }
+        val chosenUnit = unlockedUnits(aiRand.nextInt(unlockedUnits.length))
+
+        out ! Protocol.DoBoardAction(0, DoGeneralBoardAction(BuyReinforcement(chosenUnit.name), makeActionId()))
+
+
+        val board = game.boards(0).curState
+        val enemyLocs = board.pieces.filterLocs { loc =>
+          board.pieces(loc).exists { piece =>
+            piece.side == S0
+          }
+        }
+
+        // Move and attack with units
+        board.pieces.foreach { pieces =>
+          pieces.foreach { piece =>
+            if(piece.side == S1 && !piece.curStats(board).isNecromancer) {
+              val moves = board.legalMoves(piece)
+              val (bestMove,_) = moves.minBy({ case (loc,_) => 
+                enemyLocs.map { enemyLoc => board.topology.distance(loc, enemyLoc) }.min
+              })
+              board.findPathForUI(piece,pathBias=List(),isRotationPath=false) { case (loc,_) => loc == bestMove } match {
+                case None => ()
+                case Some((path,_)) =>
+                  val movements = Movements(List(Movement(piece.spec, path.toVector)))
+                  out ! Protocol.DoBoardAction(0, PlayerActions(List(movements), makeActionId()))
+              }
+            }
+          }
+        }
+
+        // Spawn reinforcements
+        /*reinforcements.iter {
+          val locs = board.legalSpawnLocs(pieceName)
+        }*/
+
+        if(availableTechs.length > 0) {
+          val chosenTech = availableTechs(aiRand.nextInt(availableTechs.length))
+          out ! Protocol.DoGameAction(PerformTech(S1, chosenTech))
+        }
+
+
         out ! Protocol.DoGameAction(SetBoardDone(0, true))
       case _ => {
         val board = game.boards(0).curState
@@ -986,7 +1056,7 @@ if(!username || username.length == 0) {
   path("tutorial") {
     val secondsPerTurn = SideArray.create(1000.0)
     val startingMana = SideArray.createTwo(0, 5)
-    val extraManaPerTurn = SideArray.createTwo(0, 0)
+    val extraManaPerTurn = SideArray.createTwo(0, 10)
     val targetWins = 1
     val techMana = 4
     val maps_opt = None
