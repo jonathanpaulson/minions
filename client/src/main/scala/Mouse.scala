@@ -399,20 +399,22 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                         }
                       }
                     case (_: TerrainAndTileSpell) =>
-                      curTarget match {
-                        case MouseTerrain(terrain,_) =>
-                          def makeAction(loc:Loc) = {
-                            PlaySpell(spellId, SpellOrAbilityTargets.terrainAndLoc(terrain, loc))
-                          }
-                          val locTargets = board.tiles.filterLocs { loc =>
-                            board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
-                          }
-                          mouseState.mode = SelectTargetMouseMode(mouseState, List(), locTargets) { (target:MouseTarget) =>
-                            target.getLoc().foreach { loc =>
-                              mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(loc)), makeActionId()))
+                      curTarget.getLoc().foreach { loc =>
+                        val arbitraryTerrain = Whirlwind
+                        def makeAction(terrain: Terrain) = {
+                          PlaySpell(spellId, SpellOrAbilityTargets.terrainAndLoc(terrain, loc))
+                        }
+                        if(board.tryLegality(makeAction(arbitraryTerrain), mouseState.client.externalInfo).isSuccess) {
+                          mouseState.mode = SelectTerrainMouseMode(mouseState) { (terrainOpt: Option[Terrain]) =>
+                            terrainOpt match {
+                              case None => ()
+                              case Some(terrain) =>
+                                mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(terrain)),makeActionId()))
                             }
                           }
-                          case _ => ()
+                        } else {
+                          mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(arbitraryTerrain)),makeActionId()))
+                        }
                       }
                     case (_: NoTargetSpell) =>
                       if(curTarget == dragTarget && didDoubleClick) {
@@ -578,7 +580,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                       val ability = pieceStats.abilities(abilityName)
                       val spec = piece.spec
                       ability match {
-                        case SuicideAbility | SpawnZombiesAbility | KillAdjacentAbility | (_:SelfEnchantAbility) =>
+                        case Suicide | SpawnZombies | KillAdjacent | (_:SelfEnchantAbility) =>
                           val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.none))
                           mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions,makeActionId()))
                         case MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm =>
@@ -603,23 +605,39 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                             }
                           }
                         case MoveTerrain =>
-                          mouseState.mode = SelectTerrainMouseMode(mouseState) { (terrainOpt: Option[Terrain]) =>
-                            terrainOpt match {
-                              case None => ()
-                              case Some(terrain) =>
-                                def makeAction(loc:Loc) = {
-                                  ActivateAbility(spec, abilityName, SpellOrAbilityTargets.terrainAndLoc(terrain,loc))
-                                }
-                                val locTargets = board.tiles.filterLocs { loc =>
-                                  board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
-                                }
-                                mouseState.mode = SelectTargetMouseMode(mouseState, List(), locTargets) { (target:MouseTarget) =>
-                                  target.getLoc() match {
-                                    case None => ()
-                                    case Some(loc) =>
-                                      mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(loc)), makeActionId()))
+                          def makeAction(terrain:Terrain, loc:Loc) = {
+                            ActivateAbility(spec, abilityName, SpellOrAbilityTargets.terrainAndLoc(terrain,loc))
+                          }
+                          val arbitraryTerrain = Whirlwind
+                          def isLegal(loc:Loc) = {
+                            board.tryLegality(makeAction(arbitraryTerrain, loc), mouseState.client.externalInfo).isSuccess
+                          }
+                          def doIllegalAction(loc: Loc) = {
+                            assert(!isLegal(loc))
+                            mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(arbitraryTerrain, loc)), makeActionId()))
+                          }
+                          val locTargets = board.tiles.filterLocs { loc => isLegal(loc) }
+                          if(locTargets.isEmpty) {
+                            doIllegalAction(piece.loc)
+                          } else {
+                            mouseState.mode = SelectTargetMouseMode(mouseState, List(), locTargets) { (target:MouseTarget) =>
+                              target.getLoc() match {
+                                case None => ()
+                                case Some(loc) =>
+                                  println(loc)
+                                  if(isLegal(loc)) {
+                                    mouseState.mode = SelectTerrainMouseMode(mouseState) { (terrainOpt: Option[Terrain]) =>
+                                      terrainOpt match {
+                                        case None => ()
+                                        case Some(terrain) =>
+                                          mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(terrain, loc)), makeActionId()))
+                                      }
+                                    }
+                                  } else {
+                                    println(loc)
+                                    doIllegalAction(loc)
                                   }
-                                }
+                              }
                             }
                           }
 

@@ -424,7 +424,7 @@ case object Spells {
     name = "doubleCantrip",
     displayName = "Double Cantrip",
     shortDisplayName = "DCant",
-    desc = List("Gain 2 sorcery power when played or discarded."),
+   desc = List("Gain 2 sorcery power when played or discarded."),
     spellType = DoubleCantrip,
     spawnPhaseOnly = false,
   )
@@ -462,10 +462,7 @@ case object Spells {
     cleave,
     sunder,
   )
-  val spellMap: Map[SpellName,Spell] = spells.groupBy(spell => spell.name).mapValues { spells =>
-    assert(spells.length == 1)
-    spells.head
-  }
+  val spellMap: Map[SpellName,Spell] = spells.map { spell => (spell.name -> spell) }.toMap
 
   def createDeck(): List[SpellName] = {
     List(

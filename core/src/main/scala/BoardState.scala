@@ -1300,13 +1300,12 @@ case class BoardState private (
                 requireSuccess(ability.tryIsUsableNow(piece))
                 failIf(ability.isSorcery && sorceryPower + sorceryPowerInHand(side,externalInfo) <= 0, "No sorcery power (must first play cantrip or discard spell)")
                 ability match {
-                  case SuicideAbility | (_:SelfEnchantAbility) => ()
-                  case KillAdjacentAbility =>
+                  case Suicide | SpawnZombies | (_:SelfEnchantAbility) => ()
+                  case KillAdjacent =>
                     failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
                   case MoveTerrain | MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm  =>
-                    failUnless(topology.distance(piece.loc,targets.loc0) <= piece.curStats(this).attackRange, "Must place terrain within attack range")
+                    failUnless(topology.distance(piece.loc,targets.loc0) <= 1, "Must place terrain in an adjacent hex")
                     requireSuccess(canMoveTerrain(targets.loc0))
-                  case SpawnZombiesAbility => ()
                   case (ability:TargetedAbility) =>
                     findPiece(targets.target0) match {
                       case None => fail("No target specified for ability")
@@ -1452,16 +1451,16 @@ case class BoardState private (
           sorceryPower -= 1
 
         ability match {
-          case SuicideAbility =>
+          case Suicide =>
             killPiece(piece)
-          case SpawnZombiesAbility =>
+          case SpawnZombies =>
             pieces.topology.forEachAdj(piece.loc) { loc =>
               spawnPieceInternal(piece.side,Units.zombie.name,loc) match {
                 case Some(_: Piece) => ()
                 case None => ()
               }
             }
-          case KillAdjacentAbility =>
+          case KillAdjacent =>
             pieces.topology.forEachAdj(piece.loc) { loc =>
               pieces(loc).foreach { p =>
                 if(p.side != piece.side && !p.baseStats.isNecromancer) {

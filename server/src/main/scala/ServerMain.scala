@@ -136,7 +136,7 @@ object ServerMain extends App {
           pieces.foreach { piece =>
             if(piece.side == S1 && !piece.curStats(board).isNecromancer) {
               val moves = board.legalMoves(piece)
-              val (bestMove,_) = moves.minBy({ case (loc,_) => 
+              val (bestMove,_) = moves.minBy({ case (loc,_) =>
                 enemyLocs.map { enemyLoc => board.topology.distance(loc, enemyLoc) }.min
               })
               board.findPathForUI(piece,pathBias=List(),isRotationPath=false) { case (loc,_) => loc == bestMove } match {

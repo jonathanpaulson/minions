@@ -28,7 +28,7 @@ object Units {
     extraMana : Int = 0,
     extraSorceryPower : Int = 0,
     deathSpawn : Option[PieceName] = None,
-    abilities : Map[String,PieceAbility] = Map.empty
+    abilities : List[PieceAbility] = List.empty,
   ) : PieceStats = {
     PieceStats(
       name = name,
@@ -56,7 +56,7 @@ object Units {
       extraMana = extraMana,
       extraSorceryPower = extraSorceryPower,
       deathSpawn = deathSpawn,
-      abilities = abilities
+      abilities = abilities.map { ability => (ability.name -> ability) }.toMap
     )
   }
 
@@ -246,7 +246,7 @@ object Units {
     attackRange = 1,
     attackEffect = Some(Damage(3)),
     defense = Some(1),
-    abilities = Map(MoveFlood.name -> MoveFlood)
+    abilities = List(MoveFlood),
   )
 
   val bat = createPieceStats(
@@ -281,17 +281,7 @@ object Units {
     attackEffect = Some(Damage(3)),
     defense = Some(3),
     deathSpawn = Some(zombie.name),
-    abilities = Map("doubleattack" -> SelfEnchantAbility(
-      name = "doubleattack",
-      displayName = "Double Strike (sorcery)",
-      desc = List("Pay 1 sorcery power: Attacks twice"),
-      isSorcery = true,
-      tryIsUsableNow = { (piece: Piece) =>
-        if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
-        else Success(())
-      },
-      mod = PieceModWithDuration(PieceMods.DoubleAttack,turnsLeft = Some(1))
-    ))
+    abilities = List(Abilities.double_attack),
   )
 
   val haunt = createPieceStats(
@@ -303,7 +293,7 @@ object Units {
     attackEffect = Some(Damage(2)),
     defense = Some(2),
     canBlink = true,
-    abilities = Map(MoveEarthquake.name -> MoveEarthquake)
+    abilities = List(MoveEarthquake)
   )
 
   val shrieker = createPieceStats(
@@ -315,19 +305,6 @@ object Units {
     attackEffect = Some(Damage(1)),
     numAttacks = 3,
     defense = Some(2),
-    abilities = Map("rangetwo" -> SelfEnchantAbility(
-      name = "rangetwo",
-      displayName = "Range Two (sorcery)",
-      desc = List("Pay 1 sorcery power: Range 2"),
-      isSorcery = true,
-      tryIsUsableNow = { (piece: Piece) =>
-        piece.actState match {
-          case DoneActing | Spawning => Failure(new Exception("Piece has already finished its turn"))
-          case Moving(_) | Attacking(_) => Success(())
-        }
-      },
-      mod = PieceModWithDuration(PieceMods.RangeTwo, turnsLeft = Some(1))
-    ))
   )
 
   val warg = createPieceStats(
@@ -352,7 +329,7 @@ object Units {
     defense = Some(4),
     spawnRange = Some(1),
     deathSpawn = Some(spire.name),
-    abilities = Map(SpawnZombiesAbility.name -> SpawnZombiesAbility),
+    abilities = List(SpawnZombies),
   )
 
   val bone_rat = createPieceStats(
@@ -390,19 +367,7 @@ object Units {
     numAttacks = 2,
     defense = Some(5),
     isPersistent = true,
-    abilities = Map("movethree" -> SelfEnchantAbility(
-      name = "movethree",
-      displayName = "Move Three (sorcery)",
-      desc = List("Pay 1 sorcery power: Move 3"),
-      isSorcery = true,
-      tryIsUsableNow = { (piece: Piece) =>
-        piece.actState match {
-          case DoneActing | Spawning | Attacking(_) => Failure(new Exception("Piece has already acted or attacked this turn"))
-          case Moving(_) => Success(())
-        }
-      },
-      mod = PieceModWithDuration(PieceMods.MoveThree, turnsLeft = Some(1))
-    ))
+    abilities = List(Abilities.move_three),
   )
 
   val mummy = createPieceStats(
@@ -439,7 +404,7 @@ object Units {
     attackEffect = Some(Unsummon),
     defense = Some(2),
     canBlink = true,
-    abilities = Map(MoveWhirlwind.name -> MoveWhirlwind)
+    abilities = List(MoveWhirlwind)
   )
 
   val hell_hound = createPieceStats(
@@ -453,7 +418,7 @@ object Units {
     attackEffect = Some(Damage(1)),
     defense = Some(2),
     swarmMax = 3,
-    abilities = Map(MoveFirestorm.name -> MoveFirestorm)
+    abilities = List(MoveFirestorm)
   )
 
   val wraith = createPieceStats(
@@ -477,17 +442,7 @@ object Units {
     attackEffect = Some(Damage(1)),
     numAttacks = 9,
     defense = Some(9),
-    abilities = Map("airstrike" -> SelfEnchantAbility(
-      name = "airstrike",
-      displayName = "Air Strike (sorcery)",
-      desc = List("Pay 1 sorcery power: Attack range 3 vs flying"),
-      isSorcery = true,
-      tryIsUsableNow = { (piece: Piece) =>
-        if(piece.actState >= Spawning) Failure(new Exception("Piece has already acted or cannot act this turn"))
-        else Success(())
-      },
-      mod = PieceModWithDuration(PieceMods.AirStrike, turnsLeft = Some(1))
-    ))
+    abilities = List(Abilities.airstrike)
   )
 
   val banshee = createPieceStats(
@@ -499,7 +454,7 @@ object Units {
     attackEffect = Some(Kill),
     defense = Some(2),
     canHurtNecromancer = false,
-    abilities = Map(KillAdjacentAbility.name -> KillAdjacentAbility)
+    abilities = List(KillAdjacent)
   )
 
   val elemental = createPieceStats(
@@ -511,7 +466,7 @@ object Units {
     attackRange = 3,
     attackEffect = Some(Damage(3)),
     defense = Some(3),
-    abilities = Map(MoveTerrain.name -> MoveTerrain)
+    abilities = List(MoveTerrain)
   )
 
   val fallen_angel = createPieceStats(

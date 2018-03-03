@@ -1374,6 +1374,14 @@ object Drawing {
                           case Success(()) => highlightPiece(piece)
                         }
                       }
+                    case (spell: TerrainAndTileSpell) =>
+                      val arbitraryTerrain = Whirlwind
+                      board.tiles.foreachLoc { loc =>
+                        spell.tryCanTarget(board.side,arbitraryTerrain,loc,board) match {
+                          case Failure(_) => ()
+                          case Success(()) => highlightHex(ui.MainBoard.hexLoc(loc))
+                        }
+                      }
                     case (spell: TileSpell) =>
                       board.tiles.foreachLoc { loc =>
                         spell.tryCanTarget(board.side,loc,board) match {
@@ -1387,10 +1395,6 @@ object Drawing {
                           case Failure(_) => ()
                           case Success(()) => highlightPiece(piece)
                         }
-                      }
-                    case (_: TerrainAndTileSpell) =>
-                      ui.Terrain.terrains.zipWithIndex.foreach { case(_,i) =>
-                        highlightHex(ui.Terrain.hexLoc(Loc(i,0)), scale=ui.Terrain.gridSizeScale)
                       }
                     case (_: NoTargetSpell) =>
                       ()

@@ -145,11 +145,12 @@ case class PieceModWithDuration(
  * Comparison is done using the name field only, which we rely on as a key to distinguish abilities
  * since functions are not comparable in Scala.
  */
-sealed trait PieceAbility {
+trait PieceAbility {
   val name: AbilityName  //MUST be a UNIQUE key for different modifiers!
   val displayName: String
   val desc: List[String]
   val isSorcery: Boolean //Requires a discarded spell
+  val spawnPhaseOnly: Boolean
   val tryIsUsableNow: Piece => Try[Unit]
 
   override def equals(o: Any): Boolean = o match {
@@ -159,73 +160,13 @@ sealed trait PieceAbility {
   override def hashCode: Int = name.hashCode
 }
 
-//For wailing units
-case object SuicideAbility extends PieceAbility {
-  val name = "suicide"
-  val displayName = "Suicide"
-  val desc = List("Kills this piece (without having spent all attacks).")
-  val isSorcery = false
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-
-case object KillAdjacentAbility extends PieceAbility {
-  val name = "scream"
-  val displayName = "Scream"
-  val desc = List("Kills all adjacent enemy minions")
-  val isSorcery = true
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-
-case object SpawnZombiesAbility extends PieceAbility {
-  val name = "spawn_zombies"
-  val displayName = "Spawn Zombies"
-  val desc = List("Spawn a zombie in every adjacent hex")
-  val isSorcery = true
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-
-case object MoveEarthquake extends PieceAbility {
-  val name = "move_earthquake"
-  val displayName = "Move Earthquake"
-  val desc = List("Move Earthquake (only passable by unit types with >= 2 speed)", "to empty Ground hex within attack range")
-  val isSorcery = true
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-case object MoveFlood extends PieceAbility {
-  val name = "move_flood"
-  val displayName = "Move Flood"
-  val desc = List("Move Flood (only passable by flying unit types)", "to empty Ground hex within attack range")
-  val isSorcery = true
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-case object MoveWhirlwind extends PieceAbility {
-  val name = "move_whirlwind"
-  val displayName = "Move Whirlwind"
-  val desc = List("Move Whirlwind (only passable by persistent unit types)", "to empty Ground hex within attack range")
-  val isSorcery = true
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-case object MoveFirestorm extends PieceAbility {
-  val name = "move_firestorm"
-  val displayName = "Move Firestorm"
-  val desc = List("Move Firestorm (only passable by unit types with >= 4 health)", "to empty Ground hex within attack range")
-  val isSorcery = true
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-case object MoveTerrain extends PieceAbility {
-  val name = "move_terrain"
-  val displayName = "Move Terrain"
-  val desc = List("Move one of the four terrain tiles", "to target empty Ground hex within attack range")
-  val isSorcery = true
-  val tryIsUsableNow = { (_:Piece) => Success(()) }
-}
-
 //Discard abilities that target the piece itself
 case class SelfEnchantAbility(
   val name: AbilityName,
   val displayName: String,
   val desc: List[String],
   val isSorcery: Boolean,
+  val spawnPhaseOnly: Boolean,
   val tryIsUsableNow: Piece => Try[Unit],
   val mod: PieceModWithDuration
 ) extends PieceAbility {
@@ -238,6 +179,7 @@ case class TargetedAbility(
   val displayName: String,
   val desc: List[String],
   val isSorcery: Boolean,
+  val spawnPhaseOnly: Boolean,
   val tryIsUsableNow: Piece => Try[Unit],
   val tryCanTarget: (Piece, Piece) => Try[Unit], //(piece, target)
   val effect: TargetEffect
@@ -357,7 +299,7 @@ case class TerrainAndTileSpell(
   val desc: List[String],
   val spellType: SpellType,
   val spawnPhaseOnly: Boolean,
-  val tryCanTarget: (Side, Terrain, Loc, BoardState) => Try[Unit], //(spell caster side, terrain, tile, board)
+  val tryCanTarget: (Side, Terrain, Loc, BoardState) => Try[Unit], //(spell caster side, tile, board)
   val effect: ((BoardState, Terrain, Loc) => Unit)
 ) extends Spell {
   override def equals(o: Any): Boolean = super.equals(o)
