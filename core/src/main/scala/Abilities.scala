@@ -32,7 +32,7 @@ case object SpawnZombies extends PieceAbility {
 case object MoveEarthquake extends PieceAbility {
   val name = "move_earthquake"
   val displayName = "Move Earthquake"
-  val desc = List("Move Earthquake (only passable by unit types with >= 2 speed)", "to empty Ground hex within attack range")
+  val desc = List("Move Earthquake (only passable by unit types with >= 2 speed)", "to adjacent empty Ground hex")
   val isSorcery = true
   val spawnPhaseOnly = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
@@ -40,7 +40,7 @@ case object MoveEarthquake extends PieceAbility {
 case object MoveFlood extends PieceAbility {
   val name = "move_flood"
   val displayName = "Move Flood"
-  val desc = List("Move Flood (only passable by flying unit types)", "to empty Ground hex within attack range")
+  val desc = List("Move Flood (only passable by flying unit types)", "to adjacent empty Ground hex")
   val isSorcery = true
   val spawnPhaseOnly = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
@@ -48,7 +48,7 @@ case object MoveFlood extends PieceAbility {
 case object MoveWhirlwind extends PieceAbility {
   val name = "move_whirlwind"
   val displayName = "Move Whirlwind"
-  val desc = List("Move Whirlwind (only passable by persistent unit types)", "to empty Ground hex within attack range")
+  val desc = List("Move Whirlwind (only passable by persistent unit types)", "to adjacent empty Ground hex")
   val isSorcery = true
   val spawnPhaseOnly = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
@@ -56,7 +56,7 @@ case object MoveWhirlwind extends PieceAbility {
 case object MoveFirestorm extends PieceAbility {
   val name = "move_firestorm"
   val displayName = "Move Firestorm"
-  val desc = List("Move Firestorm (only passable by unit types with >= 4 health)", "to empty Ground hex within attack range")
+  val desc = List("Move Firestorm (only passable by unit types with >= 4 health)", "to adjacent empty Ground hex")
   val isSorcery = true
   val spawnPhaseOnly = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
@@ -64,7 +64,7 @@ case object MoveFirestorm extends PieceAbility {
 case object MoveTerrain extends PieceAbility {
   val name = "move_terrain"
   val displayName = "Move Terrain"
-  val desc = List("Move one of the four terrain tiles", "to target empty Ground hex within attack range")
+  val desc = List("Move one of the four terrain tiles", "to target adjacent empty Ground hex")
   val isSorcery = true
   val spawnPhaseOnly = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
