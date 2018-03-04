@@ -305,6 +305,7 @@ object Units {
     attackEffect = Some(Damage(1)),
     numAttacks = 3,
     defense = Some(2),
+    abilities = List(Abilities.range_two)
   )
 
   val warg = createPieceStats(
