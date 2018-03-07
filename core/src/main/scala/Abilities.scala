@@ -25,7 +25,7 @@ case object SpawnZombies extends PieceAbility {
   val displayName = "Spawn Zombies"
   val desc = List("Spawn a zombie in every adjacent hex")
   val isSorcery = true
-  val spawnPhaseOnly = false
+  val spawnPhaseOnly = true
   val tryIsUsableNow = { (_:Piece) => Success(()) }
 }
 
