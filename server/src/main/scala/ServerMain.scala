@@ -523,7 +523,7 @@ object ServerMain extends App {
       }
 
       //Accumulate mana on all the boards for the side about to move
-      val mana = boards.foldLeft(0) { case (sum,board) =>
+      val mana = boards.foldLeft(game.extraManaPerTurn(newSide)) { case (sum,board) =>
         sum + board.curState.manaThisRound(newSide)
       }
       game.addMana(newSide,mana)

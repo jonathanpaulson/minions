@@ -180,6 +180,13 @@ case class Game (
   def addMana(side: Side, amount: Int): Unit = {
     mana(side) = mana(side) + amount
   }
+  def manaThisRound(side: Side): Int = {
+    if(side == curSide) {
+      0
+    } else {
+      extraManaPerTurn(side)
+    }
+  }
 
   def tryIsLegal(action: GameAction): Try[Unit] = {
     action match {
@@ -270,8 +277,6 @@ case class Game (
     numTechsThisTurn = 0
     extraTechsAndSpellsThisTurn = 0
 
-    mana(curSide) += extraManaPerTurn(curSide)
-
     newTechsThisTurn = Vector()
     techLine.foreach { techState =>
       Side.foreach { side =>
@@ -315,7 +320,7 @@ case class Game (
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
         val stats = Units.pieceMap(pieceName)
-        mana(side) = mana(side) - stats.cost
+        addMana(side, -stats.cost)
         suc
     }
   }
@@ -334,7 +339,7 @@ case class Game (
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
         val stats = Units.pieceMap(pieceName)
-        mana(side) = mana(side) + stats.cost
+        addMana(side, stats.cost)
         suc
     }
   }
@@ -487,7 +492,7 @@ case class Game (
     tryCanBuyExtraTechAndSpell(side) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        mana(side) = mana(side) - extraTechCost
+        addMana(side, -extraTechCost)
         extraTechsAndSpellsThisTurn += 1
         val spellId = upcomingSpells(curSide)(0)
         upcomingSpells(curSide) = upcomingSpells(curSide).drop(1)
@@ -513,7 +518,7 @@ case class Game (
     tryCanUnbuyExtraTechAndSpell(side) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        mana(side) = mana(side) + extraTechCost
+        addMana(side, extraTechCost)
         extraTechsAndSpellsThisTurn -= 1
         val spellId = spellsToChoose.last
         upcomingSpells(curSide) = spellId +: upcomingSpells(curSide)

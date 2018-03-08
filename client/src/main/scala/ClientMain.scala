@@ -367,7 +367,7 @@ class Client() {
         resetLocalBoards(boardIdx)
 
       case Protocol.ReportNewTurn(newSide) =>
-        val mana = serverBoards.foldLeft(0) { case (sum,board) =>
+        val mana = serverBoards.foldLeft(game.get.extraManaPerTurn(newSide)) { case (sum,board) =>
           sum + board.curState.manaThisRound(newSide)
         }
         game.get.addMana(newSide,mana)

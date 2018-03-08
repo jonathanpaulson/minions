@@ -657,7 +657,7 @@ object Drawing {
       val infoLoc = ui.TopInfo.getHexLoc(side)
       val pixelLoc = PixelLoc.ofHexLoc(infoLoc, gridSize)
       val color = textColorOfSide(side)
-      val mana = boards.foldLeft(game.mana(side)) { case (sum,board) =>
+      val mana = boards.foldLeft(game.mana(side) + game.manaThisRound(side)) { case (sum,board) =>
         sum + board.curState.manaThisRound(side)
       }
       val newMana = boards.foldLeft(game.extraManaPerTurn(side)) { case (sum, board) =>
