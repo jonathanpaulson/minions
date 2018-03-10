@@ -203,7 +203,6 @@ class Client() {
   //TODO Ctrl-click should perform BuyReinforcementUndo and LocalPieceUndo?
   //TODO Shift-click should allow performing swaps and triangle rotations of pieces?
   //Keyboard controls
-  var shiftPressed: Boolean = false
   var showCoords: Boolean = false
 
   val flipDisplay: Boolean = ourSide == Some(S1) //Flip so that 0,0 is in the lower right
@@ -471,7 +470,7 @@ class Client() {
         if(canvas.height != jQuery("#main").get(0).clientHeight)
           canvas.height = jQuery("#main").get(0).clientHeight
         Drawing.drawEverything(canvas, ctx, game.get, externalInfo, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
-          mouseState.undoing, showCoords, turnTimeLeft, this)
+          mouseState.undoing, turnTimeLeft, this)
       }
     }
   }
@@ -560,14 +559,9 @@ class Client() {
         draw()
       }
     }
-    else if(e.keyCode == 16) {
-      shiftPressed = true
-      draw()
-    }
     //'c'
     else if(e.keyCode == 67 && e.altKey) {
-      showCoords = !showCoords
-      draw()
+      toggleCoords()
     }
     //tab
     else if(e.keyCode == 9) {
@@ -578,15 +572,11 @@ class Client() {
   }
 
   def keyup(e : KeyboardEvent) : Unit = {
-    if(e.keyCode == 16) {
-      shiftPressed = false
-      draw()
-    }
+    val _ = e
   }
 
   def onBlur(e : Any) : Unit = {
     val _ = e
-    shiftPressed = false
   }
 
   def pause(): Unit = {
@@ -594,6 +584,10 @@ class Client() {
       //Send it directly to the server
       sendWebsocketQuery(Protocol.RequestPause(!isPaused))
     }
+  }
+  def toggleCoords(): Unit = {
+    showCoords = !showCoords
+    draw()
   }
 
   def showResignConfirm(): Unit = {

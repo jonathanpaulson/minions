@@ -54,7 +54,6 @@ object Drawing {
     ui: UI,
     mouseState: MouseState,
     undoing: Boolean,
-    showCoords: Boolean,
     timeLeft: Option[Double],
     client: Client
   ) : Unit = {
@@ -161,7 +160,7 @@ object Drawing {
       ((h % n) + n) % n
     }
 
-    def drawTile(hexLoc: HexLoc, loc: Loc, tile: Tile, scaleBy: Double, alpha: Double = 1.0) : Unit = {
+    def drawTile(hexLoc: HexLoc, loc: Loc, tile: Tile, scaleBy: Double, alpha: Double = 1.0, showLoc: Boolean = false) : Unit = {
       val scale = scaleBy*tileScale
       tile.terrain match {
         case Wall => fillHex(hexLoc, "white", scale, alpha=alpha)
@@ -217,7 +216,7 @@ object Drawing {
           fillHex(hexLoc, "#8ECCCC", scale, alpha=alpha)
           strokeHex(hexLoc, "#8ECCCC", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
       }
-      if(showCoords) {
+      if(showLoc) {
         text(loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
       }
     }
@@ -736,6 +735,13 @@ object Drawing {
       }
     }
 
+    // Options
+    fillHex(ui.Options.origin, "#dddddd", tileScale)
+    strokeHex(ui.Options.origin, "#666666", tileScale, lineWidth=1.0)
+    val coord_ploc = PixelLoc.ofHexLoc(ui.Options.origin, gridSize)
+    text(if(client.showCoords) "Hide" else "Show", coord_ploc + PixelVec(0, -4.0), "black")
+    text("Coords", coord_ploc + PixelVec(0, 7.0), "black")
+
     //End turn hex
     if(game.isBoardDone(boardIdx)) {
       fillHex(ui.EndTurn.origin, "#ff99ff", tileScale, alpha=1.0)
@@ -750,16 +756,17 @@ object Drawing {
     //Resign board hex
     fillHex(ui.ResignBoard.origin, "#dddddd", tileScale)
     strokeHex(ui.ResignBoard.origin, "#666666", tileScale, lineWidth=1.0)
-    text("Resign", PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize) + PixelVec(0,-4.0), "black")
-    text("Board", PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize) + PixelVec(0,7.0), "black")
+    val resign_ploc = PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize)
+    text("Resign", resign_ploc + PixelVec(0,-4.0), "black")
+    text("Board", resign_ploc + PixelVec(0,7.0), "black")
 
     //Extra tech and spells hex
     fillHex(ui.ExtraTechAndSpell.origin, "#dddddd", tileScale)
     strokeHex(ui.ExtraTechAndSpell.origin, "#666666", tileScale, lineWidth=1.0)
-    val ploc = PixelLoc.ofHexLoc(ui.ExtraTechAndSpell.origin, gridSize)
-    text("Buy Extra", ploc + PixelVec(0,-6.0), "black")
-    text("Tech+Spell", ploc + PixelVec(0,5.0), "black")
-    text("(" + game.extraTechCost + " souls)", ploc + PixelVec(0, 16.0), "black")
+    val extra_ploc = PixelLoc.ofHexLoc(ui.ExtraTechAndSpell.origin, gridSize)
+    text("Buy Extra", extra_ploc + PixelVec(0,-6.0), "black")
+    text("Tech+Spell", extra_ploc + PixelVec(0,5.0), "black")
+    text("(" + game.extraTechCost + " souls)", extra_ploc + PixelVec(0, 16.0), "black")
 
     //Reinforcements
     Side.foreach { side =>
@@ -874,14 +881,14 @@ object Drawing {
     //Terrain
     board.tiles.foreachi {case (loc, tile) =>
       val hexLoc = ui.MainBoard.hexLoc(loc)
-      drawTile(hexLoc,loc,tile, 1.0)
+      drawTile(hexLoc,loc,tile, 1.0,showLoc=client.showCoords)
     }
 
     val preSpawnBoard = boards(boardIdx).preSpawnState()
     preSpawnBoard.tiles.foreachi { case (loc, tile) =>
       if(tile.terrain != board.tiles(loc).terrain && tile.terrain != Ground) {
         val hexLoc = ui.MainBoard.hexLoc(loc)
-        drawTile(hexLoc,loc,tile, 1.0, alpha=0.4)
+        drawTile(hexLoc,loc,tile, 1.0, alpha=0.4,showLoc=client.showCoords)
       }
     }
 
@@ -1303,6 +1310,8 @@ object Drawing {
             strokeHex(ui.ResignBoard.origin, "black", tileScale, alpha=0.5)
           case MousePause(_) =>
             strokeHex(ui.Clock.origin, "black", tileScale, alpha=0.5)
+          case MouseCoords(_) =>
+            strokeHex(ui.Options.origin, "black", tileScale, alpha=0.5)
           case MousePrevBoard =>
             if(boardIdx > 0)
               text("<- Prev Board", ui.PrevBoard.hexLocs(0), "darkgreen", textAlign="center", textBaseline="top", fontSize=12)
@@ -1433,6 +1442,8 @@ object Drawing {
             }
           case MousePause(_) =>
             highlightHex(ui.Clock.origin)
+          case MouseCoords(_) =>
+            highlightHex(ui.Options.origin)
           case MouseResignBoard(_) =>
             if(client.ourSide == Some(game.curSide)) {
               highlightHex(ui.ResignBoard.origin)
@@ -1617,6 +1628,7 @@ object Drawing {
         case MouseTerrain(_,_) => (ui.Terrain, false)
         case MouseResignBoard(_) => (ui.ResignBoard, false)
         case MousePause(_) => (ui.Clock, false)
+        case MouseCoords(_) => (ui.Options, false)
       }
       strokeHex(component.hexLoc(hoverLoc), "black", tileScale*component.gridSizeScale, alpha=0.3, rectangle=rectangle)
     }
