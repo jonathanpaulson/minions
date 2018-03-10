@@ -507,6 +507,17 @@ case class BoardState private (
     newMana
   }
 
+  def manaOnBoard(side: Side): Int = {
+    pieceById.values.foldLeft(0) { case (ans, piece) =>
+      if(piece.side == side) {
+        val stats = piece.curStats(this)
+        ans + stats.cost
+      } else {
+        ans
+      }
+    }
+  }
+
   //What spells would need to be discarded to meet sorcery power requirements?
   //This is NOT handled within the endTurn function, but rather by the server so that we can also get proper spell revealing.
   def spellsToAutoDiscardBeforeEndTurn(externalInfo: ExternalInfo): List[SpellId] = {
@@ -605,6 +616,8 @@ case class BoardState private (
     Side.foreach { side =>
       reinforcements(side) = new_reinforcements(side)
     }
+    totalMana.transform { _ => 0 }
+    totalCosts.transform { _ => 0 }
 
     //Unset win flag
     hasWon = false

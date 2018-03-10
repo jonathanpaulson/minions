@@ -701,8 +701,8 @@ object Drawing {
         text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left", fontSize = size, style = style)
 
       textAtLoc("Souls: +" + board.endOfTurnMana(side) + "/turn", 0, 0)
-      textAtLoc("Total souls earned: " + board.totalMana(side), 100, -7, size=11)
-      textAtLoc("Total souls spent: " + board.totalCosts(side), 100, 3, size=11)
+      textAtLoc("Souls in play: " + board.manaOnBoard(side), 100, -7, size=11)
+      textAtLoc("Souls spent: " + board.totalCosts(side), 100, 3, size=11)
 
       if(side == board.side) {
         if(board.sorceryPower < 0)
