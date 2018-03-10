@@ -224,22 +224,19 @@ class Client() {
   private def getNow(): Double = {
     (new scala.scalajs.js.Date()).getTime() / 1000.0
   }
-  var estimatedTurnEndTime: Option[Double] = None
-  def updateEstimatedTurnEndTime(serverTimeLeft: Option[Double]) = {
-    //Compute estimate from the most recent server time left message
-    val newEstimatedEndTime = serverTimeLeft.map { serverTimeLeft => getNow() + serverTimeLeft }
-
-    //Server updates can only push the end time earlier within a given turn.
-    //That way, we always use the min-lag update to compute the time.
-    estimatedTurnEndTime =
-      newEstimatedEndTime match {
-        case None => None
-        case Some(newEstimatedEndTime) =>
-          estimatedTurnEndTime match {
-            case None => Some(newEstimatedEndTime)
-            case Some(endTime) => Some(Math.min(endTime,newEstimatedEndTime))
-          }
+  var isPaused: Boolean = true
+  var turnTimeLeft: Option[Double] = None
+  var now: Double = getNow()
+  def updateTimeLeft(): Unit = {
+    val newNow = getNow()
+    if(!isPaused) {
+      turnTimeLeft match {
+        case None => ()
+        case Some(left) =>
+          turnTimeLeft = Some(left - (newNow - now))
       }
+    }
+    now = newNow
   }
 
   //TODO if numActionsLocalAhead remains ahead of the server for too long (say, it never
@@ -387,13 +384,18 @@ class Client() {
         }
 
         //At each new turn, clear the time left so that it can be refreshed by the next server update
-        estimatedTurnEndTime = None
+        turnTimeLeft = None
 
       case Protocol.ReportRevealSpells(spellIdsAndNames) =>
         externalInfo.revealSpells(spellIdsAndNames)
 
-      case Protocol.ReportTimeLeft(timeLeft) =>
-        updateEstimatedTurnEndTime(timeLeft)
+      case Protocol.ReportTimeLeft(serverTurnTimeLeft) =>
+        turnTimeLeft = Some(serverTurnTimeLeft)
+        updateTimeLeft()
+
+      case Protocol.ReportPause(newIsPaused) =>
+        updateTimeLeft()
+        isPaused = newIsPaused
 
       case Protocol.Players(players,spectators) =>
         resetPlayers(players,spectators)
@@ -462,14 +464,14 @@ class Client() {
     ui.foreach { ui =>
       withBoardForMouse { case (mouseState, board) =>
         mouseState.refresh(game.get,board.curState)
-        val timeLeft = estimatedTurnEndTime.map { estimatedTurnEndTime => estimatedTurnEndTime - getNow() }
+        updateTimeLeft()
 
         if(canvas.width != jQuery("#main").get(0).clientWidth)
           canvas.width = jQuery("#main").get(0).clientWidth
         if(canvas.height != jQuery("#main").get(0).clientHeight)
           canvas.height = jQuery("#main").get(0).clientHeight
         Drawing.drawEverything(canvas, ctx, game.get, externalInfo, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
-          mouseState.undoing, showCoords, timeLeft, this)
+          mouseState.undoing, showCoords, turnTimeLeft, this)
       }
     }
   }
@@ -585,6 +587,13 @@ class Client() {
   def onBlur(e : Any) : Unit = {
     val _ = e
     shiftPressed = false
+  }
+
+  def pause(): Unit = {
+    if(!gotFatalError) {
+      //Send it directly to the server
+      sendWebsocketQuery(Protocol.RequestPause(!isPaused))
+    }
   }
 
   def showResignConfirm(): Unit = {

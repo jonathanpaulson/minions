@@ -24,6 +24,7 @@ sealed trait MouseTarget {
       case MousePrevBoard => None
       case MouseTerrain(_,_) => None
       case MouseResignBoard(_) => None
+      case MousePause(_) => None
     }
   }
   def getLoc(): Option[Loc] = {
@@ -43,6 +44,7 @@ sealed trait MouseTarget {
       case MousePrevBoard => None
       case MouseTerrain(_,loc) => Some(loc)
       case MouseResignBoard(loc) => Some(loc)
+      case MousePause(loc) => Some(loc)
     }
   }
 }
@@ -61,6 +63,7 @@ case object MouseNextBoard extends MouseTarget
 case object MousePrevBoard extends MouseTarget
 case class MouseTerrain(terrain: Terrain, loc: Loc) extends MouseTarget
 case class MouseResignBoard(loc: Loc) extends MouseTarget
+case class MousePause(loc: Loc) extends MouseTarget
 
 //Different modes the mouse can be in for selecting different things
 sealed trait MouseMode {
@@ -456,6 +459,11 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
         if(ourSide == Some(game.curSide) && curTarget == dragTarget) {
           mouseState.client.showResignConfirm()
         }
+      case MousePause(_) =>
+        //Require mouse down and up on the same target
+        if(curTarget == dragTarget) {
+          mouseState.client.pause()
+        }
 
       case MouseNextBoard =>
         //Require mouse down and up on the same target
@@ -739,6 +747,7 @@ case class DragPieceToLocMouseMode(val mouseState: MouseState, val pieceTargets:
       case MousePrevBoard => None
       case MouseTerrain(_,_) => None
       case MouseResignBoard(_) => None
+      case MousePause(_) => None
     }
 
     //Restore normal mode
@@ -777,6 +786,7 @@ case class SelectTerrainMouseMode(val mouseState: MouseState)(f: Option[Terrain]
       case MousePrevBoard => None
       case MouseTerrain(terrain,_) => Some(terrain)
       case MouseResignBoard(_) => None
+      case MousePause(_) => None
     }
     mouseState.mode = NormalMouseMode(mouseState)
     f(terrain)

@@ -189,6 +189,10 @@ object ServerMain extends App {
     }
   }
 
+  sealed trait ScheduleReason
+  case object NewTurn extends ScheduleReason
+  case class Pause(isPaused:Boolean) extends ScheduleReason
+
   class GameState(secondsPerTurn: SideArray[Double], startingManaPerBoard: SideArray[Int], extraManaPerTurn: SideArray[Int], targetWins: Int, techMana: Int, maps_opt: Option[List[String]], seed_opt: Option[Long]) {
 
     //The actor refs are basically the writer end of a pipe where we can stick messages to go out
@@ -199,6 +203,7 @@ object ServerMain extends App {
     var allMessages: List[String] = List()
     var teamMessages: SideArray[List[String]] = SideArray.create(List())
     var spectatorMessages: List[String] = List()
+    var isPaused: Boolean = true
 
     // Random seeds
     val randSeed:Long = {
@@ -452,7 +457,7 @@ object ServerMain extends App {
       broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMove, reinforcements))
     }
 
-    private def maybeDoEndOfTurn(scheduleEndOfTurn: Int => Unit): Unit = {
+    private def maybeDoEndOfTurn(scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
       if(game.isBoardDone.forall { isDone => isDone })
         doEndOfTurn(scheduleEndOfTurn)
     }
@@ -507,7 +512,7 @@ object ServerMain extends App {
       }
     }
 
-    def doEndOfTurn(scheduleEndOfTurn: Int => Unit): Unit = {
+    def doEndOfTurn(scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
       val oldSide = game.curSide
       val newSide = game.curSide.opp
 
@@ -593,7 +598,7 @@ object ServerMain extends App {
       }
 
       //Schedule the next end of turn
-      scheduleEndOfTurn(game.turnNumber)
+      scheduleEndOfTurn(NewTurn)
       game.winner match {
         case Some(winner) =>
           allMessages = allMessages :+ ("GAME: Team " + winner.toColorName + " won the game!")
@@ -606,11 +611,12 @@ object ServerMain extends App {
       broadcastMessages()
     }
 
-    def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side], scheduleEndOfTurn: Int => Unit): Unit = {
+    def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side], scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
       query match {
         case Protocol.Heartbeat(i) =>
           out ! Protocol.OkHeartbeat(i)
-
+        case Protocol.RequestPause(newIsPaused) =>
+          scheduleEndOfTurn(Pause(newIsPaused))
         case Protocol.RequestBoardHistory(boardIdx) =>
           if(boardIdx < 0 || boardIdx >= numBoards)
             out ! Protocol.QueryError("Invalid boardIdx")
@@ -775,6 +781,7 @@ object ServerMain extends App {
         out ! Protocol.ReportRevealSpells(spellIdsAndNames)
 
         out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
+        out ! Protocol.ReportPause(isPaused)
         log("UserJoined: " + username + " Side: " + side)
         broadcastAll(Protocol.UserJoined(username,side))
         broadcastPlayers()
@@ -805,17 +812,27 @@ object ServerMain extends App {
 
   private class GameActor(state: GameState) extends Actor {
     //TIME LIMITS
-    //Server reports time left every this often
-    val reportTimePeriod = 5.0
-    var endOfTurnTime: Option[Double] = None
     def getNow(): Double = {
       System.currentTimeMillis.toDouble / 1000.0
     }
+    //Server reports time left every this often
+    val reportTimePeriod = 5.0
+    var now: Double = getNow()
+    var endTurnJob: Option[Cancellable] = None
+    var turnTimeLeft: Double = state.currentSideSecondsPerTurn()
+
+    def updateTime(): Unit = {
+      val newNow = getNow()
+      if(!state.isPaused) {
+        turnTimeLeft -= (newNow - now)
+      }
+      now = newNow
+    }
 
     private def getTimeLeftEvent(): Option[Protocol.Response] = {
+      updateTime()
       if(state.game.winner.isEmpty) {
-        val timeLeft = endOfTurnTime.map { endOfTurnTime => endOfTurnTime - getNow() }
-        Some(Protocol.ReportTimeLeft(timeLeft))
+        Some(Protocol.ReportTimeLeft(turnTimeLeft))
       }
       else {
         val (_: Boolean) = timeReportJob.cancel()
@@ -829,16 +846,35 @@ object ServerMain extends App {
       }
     }
 
-    private def scheduleEndOfTurn(turnNumber: Int): Unit = {
+    private def scheduleEndOfTurn(reason: ScheduleReason): Unit = {
       import scala.concurrent.duration._
       import scala.language.postfixOps
-      endOfTurnTime = Some(getNow() + state.currentSideSecondsPerTurn)
-      maybeBroadcastTimeLeft()
-      val (_: Cancellable) = actorSystem.scheduler.scheduleOnce(state.currentSideSecondsPerTurn() seconds) {
-        //Make sure to do this via sending event to self, rather than directly, to
-        //take advantage of the actor's synchronization
-        self ! ShouldEndTurn(turnNumber)
+      endTurnJob match {
+        case Some(job) =>
+          job.cancel()
+          ()
+        case None => ()
       }
+      updateTime()
+      reason match {
+        case NewTurn =>
+          turnTimeLeft = state.currentSideSecondsPerTurn()
+        case Pause(isPaused) =>
+          state.isPaused = isPaused
+          state.broadcastAll(Protocol.ReportPause(state.isPaused))
+      }
+
+      if(!state.isPaused) {
+        val turnNumber = state.game.turnNumber
+        endTurnJob = Some(actorSystem.scheduler.scheduleOnce(turnTimeLeft seconds) {
+          //Make sure to do this via sending event to self, rather than directly, to
+          //take advantage of the actor's synchronization
+          self ! ShouldEndTurn(turnNumber)
+        })
+      } else {
+        endTurnJob = None
+      }
+      maybeBroadcastTimeLeft()
     }
 
     val timeReportJob: Cancellable = {

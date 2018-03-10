@@ -718,17 +718,22 @@ object Drawing {
       text("Connection error", ui.Clock.origin, "red", textAlign="left", style = "bold", fontSize=24)
     }
     else {
-      val clockStr = timeLeft match {
-        case None => ""
+      timeLeft match {
+        case None => ()
         case Some(timeLeft) =>
+          fillHex(ui.Clock.origin, "#dddddd", tileScale)
+          strokeHex(ui.Clock.origin, "#666666", tileScale, lineWidth=1.0)
+          val pauseText = if(client.isPaused) { "Play" } else { "Pause" }
+          text(pauseText, ui.Clock.origin, "black")
+
           val seconds: Int = Math.floor(timeLeft).toInt
           val timeStr = {
             if(seconds < 0) "-" + ((-seconds) / 60).toString + ":" + "%02d".format((-seconds) % 60)
             else (seconds / 60).toString + ":" + "%02d".format(seconds % 60)
           }
-          board.side.toColorName + " Team Time left: " + timeStr
+          val clockStr = board.side.toColorName + " Team Time left: " + timeStr
+          text(clockStr, ui.Clock.origin + HexVec(1,0), textColorOfSide(board.side), textAlign="left", style = "bold", fontSize=16)
       }
-      text(clockStr, ui.Clock.origin, textColorOfSide(board.side), textAlign="left", style = "bold", fontSize=16)
     }
 
     //End turn hex
@@ -1296,6 +1301,8 @@ object Drawing {
             strokeHex(ui.EndTurn.origin, "black", tileScale, alpha=0.5)
           case MouseResignBoard(_) =>
             strokeHex(ui.ResignBoard.origin, "black", tileScale, alpha=0.5)
+          case MousePause(_) =>
+            strokeHex(ui.Clock.origin, "black", tileScale, alpha=0.5)
           case MousePrevBoard =>
             if(boardIdx > 0)
               text("<- Prev Board", ui.PrevBoard.hexLocs(0), "darkgreen", textAlign="center", textBaseline="top", fontSize=12)
@@ -1424,6 +1431,8 @@ object Drawing {
             if(client.ourSide == Some(game.curSide)) {
               highlightHex(ui.EndTurn.origin)
             }
+          case MousePause(_) =>
+            highlightHex(ui.Clock.origin)
           case MouseResignBoard(_) =>
             if(client.ourSide == Some(game.curSide)) {
               highlightHex(ui.ResignBoard.origin)
@@ -1607,6 +1616,7 @@ object Drawing {
         case MousePrevBoard => (ui.PrevBoard, false)
         case MouseTerrain(_,_) => (ui.Terrain, false)
         case MouseResignBoard(_) => (ui.ResignBoard, false)
+        case MousePause(_) => (ui.Clock, false)
       }
       strokeHex(component.hexLoc(hoverLoc), "black", tileScale*component.gridSizeScale, alpha=0.3, rectangle=rectangle)
     }
