@@ -81,21 +81,6 @@ object ServerMain extends App {
     }
     override def receive: Receive = {
       case Protocol.ReportTimeLeft(_) => ()
-      case Protocol.UserJoined(username, side) =>
-        side match {
-          case None => ()
-          case Some(S0) =>
-            if(step == 0) {
-              step = 1
-              chat(s"Hello $username. Welcome to Minions of Darkness!")
-              chat("You currently occupy the top left of the board.")
-              chat("You begin the game with your necromancer and six zombies.")
-              chat("Move units by clicking on them and dragging them to a new hex.")
-              chat("Undo by right-clicking on the unit.")
-              chat("For now, move zombies onto the two nearby graveyards.")
-            }
-          case Some(S1) => ()
-        }
       case Protocol.ReportNewTurn(S1) =>
         if(game.game.winner.isEmpty) {
           out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
@@ -149,15 +134,24 @@ object ServerMain extends App {
             ans
           }
 
-          def bestMove(baseStats: PieceStats, curStats: PieceStats, options: Map[Loc,Int]): Option[Loc] = {
+          def targetLocs(attackRange: Int): List[Loc] = {
             val board = game.boards(0).curState
             val targetLocs = board.pieces.filterLocs { loc =>
-              board.pieceById.values.exists { enemyPiece =>
-                enemyPiece.side == S0 && board.topology.distance(enemyPiece.loc, loc) <= curStats.attackRange
-              }
+              val withinRangeOfEnemy =
+                board.pieceById.values.exists { enemyPiece =>
+                  enemyPiece.side == S0 && board.topology.distance(enemyPiece.loc, loc) <= attackRange
+                }
+              val alreadyOccupiedByUs = board.pieceById.values.exists { piece => piece.side == S1 && piece.loc == loc }
+              val graveyard = board.tiles(loc).terrain == Graveyard
+              withinRangeOfEnemy || (graveyard && !alreadyOccupiedByUs)
             }
+            targetLocs
+          }
+
+          def bestMove(baseStats: PieceStats, curStats: PieceStats, options: Map[Loc,Int]): Option[Loc] = {
+            val targets = targetLocs(curStats.attackRange)
             val bestMove = Try(options.minBy({ case (loc, dist) =>
-              val distFromTargets = targetLocs.map { target => distance(baseStats, curStats, target, loc) }.min
+              val distFromTargets = targets.map { target => distance(baseStats, curStats, target, loc) }.min
               (distFromTargets, dist)
             })).toOption
             bestMove.map { case (loc,_) => loc }
@@ -165,12 +159,8 @@ object ServerMain extends App {
 
           def distanceFromTargets(piece: Piece): Int = {
             val board = game.boards(0).curState
-            val targetLocs = board.pieces.filterLocs { loc =>
-              board.pieceById.values.exists { enemyPiece =>
-                enemyPiece.side == S0 && board.topology.distance(enemyPiece.loc, loc) <= piece.curStats(board).attackRange
-              }
-            }
-            targetLocs.map { target => distance(piece.baseStats, piece.curStats(board), target, piece.loc) }.min
+            val targets = targetLocs(piece.curStats(board).attackRange)
+            targets.map { target => distance(piece.baseStats, piece.curStats(board), target, piece.loc) }.min
           }
 
           val sortedPieces = game.boards(0).curState.pieceById.values.filter { piece => piece.side == S1  && !piece.baseStats.isNecromancer }
@@ -179,29 +169,30 @@ object ServerMain extends App {
             // Move and attack with units
             sortedPieces.foreach { piece =>
               val board = game.boards(0).curState
-              val moves = board.legalMoves(piece)
-              val best = bestMove(piece.baseStats, piece.curStats(board), moves)
-              println(piece.curStats(board).name+" "+distanceFromTargets(piece)+" "+piece.loc+" "+moves+" "+best)
-              board.findPathForUI(piece,pathBias=List(),isRotationPath=false) { case (loc,_) => Some(loc) == best } match {
-                case None => ()
-                case Some((path, pathMovements)) =>
-                  val filteredPathMovements = pathMovements.filter { case (_,path) => path.length > 1 }
-                  if(filteredPathMovements.nonEmpty) {
-                    val movements = Movements(filteredPathMovements.map { case (pieceSpec,path) => Movement(pieceSpec,path.toVector) })
-                    out ! Protocol.DoBoardAction(0, PlayerActions(List(movements), makeActionId()))
-                    Thread.sleep(100)
-                  } else if(path.length > 1) {
-                    val movements = Movements(List(Movement(piece.spec, path.toVector)))
-                    out ! Protocol.DoBoardAction(0, PlayerActions(List(movements), makeActionId()))
-                    Thread.sleep(100)
-                  }
+              val pieceShouldStay = board.tiles(piece.loc).terrain == Graveyard || piece.curStats(board).isNecromancer
+              if(!pieceShouldStay) {
+                val moves = board.legalMoves(piece)
+                val best = bestMove(piece.baseStats, piece.curStats(board), moves)
+                board.findPathForUI(piece,pathBias=List(),isRotationPath=false) { case (loc,_) => Some(loc) == best } match {
+                  case None => ()
+                  case Some((path, pathMovements)) =>
+                    val filteredPathMovements = pathMovements.filter { case (_,path) => path.length > 1 }
+                    if(filteredPathMovements.nonEmpty) {
+                      val movements = Movements(filteredPathMovements.map { case (pieceSpec,path) => Movement(pieceSpec,path.toVector) })
+                      out ! Protocol.DoBoardAction(0, PlayerActions(List(movements), makeActionId()))
+                      Thread.sleep(100)
+                    } else if(path.length > 1) {
+                      val movements = Movements(List(Movement(piece.spec, path.toVector)))
+                      out ! Protocol.DoBoardAction(0, PlayerActions(List(movements), makeActionId()))
+                      Thread.sleep(100)
+                    }
+                }
               }
 
               val b1 = game.boards(0).curState
               val p1 = b1.findPiece(piece.spec).get
               b1.pieces.foreach { enemyPieces =>
                 enemyPieces.foreach { enemyPiece =>
-                  println(p1.loc+" "+enemyPiece.loc+" "+b1.tryLegality(Attack(p1.spec, enemyPiece.spec), game.externalInfo).isSuccess)
                   if(b1.tryLegality(Attack(p1.spec, enemyPiece.spec), game.externalInfo).isSuccess) {
                     out ! Protocol.DoBoardAction(0, PlayerActions(List(Attack(p1.spec, enemyPiece.spec)), makeActionId()))
                     Thread.sleep(100)
@@ -225,18 +216,25 @@ object ServerMain extends App {
               }
             }
 
-            println("Teching...")
             if(availableTechs.length > 0) {
               val chosenTech = availableTechs(aiRand.nextInt(availableTechs.length))
               out ! Protocol.DoGameAction(PerformTech(S1, chosenTech))
             }
 
             out ! Protocol.DoGameAction(SetBoardDone(0, true))
-            println("Done...")
         }
       case _ => {
+        /*
         val board = game.boards(0).curState
-        if(step == 1 && board.endOfTurnMana(S0) == 4) {
+        if(step == 0) {
+          step = 1
+          chat(s"Hello $username. Welcome to Minions of Darkness!")
+          chat("You currently occupy the top left of the board.")
+          chat("You begin the game with your necromancer and six zombies.")
+          chat("Move units by clicking on them and dragging them to a new hex.")
+          chat("Undo by right-clicking on the unit.")
+          chat("For now, move zombies onto the two nearby graveyards.")
+        } else if(step == 1 && board.endOfTurnMana(S0) == 4) {
           step = 2
           chat("")
           chat("You now control the first graveyard.")
@@ -258,6 +256,7 @@ object ServerMain extends App {
           chat("You can undo casting the spell by right clicking it near the bottom of the screen")
           chat("That's about all for your first turn! Click 'End Turn'")
         }
+        */
       }
     }
   }
@@ -654,7 +653,6 @@ object ServerMain extends App {
 
       game.endTurn()
       boards.foreach { board => board.endTurn() }
-      broadcastAll(Protocol.ReportNewTurn(newSide))
 
       refillUpcomingSpells()
 
@@ -669,6 +667,7 @@ object ServerMain extends App {
           }
         }
       }
+      broadcastAll(Protocol.ReportNewTurn(newSide))
 
       //Schedule the next end of turn
       scheduleEndOfTurn(NewTurn)
@@ -1089,6 +1088,7 @@ th {
 </style>
       """
       html ++= "<a href=\"/newGame\" class=\"button\">New Game</a><p>"
+      html ++= "<a href=\"/ai\" class=\"button\">Vs AI (1v1)</a><p>"
       if(!games.isEmpty) {
         html ++= "<table border=1><tr><th>Game</th><th>Access</th><th>Boards</th><th>Blue Team</th><th>Red Team</th></tr>"
         for((game, (_,state,password)) <- games) {
@@ -1162,8 +1162,8 @@ if(!username || username.length == 0) {
       getFromDirectory(Paths.webimg)
     }
   } ~
-  path("tutorial") {
-    val secondsPerTurn = SideArray.create(1000.0)
+  path("ai") {
+    val secondsPerTurn = SideArray.create(120.0)
     val startingMana = SideArray.createTwo(0, 5)
     val extraManaPerTurn = SideArray.createTwo(0, 10)
     val targetWins = 1
@@ -1173,39 +1173,38 @@ if(!username || username.length == 0) {
 
     val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
     val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
-    val gameid = "tutorial" + games.size.toString
+    val gameid = "ai" + games.size.toString
     games = games + (gameid -> ((gameActor, gameState, None)))
     gameActor ! StartGame()
-
 
     val (actorRef, pub) = Source.actorRef[Protocol.Query](128, OverflowStrategy.fail).toMat(Sink.asPublisher(false))(Keep.both).run()
     val source = Source.fromPublisher(pub)
     val ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState))
 
     val sink: Sink[Message,_] = {
-        Flow[Message].collect { message: Message =>
-          message match {
-            case TextMessage.Strict(text) =>
-              Future.successful(text)
-            case TextMessage.Streamed(textStream) =>
-              textStream.runFold("")(_ + _)
+      Flow[Message].collect { message: Message =>
+        message match {
+          case TextMessage.Strict(text) =>
+            Future.successful(text)
+          case TextMessage.Streamed(textStream) =>
+            textStream.runFold("")(_ + _)
+        }
+      } .mapAsync(1)((str:Future[String]) => str)
+        .map { (str: String) =>
+          val json = Json.parse(str)
+          json.validate[Protocol.Response] match {
+            case (s: JsSuccess[Protocol.Response]) => s.get
+            case (e: JsError) => Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
           }
-        } .mapAsync(1)((str:Future[String]) => str)
-          .map { (str: String) =>
-            val json = Json.parse(str)
-            json.validate[Protocol.Response] match {
-                case (s: JsSuccess[Protocol.Response]) => s.get
-                case (e: JsError) => Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
-            }
-          }
+        }
           .to(Sink.actorRef[Protocol.Response](ai, onCompleteMessage = Protocol.UserLeft("igor", Some(S1))))
-      }
+    }
 
 
     val flow = websocketMessageFlow(gameid,"igor",Some("1"))
     source.map { query => TextMessage(Json.stringify(Json.toJson(query))) }.via(flow).to(sink).run()
 
-    redirect(s"/play?game=$gameid&username=player&side=0", StatusCodes.SeeOther)
+    redirect(s"/play?game=$gameid&side=0", StatusCodes.SeeOther)
   } ~
   path("playGame") {
     parameter("username") { username =>
