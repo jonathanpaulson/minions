@@ -1587,10 +1587,10 @@ object Drawing {
                     val moveLocsPieceCouldAttackFrom = { if(stats.isLumbering) Set(piece.loc) else moveLocs }
                     var attackLocs = Set[Loc]()
                     moveLocsPieceCouldAttackFrom.foreach { fromLoc =>
-                      board.tiles.topology.forEachReachable(fromLoc, stats.attackRange) { loc =>
-                        if(board.inBounds(loc)) {
+                      board.tiles.topology.forEachReachable(fromLoc) { (loc,dist) =>
+                        if(dist<=stats.attackRange && board.inBounds(loc)) {
                           attackLocs += loc
-                          true
+                          dist < stats.attackRange
                         } else {
                           false
                         }

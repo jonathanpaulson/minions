@@ -97,70 +97,143 @@ object ServerMain extends App {
           case Some(S1) => ()
         }
       case Protocol.ReportNewTurn(S1) =>
-        out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
+        if(game.game.winner.isEmpty) {
+          out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
 
-        val techs = game.game.techLine
-        val availableTechs = techs.indices.filter { i =>
-          techs(i).level(S1) != TechAcquired && (i==0 || techs(i-1).level(S1) != TechLocked)
-        }
-        val unlockedTechs = techs.indices.filter { i =>
-          techs(i).level(S1) == TechAcquired
-        }
-
-        // Do this multiple times
-        val unlockedUnits = unlockedTechs.flatMap { i =>
-          techs(i).tech match {
-            case PieceTech(pieceName) =>
-              val stats = Units.pieceMap(pieceName)
-              if(stats.moveRange > 0 && stats.cost <= game.game.mana(S1) && !stats.attackEffect.isEmpty) {
-                Some(stats)
-              } else {
-                None
-              }
+          val techs = game.game.techLine
+          val availableTechs = techs.indices.filter { i =>
+            techs(i).level(S1) != TechAcquired && (i==0 || techs(i-1).level(S1) != TechLocked)
           }
-        }
-        val chosenUnit = unlockedUnits(aiRand.nextInt(unlockedUnits.length))
-
-        out ! Protocol.DoBoardAction(0, DoGeneralBoardAction(BuyReinforcement(chosenUnit.name), makeActionId()))
-
-
-        val board = game.boards(0).curState
-        val enemyLocs = board.pieces.filterLocs { loc =>
-          board.pieces(loc).exists { piece =>
-            piece.side == S0
+          val unlockedTechs = techs.indices.filter { i =>
+            techs(i).level(S1) == TechAcquired
           }
-        }
 
-        // Move and attack with units
-        board.pieces.foreach { pieces =>
-          pieces.foreach { piece =>
-            if(piece.side == S1 && !piece.curStats(board).isNecromancer) {
-              val moves = board.legalMoves(piece)
-              val (bestMove,_) = moves.minBy({ case (loc,_) =>
-                enemyLocs.map { enemyLoc => board.topology.distance(loc, enemyLoc) }.min
-              })
-              board.findPathForUI(piece,pathBias=List(),isRotationPath=false) { case (loc,_) => loc == bestMove } match {
-                case None => ()
-                case Some((path,_)) =>
-                  val movements = Movements(List(Movement(piece.spec, path.toVector)))
-                  out ! Protocol.DoBoardAction(0, PlayerActions(List(movements), makeActionId()))
-              }
+          // Do this multiple times
+          val unlockedUnits = unlockedTechs.flatMap { i =>
+            techs(i).tech match {
+              case PieceTech(pieceName) =>
+                val stats = Units.pieceMap(pieceName)
+                if(stats.name!="zombie" && stats.moveRange > 0 && stats.cost <= game.game.mana(S1) && !stats.attackEffect.isEmpty) {
+                  Some(stats)
+                } else {
+                  None
+                }
             }
           }
+
+          var keepBuying = true
+          while(keepBuying && !unlockedUnits.isEmpty) {
+            val chosenUnit = unlockedUnits(aiRand.nextInt(unlockedUnits.length))
+            if(game.game.mana(S1) >= chosenUnit.cost) {
+              out ! Protocol.DoBoardAction(0, DoGeneralBoardAction(BuyReinforcement(chosenUnit.name), makeActionId()))
+              Thread.sleep(100)
+              keepBuying = true
+            } else {
+              keepBuying = false
+            }
+          }
+
+          def distance(baseStats: PieceStats, curStats: PieceStats, l1: Loc, l2: Loc): Int = {
+            var ans = 1000
+            val board = game.boards(0).curState
+            board.tiles.topology.forEachReachable(l1) { case (loc, dist) =>
+              if(board.inBounds(loc) && board.canWalkOnTile(baseStats, curStats, board.tiles(loc))) {
+                if(loc == l2) {
+                  ans = dist
+                }
+                true //Can continue moving from this location
+              } else {
+                false //Can't keep moving from this location
+              }
+            }
+            ans
+          }
+
+          def bestMove(baseStats: PieceStats, curStats: PieceStats, options: Map[Loc,Int]): Option[Loc] = {
+            val board = game.boards(0).curState
+            val targetLocs = board.pieces.filterLocs { loc =>
+              board.pieceById.values.exists { enemyPiece =>
+                enemyPiece.side == S0 && board.topology.distance(enemyPiece.loc, loc) <= curStats.attackRange
+              }
+            }
+            val bestMove = Try(options.minBy({ case (loc, dist) =>
+              val distFromTargets = targetLocs.map { target => distance(baseStats, curStats, target, loc) }.min
+              (distFromTargets, dist)
+            })).toOption
+            bestMove.map { case (loc,_) => loc }
+          }
+
+          def distanceFromTargets(piece: Piece): Int = {
+            val board = game.boards(0).curState
+            val targetLocs = board.pieces.filterLocs { loc =>
+              board.pieceById.values.exists { enemyPiece =>
+                enemyPiece.side == S0 && board.topology.distance(enemyPiece.loc, loc) <= piece.curStats(board).attackRange
+              }
+            }
+            targetLocs.map { target => distance(piece.baseStats, piece.curStats(board), target, piece.loc) }.min
+          }
+
+          val sortedPieces = game.boards(0).curState.pieceById.values.filter { piece => piece.side == S1  && !piece.baseStats.isNecromancer }
+            .toList.sortBy { p => distanceFromTargets(p) }
+
+            // Move and attack with units
+            sortedPieces.foreach { piece =>
+              val board = game.boards(0).curState
+              val moves = board.legalMoves(piece)
+              val best = bestMove(piece.baseStats, piece.curStats(board), moves)
+              println(piece.curStats(board).name+" "+distanceFromTargets(piece)+" "+piece.loc+" "+moves+" "+best)
+              board.findPathForUI(piece,pathBias=List(),isRotationPath=false) { case (loc,_) => Some(loc) == best } match {
+                case None => ()
+                case Some((path, pathMovements)) =>
+                  val filteredPathMovements = pathMovements.filter { case (_,path) => path.length > 1 }
+                  if(filteredPathMovements.nonEmpty) {
+                    val movements = Movements(filteredPathMovements.map { case (pieceSpec,path) => Movement(pieceSpec,path.toVector) })
+                    out ! Protocol.DoBoardAction(0, PlayerActions(List(movements), makeActionId()))
+                    Thread.sleep(100)
+                  } else if(path.length > 1) {
+                    val movements = Movements(List(Movement(piece.spec, path.toVector)))
+                    out ! Protocol.DoBoardAction(0, PlayerActions(List(movements), makeActionId()))
+                    Thread.sleep(100)
+                  }
+              }
+
+              val b1 = game.boards(0).curState
+              val p1 = b1.findPiece(piece.spec).get
+              b1.pieces.foreach { enemyPieces =>
+                enemyPieces.foreach { enemyPiece =>
+                  println(p1.loc+" "+enemyPiece.loc+" "+b1.tryLegality(Attack(p1.spec, enemyPiece.spec), game.externalInfo).isSuccess)
+                  if(b1.tryLegality(Attack(p1.spec, enemyPiece.spec), game.externalInfo).isSuccess) {
+                    out ! Protocol.DoBoardAction(0, PlayerActions(List(Attack(p1.spec, enemyPiece.spec)), makeActionId()))
+                    Thread.sleep(100)
+                  }
+                }
+              }
+            }
+
+            // Spawn reinforcements
+            game.boards(0).curState.reinforcements(S1).foreach { case (piecename, n) =>
+              for(i <- 0 to n) {
+                val board = game.boards(0).curState
+                val locs = board.legalSpawnLocs(piecename).map { x => (x -> 0) }.toMap
+                val stats = Units.pieceMap(piecename)
+                bestMove(stats, stats, locs) match {
+                  case None => ()
+                  case Some(bestLoc) =>
+                    out ! Protocol.DoBoardAction(0, PlayerActions(List(Spawn(bestLoc, piecename)), makeActionId()))
+                    Thread.sleep(100)
+                }
+              }
+            }
+
+            println("Teching...")
+            if(availableTechs.length > 0) {
+              val chosenTech = availableTechs(aiRand.nextInt(availableTechs.length))
+              out ! Protocol.DoGameAction(PerformTech(S1, chosenTech))
+            }
+
+            out ! Protocol.DoGameAction(SetBoardDone(0, true))
+            println("Done...")
         }
-
-        // Spawn reinforcements
-        /*reinforcements.iter {
-          val locs = board.legalSpawnLocs(pieceName)
-        }*/
-
-        if(availableTechs.length > 0) {
-          val chosenTech = availableTechs(aiRand.nextInt(availableTechs.length))
-          out ! Protocol.DoGameAction(PerformTech(S1, chosenTech))
-        }
-
-
-        out ! Protocol.DoGameAction(SetBoardDone(0, true))
       case _ => {
         val board = game.boards(0).curState
         if(step == 1 && board.endOfTurnMana(S0) == 4) {

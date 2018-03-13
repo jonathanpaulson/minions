@@ -496,22 +496,24 @@ sealed trait PlaneTopology {
   def forEachAdj(loc: Loc)(f: Loc => Unit) : Unit
   def distance(loc0: Loc, loc1: Loc): Int
 
-  def forEachReachable(loc: Loc, steps: Int)(f: Loc => Boolean) : Unit = {
+  def forEachReachable(loc: Loc)(f: (Loc,Int) => Boolean) : Unit = {
     var reached = Set[Loc]()
     var thisQueue = scala.collection.mutable.Queue[Loc]()
     thisQueue += loc
 
-    for(i <- 0 to steps) {
+    var dist = 0
+    while(!thisQueue.isEmpty) {
       val nextQueue = scala.collection.mutable.Queue[Loc]()
       thisQueue.foreach { loc =>
         if(!reached.contains(loc)) {
           reached += loc
-          val doContinue = f(loc)
-          if(doContinue && i < steps) {
+          val doContinue = f(loc, dist)
+          if(doContinue) {
             forEachAdj(loc) { adj => nextQueue.enqueue(adj) }
           }
         }
       }
+      dist += 1
       thisQueue = nextQueue
     }
   }

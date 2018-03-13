@@ -870,10 +870,10 @@ case class BoardState private (
 
   def withinTerrainRange(piece : Piece, steps : Int) : Set[Loc] = {
     var ans = Set[Loc]()
-    tiles.topology.forEachReachable(piece.loc, steps) { loc =>
-      if(inBounds(loc) && canWalkOnTile(piece.baseStats, piece.curStats(this), tiles(loc))) {
+    tiles.topology.forEachReachable(piece.loc) { (loc,dist) =>
+      if(dist<=steps && inBounds(loc) && canWalkOnTile(piece.baseStats, piece.curStats(this), tiles(loc))) {
         ans = ans + loc
-        true //Can continue moving from this location
+        dist < steps //Can continue moving from this location
       } else {
         false //Can't keep moving from this location
       }
@@ -961,11 +961,11 @@ case class BoardState private (
   def inBounds(loc: Loc): Boolean = {
     tiles.inBounds(loc)
   }
-
-  //HELPER FUNCTIONS -------------------------------------------------------------------------------------
-  private def canWalkOnTile(baseStats: PieceStats, pieceStats: PieceStats, tile: Tile): Boolean = {
+  def canWalkOnTile(baseStats: PieceStats, pieceStats: PieceStats, tile: Tile): Boolean = {
     tryCanWalkOnTile(baseStats, pieceStats, tile).isSuccess
   }
+
+  //HELPER FUNCTIONS -------------------------------------------------------------------------------------
   private def tryCanWalkOnTile(baseStats: PieceStats, pieceStats: PieceStats, tile: Tile): Try[Unit] = {
     tile.terrain match {
       case Wall => failed("Cannot move or spawn through borders")
