@@ -200,7 +200,11 @@ object ServerMain extends App {
             }
 
             // Spawn reinforcements
-            game.boards(0).curState.reinforcements(S1).foreach { case (piecename, n) =>
+            val reinforcements = game.boards(0).curState.reinforcements(S1).toSeq.sortBy { case (piecename,_) =>
+              -Units.pieceMap(piecename).cost
+            }
+
+            reinforcements.foreach { case (piecename, n) =>
               for(i <- 0 to n) {
                 val board = game.boards(0).curState
                 val locs = board.legalSpawnLocs(piecename).map { x => (x -> 0) }.toMap
