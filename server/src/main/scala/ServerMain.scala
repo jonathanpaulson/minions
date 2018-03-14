@@ -84,11 +84,7 @@ object ServerMain extends App {
       case Protocol.ReportNewTurn(S1) =>
         if(game.game.winner.isEmpty) {
           out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
-
           val techs = game.game.techLine
-          val availableTechs = techs.indices.filter { i =>
-            techs(i).level(S1) != TechAcquired && (i==0 || techs(i-1).level(S1) != TechLocked)
-          }
           val unlockedTechs = techs.indices.filter { i =>
             techs(i).level(S1) == TechAcquired
           }
@@ -189,13 +185,15 @@ object ServerMain extends App {
                 }
               }
 
-              val b1 = game.boards(0).curState
-              val p1 = b1.findPiece(piece.spec).get
-              b1.pieces.foreach { enemyPieces =>
-                enemyPieces.foreach { enemyPiece =>
-                  if(b1.tryLegality(Attack(p1.spec, enemyPiece.spec), game.externalInfo).isSuccess) {
-                    out ! Protocol.DoBoardAction(0, PlayerActions(List(Attack(p1.spec, enemyPiece.spec)), makeActionId()))
-                    Thread.sleep(100)
+              for(i <- 0 to piece.curStats(board).numAttacks) {
+                val b1 = game.boards(0).curState
+                val p1 = b1.findPiece(piece.spec).get
+                b1.pieces.foreach { enemyPieces =>
+                  enemyPieces.foreach { enemyPiece =>
+                    if(b1.tryLegality(Attack(p1.spec, enemyPiece.spec), game.externalInfo).isSuccess) {
+                      out ! Protocol.DoBoardAction(0, PlayerActions(List(Attack(p1.spec, enemyPiece.spec)), makeActionId()))
+                      Thread.sleep(100)
+                    }
                   }
                 }
               }
@@ -216,9 +214,18 @@ object ServerMain extends App {
               }
             }
 
-            if(availableTechs.length > 0) {
-              val chosenTech = availableTechs(aiRand.nextInt(availableTechs.length))
-              out ! Protocol.DoGameAction(PerformTech(S1, chosenTech))
+            if(techs(3).level(S1) != TechAcquired) { // Open with initiates
+              out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
+              out ! Protocol.DoGameAction(PerformTech(S1, 3))
+              out ! Protocol.DoGameAction(PerformTech(S1, 3))
+            } else {
+              val availableTechs = techs.indices.filter { i =>
+                techs(i).level(S1) != TechAcquired && (i==0 || techs(i-1).level(S1) != TechLocked)
+              }
+              if(availableTechs.length > 0) {
+                val chosenTech = availableTechs(aiRand.nextInt(availableTechs.length))
+                out ! Protocol.DoGameAction(PerformTech(S1, chosenTech))
+              }
             }
 
             out ! Protocol.DoGameAction(SetBoardDone(0, true))
