@@ -1170,48 +1170,50 @@ if(!username || username.length == 0) {
     }
   } ~
   path("ai") {
-    val secondsPerTurn = SideArray.create(120.0)
-    val startingMana = SideArray.createTwo(0, 5)
-    val extraManaPerTurn = SideArray.createTwo(0, 10)
-    val targetWins = 1
-    val techMana = 4
-    val maps_opt = None
-    val seed_opt = None
+    parameter("difficulty" ? 10) { difficulty =>
+      val secondsPerTurn = SideArray.create(120.0)
+      val startingMana = SideArray.createTwo(0, 5)
+      val extraManaPerTurn = SideArray.createTwo(0, difficulty)
+      val targetWins = 1
+      val techMana = 4
+      val maps_opt = None
+      val seed_opt = None
 
-    val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
-    val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
-    val gameid = "ai" + games.size.toString
-    games = games + (gameid -> ((gameActor, gameState, None)))
-    gameActor ! StartGame()
+      val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
+      val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
+      val gameid = "ai" + games.size.toString
+      games = games + (gameid -> ((gameActor, gameState, None)))
+      gameActor ! StartGame()
 
-    val (actorRef, pub) = Source.actorRef[Protocol.Query](128, OverflowStrategy.fail).toMat(Sink.asPublisher(false))(Keep.both).run()
-    val source = Source.fromPublisher(pub)
-    val ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState))
+      val (actorRef, pub) = Source.actorRef[Protocol.Query](128, OverflowStrategy.fail).toMat(Sink.asPublisher(false))(Keep.both).run()
+      val source = Source.fromPublisher(pub)
+      val ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState))
 
-    val sink: Sink[Message,_] = {
-      Flow[Message].collect { message: Message =>
-        message match {
-          case TextMessage.Strict(text) =>
-            Future.successful(text)
-          case TextMessage.Streamed(textStream) =>
-            textStream.runFold("")(_ + _)
-        }
-      } .mapAsync(1)((str:Future[String]) => str)
-        .map { (str: String) =>
-          val json = Json.parse(str)
-          json.validate[Protocol.Response] match {
-            case (s: JsSuccess[Protocol.Response]) => s.get
-            case (e: JsError) => Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
+      val sink: Sink[Message,_] = {
+        Flow[Message].collect { message: Message =>
+          message match {
+            case TextMessage.Strict(text) =>
+              Future.successful(text)
+            case TextMessage.Streamed(textStream) =>
+              textStream.runFold("")(_ + _)
           }
-        }
-          .to(Sink.actorRef[Protocol.Response](ai, onCompleteMessage = Protocol.UserLeft("igor", Some(S1))))
+        } .mapAsync(1)((str:Future[String]) => str)
+          .map { (str: String) =>
+            val json = Json.parse(str)
+            json.validate[Protocol.Response] match {
+              case (s: JsSuccess[Protocol.Response]) => s.get
+              case (e: JsError) => Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
+            }
+          }
+            .to(Sink.actorRef[Protocol.Response](ai, onCompleteMessage = Protocol.UserLeft("igor", Some(S1))))
+      }
+
+
+      val flow = websocketMessageFlow(gameid,"igor",Some("1"))
+      source.map { query => TextMessage(Json.stringify(Json.toJson(query))) }.via(flow).to(sink).run()
+
+      redirect(s"/play?game=$gameid&side=0", StatusCodes.SeeOther)
     }
-
-
-    val flow = websocketMessageFlow(gameid,"igor",Some("1"))
-    source.map { query => TextMessage(Json.stringify(Json.toJson(query))) }.via(flow).to(sink).run()
-
-    redirect(s"/play?game=$gameid&side=0", StatusCodes.SeeOther)
   } ~
   path("playGame") {
     parameter("username") { username =>
