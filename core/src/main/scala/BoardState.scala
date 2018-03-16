@@ -1481,7 +1481,6 @@ case class BoardState private (
                 }
               }
             }
-            killPiece(piece)
           case MoveTerrain =>
             moveTerrain(targets.terrain.get, targets.loc0)
           case MoveEarthquake =>
