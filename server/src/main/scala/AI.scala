@@ -43,13 +43,14 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
     case Protocol.ReportTimeLeft(_) => ()
     case Protocol.ReportNewTurn(S1) =>
       if(game.game.winner.isEmpty) {
-        out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
+        if(game.game.mana(S1) > 10) {
+          out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
+        }
         val techs = game.game.techLine
         val unlockedTechs = techs.indices.filter { i =>
           techs(i).level(S1) == TechAcquired
         }
 
-        // Do this multiple times
         val unlockedUnits = unlockedTechs.flatMap { i =>
           techs(i).tech match {
             case PieceTech(pieceName) =>
@@ -119,8 +120,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           targets.map { target => distance(piece.baseStats, piece.curStats(board), target, piece.loc) }.min
         }
 
-        val sortedPieces = game.boards(0).curState.pieceById.values.filter { piece => piece.side == S1  && !piece.baseStats.isNecromancer }
-          .toList.sortBy { p => distanceFromTargets(p) }
+        val sortedPieces = game.boards(0).curState.pieceById.values.filter { piece => piece.side == S1 }.toList.sortBy { p => distanceFromTargets(p) }
 
           // Move and attack with units
           sortedPieces.foreach { piece =>
@@ -197,6 +197,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
     case _ => {
       if(doTutorial) {
         val board = game.boards(0).curState
+        val techs = game.game.techLine
         if(tutorialStep == 0) {
           tutorialStep = 1
           chat(s"Welcome to Minions of Darkness!")
@@ -226,6 +227,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("You can cast the spell by clicking on it and dragging it to a valid target")
           chat("You can undo casting the spell by right clicking it near the bottom of the screen")
           chat("That's about all for your first turn! Click 'End Turn'")
+          // FIXME instruct them to move necro + other zombies forward
         } else if(tutorialStep == 4 && game.game.turnNumber == 2) {
           tutorialStep = 5
           chat("")
@@ -242,19 +244,25 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("The second starting unit is the 'Acolyte'")
           chat("They can't fight at all, but they are fast, and you can place units around them.")
           chat("(Normally you can only place units next to your Necromancer)")
-          chat("Try buying on now by clicking on the Acolyte hex in the tech row")
+          chat("Try buying one now by clicking on the Acolyte hex in the tech row")
         } else if(tutorialStep == 5 && board.reinforcements(S0).getOrElse(Units.acolyte.name, 0) == 1) {
           tutorialStep = 6
           chat("")
           chat("The acolyte appears in your reinforcements, to the left of the board")
           chat("Units cost souls to create. You can see how many souls your team has near the top of the screen.")
           chat("You had 5 from your necromancer and two graveyards, but you spent them all on the acolyte.")
-          chat("Right click on the acolyte in your reinforcements to get the money back")
-          chat("Re-buy the acolyte and place it next to your necromancer")
+          chat("Place the acolyte next to your necromancer")
         } else if(tutorialStep == 6 && board.pieceById.values.exists { piece => piece.baseStats.name == Units.acolyte.name && piece.side == S0 }) {
           tutorialStep = 7
           chat("")
           chat("Newly-placed units can't act the turn you place them, but next turn your acolyte will be ready for action.")
+          chat("Right click on the acolyte to move it back to your reinforcements.")
+        } else if(tutorialStep == 7 && board.reinforcements(S0).getOrElse(Units.acolyte.name, 0) == 1) {
+          tutorialStep = 8
+          chat("")
+          chat("Right click on the acolyte  in your reinforcements to get the money back")
+        } else if(tutorialStep == 8 && game.game.mana(S0) == 5) {
+          tutorialStep = 9
           chat("")
           chat("The third basic unit is the spire")
           chat("Spires can't move at all, but they have high health and damage, and you can spawn units next to them")
@@ -262,6 +270,37 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("The unit I unlocked is the 'Initiate', which is an upgrade to the acolyte.")
           chat("Like the acolyte, the initiate moves 2 and has spawn, but he is also a good fighter, even better than the spire.")
           chat("Initiates have one big drawback: like zombies, they are lumbering.")
+          chat("")
+          chat("To defeat my initiates, you'll want to unlock skeletons.")
+          chat("Click on the skeleton hex in the tech line")
+        } else if(tutorialStep == 9 && techs(4).level(S0) == TechUnlocked) {
+          tutorialStep = 10
+          chat("")
+          chat("The blue rectangle in the skeleton hex means you've put one point into skeletons.")
+          chat("One point lets you go on to the next tech.")
+          chat("You need two points in a tech to actually build the unit.")
+          chat("You get one free tech point each turn, but you can buy more")
+          chat("Click on 'Buy Extra Tech + Spell', to the right of the tech line")
+        } else if(tutorialStep == 10 && game.game.extraTechsAndSpellsThisTurn == 1) {
+          tutorialStep = 11
+          chat("")
+          chat("Now click 'Skeleton' again to unlock them")
+        } else if(tutorialStep == 11 && techs(4).level(S0) == TechAcquired) {
+          tutorialStep = 12
+          chat("You've unlocked skeletons, which are strong against initiates")
+          chat("Why? Look at the stats of both units.")
+          chat("Skeleton do 5 damage per attack, enough to kill an initiate in one hit.")
+          chat("And they are *not* lumbering; they can move and attack in the same turn.")
+          chat("So in a fight between an initiate and a skeleton, the skeleton will always get the first attack.")
+          chat("You can't build units the turn you tech to them.")
+          chat("So you'll have to wait till next turn to start making skeletons.")
+          chat("")
+          chat("You should be able to finish this game on your own.")
+          chat("Occupy the graveyards, build up an army, and win.")
+          chat("There are two ways to win:")
+          chat("1) Kill the enemy necromancer")
+          chat("2) Occupy 8 of the 10 graveyards at the *start* of your turn")
+          chat("Good luck!")
         }
       }
     }
