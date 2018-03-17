@@ -227,7 +227,6 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("You can cast the spell by clicking on it and dragging it to a valid target")
           chat("You can undo casting the spell by right clicking it near the bottom of the screen")
           chat("That's about all for your first turn! Click 'End Turn'")
-          // FIXME instruct them to move necro + other zombies forward
         } else if(tutorialStep == 4 && game.game.turnNumber == 2) {
           tutorialStep = 5
           chat("")

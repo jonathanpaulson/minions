@@ -284,6 +284,7 @@ th {
           }
           val blue = teamString(Some(S0))
           val red = teamString(Some(S1))
+          val spectators = teamString(None)
 
           html ++= s"""<tr>
   <td>$game</td>
@@ -291,6 +292,7 @@ th {
   <td>$nBoards</td>
   <td><a href='/play?game=$game&side=0'>Join</a> $blue</td>
   <td><a href='/play?game=$game&side=1'>Join</a> $red</td>
+  <td><a href='/play?game=$game'>Spectate</a> $spectators</td>
   </tr>"""
         }
         html ++= "</table>"
@@ -498,6 +500,7 @@ redManaPerTurn=$redManaPerTurn
 
 <a href="/play?game=$gameid&side=0">Join blue</a><br>
 <a href="/play?game=$gameid&side=1">Join red</a><br>
+<a href="/play?game=$gameid">Spectate</a><br>
 <a href="/">Back</a>
                       """
                       ))
