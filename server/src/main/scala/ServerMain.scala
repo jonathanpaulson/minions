@@ -269,7 +269,7 @@ th {
       html ++= "<a href=\"/ai?difficulty=10\" class=\"button\">Vs AI (1v1)</a><p>"
       html ++= "<a href=\"/ai?difficulty=0&tutorial=true\" class=\"button\">Tutorial</a><p>"
       if(!games.isEmpty) {
-        html ++= "<table border=1><tr><th>Game</th><th>Access</th><th>Boards</th><th>Blue Team</th><th>Red Team</th></tr>"
+        html ++= "<table border=1><tr><th>Game</th><th>Access</th><th>Boards</th><th>Blue Team</th><th>Red Team</th><th>Spectators</th></tr>"
         for((game, (_,state,password)) <- games) {
           val hasPassword = if(password.isEmpty) "Public" else "Password"
           val nBoards = state.numBoards
