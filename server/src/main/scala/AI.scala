@@ -159,10 +159,9 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
             }
           }
 
-          val reinforcements = game.boards(0).curState.reinforcements(S1).toSeq.flatMap { case (piecename, n) =>
+          val reinforcements = scala.util.Random.shuffle(game.boards(0).curState.reinforcements(S1).toSeq.flatMap { case (piecename, n) =>
             List.fill(n)(piecename)
-          }
-          scala.util.Random.shuffle(reinforcements)
+          })
 
           reinforcements.foreach { piecename =>
             val board = game.boards(0).curState

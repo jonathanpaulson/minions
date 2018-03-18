@@ -12,7 +12,7 @@ object Drawing {
   //The euclidean distance from the center of a hexagon to the corner in pixels.
   val gridSize = 32.0
   val tileScale = 31.5 / gridSize
-  val pieceScale = 26.0 / gridSize
+  val pieceScale = 26.5 / gridSize
   val techScale = 31.0 / gridSize
   val spellScale = 29.0 / gridSize
   val techInteriorScale = 19.0 / gridSize
@@ -892,7 +892,6 @@ object Drawing {
       }
     }
 
-
     def pieceCanStillDoThings(piece: Piece): Boolean = {
       piece.actState match {
         case Spawning | DoneActing => false
@@ -1082,9 +1081,9 @@ object Drawing {
       }
       else {
         if(pieceHasNotDoneThings(piece))
-          strokeHex(loc, "green", scale, lineWidth=2.0, alpha = alpha)
+          strokeHex(loc, "green", scale, lineWidth=2.5, alpha = alpha)
         else if(pieceCanStillDoThings(piece))
-          strokeHex(loc, "orange", scale, lineWidth=1.5, alpha = alpha)
+          strokeHex(loc, "orange", scale, lineWidth=2.5, alpha = alpha)
       }
     }
 
@@ -1098,6 +1097,19 @@ object Drawing {
         pieces.foreach { piece =>
           drawBoardPiece(piece,preSpawnBoard,alpha=0.3)
         }
+      }
+    }
+
+    // Draw translucent special tiles
+    board.tiles.foreachi {case (loc, tile) =>
+      val showTranslucent = tile.terrain match {
+        case Wall | Ground | Water | StartHex(_) => false
+        case Graveyard | SorceryNode | Teleporter | Spawner(_) | Mist => true
+        case Earthquake | Firestorm | Flood | Whirlwind => true
+      }
+      if(showTranslucent) {
+        val hexLoc = ui.MainBoard.hexLoc(loc)
+        drawTile(hexLoc,loc,tile, 1.0, alpha=0.3, showLoc=client.showCoords)
       }
     }
 
