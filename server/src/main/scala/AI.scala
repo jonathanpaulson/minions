@@ -159,22 +159,20 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
             }
           }
 
-          // Spawn reinforcements
-          val reinforcements = game.boards(0).curState.reinforcements(S1).toSeq.sortBy { case (piecename,_) =>
-            -Units.pieceMap(piecename).cost
+          val reinforcements = game.boards(0).curState.reinforcements(S1).toSeq.flatMap { case (piecename, n) =>
+            List.fill(n)(piecename)
           }
+          scala.util.Random.shuffle(reinforcements)
 
-          reinforcements.foreach { case (piecename, n) =>
-            for(i <- 0 to n) {
-              val board = game.boards(0).curState
-              val locs = board.legalSpawnLocs(piecename).map { x => (x -> 0) }.toMap
-              val stats = Units.pieceMap(piecename)
-              bestMove(stats, stats, locs) match {
-                case None => ()
-                case Some(bestLoc) =>
-                  out ! Protocol.DoBoardAction(0, PlayerActions(List(Spawn(bestLoc, piecename)), makeActionId()))
-                  Thread.sleep(100)
-              }
+          reinforcements.foreach { piecename =>
+            val board = game.boards(0).curState
+            val locs = board.legalSpawnLocs(piecename).map { x => (x -> 0) }.toMap
+            val stats = Units.pieceMap(piecename)
+            bestMove(stats, stats, locs) match {
+              case None => ()
+              case Some(bestLoc) =>
+                out ! Protocol.DoBoardAction(0, PlayerActions(List(Spawn(bestLoc, piecename)), makeActionId()))
+                Thread.sleep(100)
             }
           }
 
@@ -184,7 +182,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
             out ! Protocol.DoGameAction(PerformTech(S1, 3))
           } else {
             val availableTechs = techs.indices.filter { i =>
-              techs(i).level(S1) != TechAcquired && (i==0 || techs(i-1).level(S1) != TechLocked)
+              techs(i).level(S1) != TechAcquired && (i==0 || techs(i-1).level(S1) != TechLocked) && techs(i).level(S0)!=TechAcquired
             }
             if(availableTechs.length > 0) {
               val chosenTech = availableTechs(aiRand.nextInt(availableTechs.length))
@@ -286,8 +284,9 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("Now click 'Skeleton' again to unlock them")
         } else if(tutorialStep == 11 && techs(4).level(S0) == TechAcquired) {
           tutorialStep = 12
+          chat("")
           chat("You've unlocked skeletons, which are strong against initiates")
-          chat("Why? Look at the stats of both units.")
+          chat("What makes them strong against initiates? Look at the stats of both units.")
           chat("Skeleton do 5 damage per attack, enough to kill an initiate in one hit.")
           chat("And they are *not* lumbering; they can move and attack in the same turn.")
           chat("So in a fight between an initiate and a skeleton, the skeleton will always get the first attack.")
