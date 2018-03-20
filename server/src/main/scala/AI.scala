@@ -208,28 +208,33 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("")
           chat("You now control the first graveyard.")
           chat("Your souls per turn went from 3 to 4.")
+          chat("You can see your souls and souls per turn near the top-left of the screen.")
           chat("Each graveyard you control gives you +1 soul at the end of your turn.")
           chat("Souls are the most important resource in the game.")
           chat("You can spend them to buy more units or unlock new types of units.")
-          chat("Claim the other graveyard.")
+          chat("Claim the other nearby graveyard.")
         } else if(tutorialStep <=2 && board.endOfTurnMana(S0) == 5) {
           tutorialStep = 3
           chat("")
           chat("You now control both graveyards, and earn 5 souls per turn.")
-          chat("Next, you should choose a spell.")
+          chat("Just above the board is the spell row. You can choose from one of two spells each turn.")
+          chat("Choose a spell now.")
         } else if(tutorialStep == 3 && board.hasGainedSpell) {
           tutorialStep = 4
           chat("")
-          chat("You can undo this choice by right-clicking on the spell (either in your hand or in the spell row)")
-          chat("You can cast the spell by clicking on it and dragging it to a valid target")
+          chat("The spell appears in your hand, to the left of the board.")
+          chat("You get one spell per turn, and you can play as many as you want on your turn.")
+          chat("You play a spell by click-dragging it to a valid target.")
           chat("You can undo casting the spell by right clicking it near the bottom of the screen")
-          chat("That's about all for your first turn! Click 'End Turn'")
+          chat("If you want the other spell, right-click it to undo your choice (either in your hand or the spell row)")
+          chat("That's almost it for your first turn! Move your necromancer and other zombies forward.")
+          chat("When you're ready, click 'End Turn' (near the upper-right corner of the board).")
         } else if(tutorialStep == 4 && game.game.turnNumber == 2) {
           tutorialStep = 5
           chat("")
           chat("I took my turn; now it's your second turn. Like you, I occupied the nearby graveyards.")
           chat("I also unlocked the 'Initiate' unit")
-          chat("You can see the tech tree above the spell row")
+          chat("You can see the tech line above the spell row")
           chat("There are 23 different units to unlock, and three starting units")
           chat("")
           chat("The first starting unit is the 'Zombie', which you started with 6 of.")
@@ -245,18 +250,19 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           tutorialStep = 6
           chat("")
           chat("The acolyte appears in your reinforcements, to the left of the board")
-          chat("Units cost souls to create. You can see how many souls your team has near the top of the screen.")
-          chat("You had 5 from your necromancer and two graveyards, but you spent them all on the acolyte.")
           chat("Place the acolyte next to your necromancer")
         } else if(tutorialStep == 6 && board.pieceById.values.exists { piece => piece.baseStats.name == Units.acolyte.name && piece.side == S0 }) {
           tutorialStep = 7
           chat("")
           chat("Newly-placed units can't act the turn you place them, but next turn your acolyte will be ready for action.")
+          chat("Units cost souls to create (you can see your souls near the upper-left corner of the screen).")
+          chat("You had 5 souls from your necromancer and two graveyards, but you spent them all on the acolyte.")
+          chat("We're going to spend the souls on teching instead, so we need to un-buy the acolyte.")
           chat("Right click on the acolyte to move it back to your reinforcements.")
         } else if(tutorialStep == 7 && board.reinforcements(S0).getOrElse(Units.acolyte.name, 0) == 1) {
           tutorialStep = 8
           chat("")
-          chat("Right click on the acolyte  in your reinforcements to get the money back")
+          chat("Right click on the acolyte  in your reinforcements to get your souls back")
         } else if(tutorialStep == 8 && game.game.mana(S0) == 5) {
           tutorialStep = 9
           chat("")
@@ -291,6 +297,12 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("So in a fight between an initiate and a skeleton, the skeleton will always get the first attack.")
           chat("You can't build units the turn you tech to them.")
           chat("So you'll have to wait till next turn to start making skeletons.")
+          chat("")
+          chat("Every unit counters and is countered by other units. Which ones?")
+          chat("Look at the number in the tech hex for a unit.")
+          chat("Unit N is strong against units N-1,N-2, and N+3.")
+          chat("(And therefore weak against N+1,N+2, and N-3.")
+          chat("Build units that counter your enemy's units to win.")
           chat("")
           chat("You should be able to finish this game on your own.")
           chat("Occupy the graveyards, build up an army, and win.")
