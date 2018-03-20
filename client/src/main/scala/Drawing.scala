@@ -1116,6 +1116,7 @@ object Drawing {
         case Spawner(_) =>
           val img = "img_terrain_spawner"
           fillHexWithImage(hexLoc, img, scale=1.0, alpha=0.4)
+        case Ground | Water | Earthquake | Whirlwind | Firestorm | Flood | StartHex(_) | Wall | Mist => ()
       }
     }
 

@@ -226,7 +226,8 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("You get one spell per turn, and you can play as many as you want on your turn.")
           chat("You play a spell by click-dragging it to a valid target.")
           chat("You can undo casting the spell by right clicking it near the bottom of the screen")
-          chat("If you want the other spell, right-click it to undo your choice (either in your hand or the spell row)")
+          chat("You can also undo your choice of spell (if you decide you want the other one) by right-clicking the spell you chose.")
+          chat("(You can right-click the spell you chose either in your hand or in the spell row).")
           chat("That's almost it for your first turn! Move your necromancer and other zombies forward.")
           chat("When you're ready, click 'End Turn' (near the upper-right corner of the board).")
         } else if(tutorialStep == 4 && game.game.turnNumber == 2) {
@@ -262,7 +263,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
         } else if(tutorialStep == 7 && board.reinforcements(S0).getOrElse(Units.acolyte.name, 0) == 1) {
           tutorialStep = 8
           chat("")
-          chat("Right click on the acolyte  in your reinforcements to get your souls back")
+          chat("Right click on the acolyte in your reinforcements to get your souls back")
         } else if(tutorialStep == 8 && game.game.mana(S0) == 5) {
           tutorialStep = 9
           chat("")
@@ -286,22 +287,22 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
         } else if(tutorialStep == 10 && game.game.extraTechsAndSpellsThisTurn == 1) {
           tutorialStep = 11
           chat("")
-          chat("Now click 'Skeleton' again to unlock them")
-        } else if(tutorialStep == 11 && techs(4).level(S0) == TechAcquired) {
-          tutorialStep = 12
-          chat("")
-          chat("You've unlocked skeletons, which are strong against initiates")
-          chat("What makes them strong against initiates? Look at the stats of both units.")
+          chat("What makes skeletons strong against initiates? Look at the stats of both units.")
           chat("Skeleton do 5 damage per attack, enough to kill an initiate in one hit.")
           chat("And they are *not* lumbering; they can move and attack in the same turn.")
           chat("So in a fight between an initiate and a skeleton, the skeleton will always get the first attack.")
           chat("You can't build units the turn you tech to them.")
-          chat("So you'll have to wait till next turn to start making skeletons.")
+          chat("Now click 'Skeleton' again to unlock them")
+        } else if(tutorialStep == 11 && techs(4).level(S0) == TechAcquired) {
+          tutorialStep = 12
+          chat("")
+          chat("You've unlocked skeletons, but you can't build them until next turn.")
+          chat("You can never build units the turn you tech to them.")
           chat("")
           chat("Every unit counters and is countered by other units. Which ones?")
           chat("Look at the number in the tech hex for a unit.")
           chat("Unit N is strong against units N-1,N-2, and N+3.")
-          chat("(And therefore weak against N+1,N+2, and N-3.")
+          chat("(And therefore weak against N+1,N+2, and N-3)")
           chat("Build units that counter your enemy's units to win.")
           chat("")
           chat("You should be able to finish this game on your own.")
