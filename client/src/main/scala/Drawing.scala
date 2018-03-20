@@ -722,7 +722,7 @@ object Drawing {
         case Some(timeLeft) =>
           fillHex(ui.Clock.origin, "#dddddd", tileScale)
           strokeHex(ui.Clock.origin, "#666666", tileScale, lineWidth=1.0)
-          val pauseText = if(client.isPaused) { "Play" } else { "Pause" }
+          val pauseText = if(client.isPaused) { "Unpause" } else { "Pause" }
           text(pauseText, ui.Clock.origin, "black")
 
           val seconds: Int = Math.floor(timeLeft).toInt
@@ -1101,15 +1101,21 @@ object Drawing {
     }
 
     // Draw translucent special tiles
-    board.tiles.foreachi {case (loc, tile) =>
-      val showTranslucent = tile.terrain match {
-        case Wall | Ground | Water | StartHex(_) => false
-        case Graveyard | SorceryNode | Teleporter | Spawner(_) | Mist => true
-        case Earthquake | Firestorm | Flood | Whirlwind => true
-      }
-      if(showTranslucent) {
-        val hexLoc = ui.MainBoard.hexLoc(loc)
-        drawTile(hexLoc,loc,tile, 1.0, alpha=0.3, showLoc=client.showCoords)
+    board.tiles.foreachi { case (loc, tile) =>
+      val hexLoc = ui.MainBoard.hexLoc(loc)
+      tile.terrain match {
+        case Graveyard =>
+          val img = "img_terrain_graveyard" + deterministicRandom(loc.x,loc.y,4)
+          fillHexWithImage(hexLoc, img, scale=1.0, alpha=0.4)
+        case SorceryNode =>
+          val img = "img_terrain_leyline"
+          fillHexWithImage(hexLoc, img, scale=1.0, alpha=0.4)
+        case Teleporter =>
+          val img = "img_terrain_teleporter"
+          fillHexWithImage(hexLoc, img, scale=1.0, alpha=0.4)
+        case Spawner(_) =>
+          val img = "img_terrain_spawner"
+          fillHexWithImage(hexLoc, img, scale=1.0, alpha=0.4)
       }
     }
 
