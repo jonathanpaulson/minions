@@ -172,7 +172,7 @@ object ServerMain extends App {
     }
   }
 
-  var games = Map[String, Tuple3[ActorRef, GameState, Option[String]]]()
+  var games: Map[String, (ActorRef, GameState)] = Map()
   var globalChat: List[String] = List()
 
   //----------------------------------------------------------------------------------
@@ -187,7 +187,7 @@ object ServerMain extends App {
       case Some(s) => throw new Exception("Invalid side: " + s)
       case None => None
     }
-    val (gameActor,_,_) = games(gameid)
+    val (gameActor,_) = games(gameid)
     val sessionId = nextSessionId.getAndIncrement()
 
     //Create output stream for the given user
@@ -270,8 +270,8 @@ th {
       html ++= "<a href=\"/ai?difficulty=0&tutorial=true\" class=\"button\">Tutorial</a><p>"
       if(!games.isEmpty) {
         html ++= "<table border=1><tr><th>Game</th><th>Access</th><th>Boards</th><th>Blue Team</th><th>Red Team</th><th>Spectators</th></tr>"
-        for((game, (_,state,password)) <- games) {
-          val hasPassword = if(password.isEmpty) "Public" else "Password"
+        for((game, (_,state)) <- games) {
+          val hasPassword = if(state.password.isEmpty) "Public" else "Password"
           val nBoards = state.numBoards
           def teamString(side : Option[Side]) : String = {
             var players = List[String]()
@@ -299,6 +299,17 @@ th {
       }
       complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, html.toString))
     } ~
+    path("show") {
+      parameter("game".?) { gameid_opt =>
+        gameid_opt match {
+          case None => complete("Please provide 'game=' in URL")
+          case Some(gameid) =>
+            val (_,state) = games(gameid)
+            val state_str = Json.stringify(Json.toJson(state))
+            complete(state_str)
+        }
+      }
+    } ~
     path("play") {
       parameter("game".?) { gameid_opt =>
         parameter("username".?) { username =>
@@ -321,8 +332,8 @@ if(!username || username.length == 0) {
                   case Some(_) =>
                     games.get(gameid) match {
                       case None => complete(s"Game $gameid does not exist")
-                      case Some((_,_,game_password)) =>
-                        (password, game_password) match {
+                      case Some((_,state)) =>
+                        (password, state.password) match {
                           case (None, Some(_)) => complete(gameid + " is password-protected; please provide 'password=' in URL")
                           case (_, None) => getFromFile(Paths.mainPage)
                           case (Some(x), Some(y)) =>
@@ -354,10 +365,10 @@ if(!username || username.length == 0) {
         val maps_opt = None
         val seed_opt = None
 
-        val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
+        val gameState = GameState.create(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt, None)
         val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
         val gameid = "ai" + games.size.toString
-        games = games + (gameid -> ((gameActor, gameState, None)))
+        games = games + (gameid -> ((gameActor, gameState)))
         gameActor ! StartGame()
 
         val (actorRef, pub) = Source.actorRef[Protocol.Query](128, OverflowStrategy.fail).toMat(Sink.asPublisher(false))(Keep.both).run()
@@ -473,10 +484,10 @@ if(!username || username.length == 0) {
                     val startingMana = SideArray.createTwo(blueMana, redMana)
                     val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
                     val extraManaPerTurn = SideArray.createTwo(blueManaPerTurn, redManaPerTurn)
-                    val gameState = new GameState(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt)
+                    val gameState = GameState.create(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt, passwordOpt)
                     val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
                     gameActor ! StartGame()
-                    games = games + (gameid -> ((gameActor, gameState, passwordOpt)))
+                    games = games + (gameid -> ((gameActor, gameState)))
                     println("Created game " + gameid)
                     complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
                       s"""

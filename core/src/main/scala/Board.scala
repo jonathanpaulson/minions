@@ -102,7 +102,7 @@ object Board {
   }
 }
 
-class Board private (
+case class Board private (
   //The board state at the start of everything
   val initialState: BoardState,
   //The board history at the start of this turn

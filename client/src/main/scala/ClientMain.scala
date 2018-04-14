@@ -193,7 +193,7 @@ class Client() {
   var serverSequence: Array[Int] = Array()
   var serverActionSequence: Array[Vector[BoardAction]] = Array()
   var serverBoardNames: Array[String] = Array()
-  var externalInfo: ExternalInfo = ExternalInfo()
+  var externalInfo: ExternalInfo = ExternalInfo.create()
 
   var numBoards: Int = 0 //Length of the boards arrays
   var curBoardIdx: Int = 0 //Currently selected board

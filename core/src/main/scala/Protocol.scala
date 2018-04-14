@@ -367,7 +367,6 @@ object Protocol {
   }
   implicit val boardStateFormat = Json.format[BoardState]
 
-
   //Board.scala--------------------------------------------------------------------------------
   implicit val playerActionsFormat = Json.format[PlayerActions]
   implicit val doGeneralBoardActionFormat = Json.format[DoGeneralBoardAction]
@@ -397,6 +396,8 @@ object Protocol {
     Format(reads,writes)
   }
   implicit val boardSummaryFormat = Json.format[BoardSummary]
+  implicit val boardHistoryFormat = Json.format[BoardHistory]
+  implicit val boardFormat = Json.format[Board]
 
   //Game.scala--------------------------------------------------------------------------------
   implicit val techLevelFormat = {
@@ -467,6 +468,9 @@ object Protocol {
   }
 
   implicit val gameFormat = Json.format[Game]
+
+  //ExternalInfo.scala
+  implicit val externalInfoFormat = Json.format[ExternalInfo]
 
   //Protocol.scala--------------------------------------------------------------------------------
   implicit val versionFormat = Json.format[Version]
@@ -563,5 +567,4 @@ object Protocol {
     }
     Format(reads,writes)
   }
-
 }
