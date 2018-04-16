@@ -26,10 +26,11 @@ sealed trait MouseTarget {
       case MouseDeadPiece(_,loc) => Some(loc)
       case MouseExtraTechAndSpell(loc) => Some(loc)
       case MouseEndTurn(loc) => Some(loc)
+      case MouseResignBoard(loc) => Some(loc)
+      case MouseRedo(loc) => Some(loc)
       case MouseNextBoard => None
       case MousePrevBoard => None
       case MouseTerrain(_,loc) => Some(loc)
-      case MouseResignBoard(loc) => Some(loc)
       case MousePause(loc) => Some(loc)
       case MouseCoords(loc) => Some(loc)
     }
@@ -46,10 +47,11 @@ case class MouseReinforcement(pieceName: Option[PieceName], side:Side, loc: Loc)
 case class MouseDeadPiece(pieceSpec: PieceSpec, loc: Loc) extends MouseTarget
 case class MouseExtraTechAndSpell(loc: Loc) extends MouseTarget
 case class MouseEndTurn(loc: Loc) extends MouseTarget
+case class MouseResignBoard(loc: Loc) extends MouseTarget
+case class MouseRedo(loc: Loc) extends MouseTarget
 case object MouseNextBoard extends MouseTarget
 case object MousePrevBoard extends MouseTarget
 case class MouseTerrain(terrain: Terrain, loc: Loc) extends MouseTarget
-case class MouseResignBoard(loc: Loc) extends MouseTarget
 case class MousePause(loc: Loc) extends MouseTarget
 case class MouseCoords(loc: Loc) extends MouseTarget
 
@@ -335,7 +337,6 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           prevTarget == curTarget && doubleClickTimeOkay(prevTime) && secondDown
       }
     }
-
     //Branch based on what we selected on the mouseDown
     dragTarget match {
       case MouseNone => ()
@@ -447,6 +448,9 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
         if(ourSide == Some(game.curSide) && curTarget == dragTarget) {
           mouseState.client.showResignConfirm()
         }
+      case MouseRedo(_) =>
+        mouseState.client.doActionOnCurBoard(Redo(makeActionId()))
+
       case MousePause(_) =>
         //Require mouse down and up on the same target
         if(curTarget == dragTarget) {
@@ -675,7 +679,6 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
     if(didDoubleClick)
       doubleClickState = None
   }
-
 }
 
 //---------------------------------------------------------------------------------------
@@ -736,10 +739,11 @@ case class DragPieceToLocMouseMode(val mouseState: MouseState, val pieceTargets:
       case MouseDeadPiece(_,_) => None
       case MouseExtraTechAndSpell(_) => None
       case MouseEndTurn(_) => None
+      case MouseResignBoard(_) => None
+      case MouseRedo(_) => None
       case MouseNextBoard => None
       case MousePrevBoard => None
       case MouseTerrain(_,_) => None
-      case MouseResignBoard(_) => None
       case MousePause(_) => None
       case MouseCoords(_) => None
     }
@@ -776,10 +780,11 @@ case class SelectTerrainMouseMode(val mouseState: MouseState)(f: Option[Terrain]
       case MouseDeadPiece(_,_) => None
       case MouseExtraTechAndSpell(_) => None
       case MouseEndTurn(_) => None
+      case MouseResignBoard(_) => None
+      case MouseRedo(_) => None
       case MouseNextBoard => None
       case MousePrevBoard => None
       case MouseTerrain(terrain,_) => Some(terrain)
-      case MouseResignBoard(_) => None
       case MousePause(_) => None
       case MouseCoords(_) => None
     }

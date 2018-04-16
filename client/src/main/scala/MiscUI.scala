@@ -15,6 +15,7 @@ object UI {
     def hexLoc(loc: Loc): HexLoc = {
       HexLoc(loc.x.toDouble * gridSizeScale + origin.x, loc.y.toDouble * gridSizeScale + origin.y)
     }
+    def getGridSizeScale(): Double = gridSizeScale
 
     protected def getLocAndDelta(hexLoc: HexLoc): (Loc, HexVec) = {
       HexLoc((hexLoc.x - origin.x) / gridSizeScale, (hexLoc.y - origin.y) / gridSizeScale).round()
@@ -105,25 +106,21 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
   }
 
   //Positioning for end turn hex button
-  object EndTurn extends UI.Component with UI.Clickable {
+  object Actions extends UI.Component with UI.Clickable {
     val origin = HexLoc(14.35,-1.7)
-    val gridSizeScale = 1
+    val gridSizeScale = 1.2
 
+    override def getGridSizeScale(): Double = 1.0
+
+    def hexLoc(i: Int): HexLoc = {
+      HexLoc(i.toDouble * gridSizeScale + origin.x, origin.y)
+    }
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
       val _ = (game,board)
       val (loc,_) = getLocAndDelta(hexLoc)
       if(loc == Loc.zero) MouseEndTurn(loc)
-      else MouseNone
-    }
-  }
-  object ResignBoard extends UI.Component with UI.Clickable {
-    val origin = HexLoc(16.35,-1.7)
-    val gridSizeScale = 1
-
-    def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
-      val _ = (game,board)
-      val (loc,_) = getLocAndDelta(hexLoc)
-      if(loc == Loc.zero) MouseResignBoard(loc)
+      else if(loc == Loc(1, 0)) MouseResignBoard(loc)
+      else if(loc == Loc(2, 0)) MouseRedo(loc)
       else MouseNone
     }
   }
@@ -449,8 +446,7 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     Reinforcements,
     DeadPieces,
     Tech,
-    EndTurn,
-    ResignBoard,
+    Actions,
     PrevBoard,
     NextBoard,
     ExtraTechAndSpell,

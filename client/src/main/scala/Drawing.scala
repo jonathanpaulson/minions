@@ -743,22 +743,30 @@ object Drawing {
     text("Coords", coord_ploc + PixelVec(0, 7.0), "black")
 
     //End turn hex
+    val endTurn = ui.Actions.hexLoc(0)
     if(game.isBoardDone(boardIdx)) {
-      fillHex(ui.EndTurn.origin, "#ff99ff", tileScale, alpha=1.0)
-      strokeHex(ui.EndTurn.origin, "#ff00ff", tileScale, lineWidth=2.0)
+      fillHex(endTurn, "#ff99ff", tileScale, alpha=1.0)
+      strokeHex(endTurn, "#ff00ff", tileScale, lineWidth=2.0)
     }
     else {
-      fillHex(ui.EndTurn.origin, "#dddddd", tileScale)
-      strokeHex(ui.EndTurn.origin, "#666666", tileScale, lineWidth=1.0)
+      fillHex(endTurn, "#dddddd", tileScale)
+      strokeHex(endTurn, "#666666", tileScale, lineWidth=1.0)
     }
-    text("End Turn", ui.EndTurn.origin, "black")
+    text("End Turn", endTurn, "black")
 
     //Resign board hex
-    fillHex(ui.ResignBoard.origin, "#dddddd", tileScale)
-    strokeHex(ui.ResignBoard.origin, "#666666", tileScale, lineWidth=1.0)
-    val resign_ploc = PixelLoc.ofHexLoc(ui.ResignBoard.origin, gridSize)
+    val resign = ui.Actions.hexLoc(1)
+    fillHex(resign, "#dddddd", tileScale)
+    strokeHex(resign, "#666666", tileScale, lineWidth=1.0)
+    val resign_ploc = PixelLoc.ofHexLoc(resign, gridSize)
     text("Resign", resign_ploc + PixelVec(0,-4.0), "black")
     text("Board", resign_ploc + PixelVec(0,7.0), "black")
+
+    // Redo hex
+    val redo = ui.Actions.hexLoc(2)
+    fillHex(redo, "#dddddd", tileScale)
+    strokeHex(redo, "#666666", tileScale, lineWidth=1.0)
+    text("Redo", redo, "black")
 
     //Extra tech and spells hex
     fillHex(ui.ExtraTechAndSpell.origin, "#dddddd", tileScale)
@@ -1324,9 +1332,11 @@ object Drawing {
           case MouseExtraTechAndSpell(_) =>
             strokeHex(ui.ExtraTechAndSpell.origin, "black", tileScale, alpha=0.5)
           case MouseEndTurn(_) =>
-            strokeHex(ui.EndTurn.origin, "black", tileScale, alpha=0.5)
+            strokeHex(ui.Actions.hexLoc(0), "black", tileScale, alpha=0.5)
           case MouseResignBoard(_) =>
-            strokeHex(ui.ResignBoard.origin, "black", tileScale, alpha=0.5)
+            strokeHex(ui.Actions.hexLoc(1), "black", tileScale, alpha=0.5)
+          case MouseRedo(_) =>
+            strokeHex(ui.Actions.hexLoc(2), "black", tileScale, alpha=0.5)
           case MousePause(_) =>
             strokeHex(ui.Clock.origin, "black", tileScale, alpha=0.5)
           case MouseCoords(_) =>
@@ -1457,16 +1467,20 @@ object Drawing {
             }
           case MouseEndTurn(_) =>
             if(client.ourSide == Some(game.curSide)) {
-              highlightHex(ui.EndTurn.origin)
+              highlightHex(ui.Actions.hexLoc(0))
+            }
+          case MouseResignBoard(_) =>
+            if(client.ourSide == Some(game.curSide)) {
+              highlightHex(ui.Actions.hexLoc(1))
+            }
+          case MouseRedo(_) =>
+            if(client.ourSide == Some(game.curSide)) {
+              highlightHex(ui.Actions.hexLoc(2))
             }
           case MousePause(_) =>
             highlightHex(ui.Clock.origin)
           case MouseCoords(_) =>
             highlightHex(ui.Options.origin)
-          case MouseResignBoard(_) =>
-            if(client.ourSide == Some(game.curSide)) {
-              highlightHex(ui.ResignBoard.origin)
-            }
           case MousePrevBoard =>
             if(boardIdx > 0)
               text("<- Prev Board", ui.PrevBoard.hexLocs(0), "cyan", textAlign="center", textBaseline="top", fontSize=12)
@@ -1641,15 +1655,16 @@ object Drawing {
         case MouseReinforcement(_,_,_) => (ui.Reinforcements, false)
         case MouseDeadPiece(_,_) => (ui.DeadPieces, false)
         case MouseExtraTechAndSpell(_) => (ui.ExtraTechAndSpell, false)
-        case MouseEndTurn(_) => (ui.EndTurn, false)
+        case MouseEndTurn(_) => (ui.Actions, false)
+        case MouseResignBoard(_) => (ui.Actions, false)
+        case MouseRedo(_) => (ui.Actions, false)
         case MouseNextBoard => (ui.NextBoard, false)
         case MousePrevBoard => (ui.PrevBoard, false)
         case MouseTerrain(_,_) => (ui.Terrain, false)
-        case MouseResignBoard(_) => (ui.ResignBoard, false)
         case MousePause(_) => (ui.Clock, false)
         case MouseCoords(_) => (ui.Options, false)
       }
-      strokeHex(component.hexLoc(hoverLoc), "black", tileScale*component.gridSizeScale, alpha=0.3, rectangle=rectangle)
+      strokeHex(component.hexLoc(hoverLoc), "black", tileScale*component.getGridSizeScale(), alpha=0.3, rectangle=rectangle)
     }
   }
 }

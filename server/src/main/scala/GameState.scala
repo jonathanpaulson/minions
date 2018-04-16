@@ -353,6 +353,7 @@ case class GameState (
                 case (_: PlayerActions) => Success(())
                 case (_: LocalPieceUndo) => Success(())
                 case (_: SpellUndo) => Success(())
+                case (_: Redo) => Success(())
                 case BuyReinforcementUndo(pieceName,_) =>
                   //Check ahead of time if it's legal
                   boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
@@ -395,7 +396,7 @@ case class GameState (
                         case DiscardSpell(spellId) => revealSpellsToSide(game.curSide.opp,Array(spellId), revealToSpectators = true)
                         case (_: Movements) | (_: Attack) | (_: Spawn) | (_: ActivateTile) | (_: ActivateAbility) | (_: Blink) | (_: Teleport) => ()
                       }
-                    case (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: GainSpellUndo) | (_: DoGeneralBoardAction) => ()
+                    case (_: LocalPieceUndo) | (_: SpellUndo) | (_: BuyReinforcementUndo) | (_: GainSpellUndo) | (_: DoGeneralBoardAction) | (_: Redo) => ()
                   }
 
                   //If this board was set as done, then since we did an action on it, unset it.

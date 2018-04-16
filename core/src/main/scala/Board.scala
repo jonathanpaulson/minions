@@ -40,6 +40,7 @@ sealed trait BoardAction
 case class PlayerActions(actions: List[PlayerAction], actionId: String) extends BoardAction
 case class DoGeneralBoardAction(action: GeneralBoardAction, actionId: String) extends BoardAction
 
+case class Redo(actionId: String) extends BoardAction
 //Undo the most recent List[PlayerAction] involving this piece.
 case class LocalPieceUndo(pieceSpec: PieceSpec, actionId: String) extends BoardAction
 //Undo the most recent List[PlayerAction] involving this spell.
@@ -58,6 +59,8 @@ case class BoardHistory(
   //State of the board after applying spawning actions, so far
   val spawnState: BoardState,
 
+  val redoStack: Option[BoardHistory],
+
   //Moving/attacking actions taken by the side to move this turn
   val moveAttackActionsThisTurn: Vector[List[PlayerAction]],
   //Spawning actions taken by the side to move this turn
@@ -70,6 +73,7 @@ object BoardHistory {
   def initial(state: BoardState) = BoardHistory(
     moveAttackState = state.copy(),
     spawnState = state.copy(),
+    redoStack = None,
     moveAttackActionsThisTurn = Vector(),
     spawnActionsThisTurn = Vector(),
     generalBoardActionsThisTurn = Vector()
@@ -171,6 +175,11 @@ case class Board private (
     action match {
       case PlayerActions(actions,_) => curState().tryLegality(actions,externalInfo)
       case DoGeneralBoardAction(action,_) => curState().tryGeneralLegality(action)
+      case Redo(_) =>
+        if(history.redoStack.isEmpty)
+          Failure(new Exception("Nothing to redo"))
+        else
+          Success(())
       case LocalPieceUndo(pieceSpec,_) =>
         val anyActionInvolvesPiece = {
           history.moveAttackActionsThisTurn.exists { playerActions => playerActions.exists { _.involvesPiece(pieceSpec) } } ||
@@ -276,6 +285,7 @@ case class Board private (
       BoardHistory(
         moveAttackState = newMoveAttackState,
         spawnState = newSpawnState,
+        redoStack = Some(history),
         moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
         spawnActionsThisTurn = newSpawnActionsThisTurn,
         generalBoardActionsThisTurn = newGeneralBoardActionsThisTurn
@@ -308,6 +318,7 @@ case class Board private (
         BoardHistory(
           moveAttackState = newMoveAttackState,
           spawnState = newSpawnState,
+          redoStack = Some(history),
           moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
           spawnActionsThisTurn = newSpawnActionsThisTurn,
           generalBoardActionsThisTurn = newGeneralBoardActionsThisTurn
@@ -334,6 +345,7 @@ case class Board private (
         BoardHistory(
           moveAttackState = newMoveAttackState,
           spawnState = newSpawnState,
+          redoStack = Some(history),
           moveAttackActionsThisTurn = newMoveAttackActionsThisTurn,
           spawnActionsThisTurn = newSpawnActionsThisTurn,
           generalBoardActionsThisTurn = newGeneralBoardActionsThisTurn
@@ -419,6 +431,7 @@ case class Board private (
             BoardHistory(
               moveAttackState = newMoveAttackState,
               spawnState = newSpawnState,
+              redoStack = None,
               moveAttackActionsThisTurn = history.moveAttackActionsThisTurn :+ moveAttackActionsRev.reverse,
               spawnActionsThisTurn = reappliedSpawnActionsThisTurn :+ spawnActions,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn
@@ -431,10 +444,14 @@ case class Board private (
             BoardHistory(
               moveAttackState = newMoveAttackState,
               spawnState = newSpawnState,
+              redoStack = None,
               moveAttackActionsThisTurn = history.moveAttackActionsThisTurn,
               spawnActionsThisTurn = history.spawnActionsThisTurn,
               generalBoardActionsThisTurn = history.generalBoardActionsThisTurn :+ generalBoardAction
             )
+
+          case Redo(_) =>
+            history.redoStack.get
 
           case LocalPieceUndo(pieceSpec,_) =>
             undoLastMatch(externalInfo,
