@@ -85,7 +85,7 @@ case object Abilities {
   )
   val range_two = SelfEnchantAbility(
     name = "rangetwo",
-    displayName = "Range Two (sorcery)",
+    displayName = "Range Two",
     desc = List("Has range two until end of turn"),
     isSorcery = true,
     spawnPhaseOnly = false,
@@ -99,7 +99,7 @@ case object Abilities {
   )
   val move_three = SelfEnchantAbility(
     name = "movethree",
-    displayName = "Move Three (sorcery)",
+    displayName = "Move Three",
     desc = List("Move three this turn"),
     isSorcery = true,
     spawnPhaseOnly = false,
