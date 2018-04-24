@@ -65,13 +65,17 @@ object Drawing {
       PixelLoc.ofHexLoc(hexLoc,gridSize)
     }
 
+    def movePixel(pixel: PixelLoc): Unit = {
+      ctx.moveTo(pixel.x, pixel.y)
+    }
     def move(hexLoc : HexLoc) : Unit = {
-      val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
-      ctx.moveTo(pixel.x, pixel.y);
+      movePixel(PixelLoc.ofHexLoc(hexLoc,gridSize))
+    }
+    def linePixel(pixel: PixelLoc): Unit = {
+      ctx.lineTo(pixel.x, pixel.y);
     }
     def line(hexLoc : HexLoc) : Unit = {
-      val pixel = PixelLoc.ofHexLoc(hexLoc,gridSize)
-      ctx.lineTo(pixel.x, pixel.y);
+      linePixel(PixelLoc.ofHexLoc(hexLoc,gridSize))
     }
     def text(
       text : String,
@@ -853,6 +857,36 @@ object Drawing {
       }
       text(techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techInteriorScale, gridSize), "blue", alpha=alpha)
       text(techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techInteriorScale, gridSize), "red", alpha=alpha)
+    }
+
+    def techMidLoc(i: Int): HexLoc = {
+      techLocs(i) + HexVec.corners(if(i%2==0) 2 else 5)/2.0
+    }
+    for(i <- 0 until game.techLine.length-1) {
+      ctx.globalAlpha = 1.0
+      ctx.fillStyle = "black"
+      ctx.strokeStyle = "black"
+      ctx.lineWidth = 0.5
+      ctx.beginPath()
+      move(techMidLoc(i))
+      line(techMidLoc(i+1))
+      ctx.stroke()
+      ctx.closePath()
+      if(i+1 == game.techLine.length-1) {
+        // Draw an arrow at the end
+        ctx.beginPath();
+        val head = PixelLoc.ofHexLoc(techMidLoc(i+1), gridSize)
+        val angle = 7.0/6.0*Math.PI - (if(i%2==1) 2.0/6.0*Math.PI else 0.0)
+        val d1 = PixelVec(Math.cos(angle - Math.PI/7), Math.sin(angle - Math.PI/7))
+        val d2 = PixelVec(Math.cos(angle + Math.PI/7), Math.sin(angle + Math.PI/7))
+
+        movePixel(head)
+        linePixel(head + d1*8)
+        linePixel(head + d2*8)
+        linePixel(head)
+        ctx.fill()
+        ctx.closePath()
+      }
     }
 
     //Spells

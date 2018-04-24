@@ -37,6 +37,8 @@ case class PixelVec(dx: Double, dy: Double){
   def +(p: PixelLoc): PixelLoc = PixelLoc(dx + p.x, dy + p.y)
   def +(d: PixelVec): PixelVec = PixelVec(dx + d.dx, dy + d.dy)
   def -(d: PixelVec): PixelVec = PixelVec(dx - d.dx, dy - d.dy)
+  def *(c: Double): PixelVec = PixelVec(dx*c,dy*c)
+  def /(c: Double): PixelVec = PixelVec(dx/c,dy/c)
 }
 
 /**
@@ -171,6 +173,7 @@ case class HexLoc(x: Double, y: Double) {
 }
 
 object HexVec {
+  // Starts at upper right and then clockwise (so up is corners[5])
   val corners: Array[HexVec] = {
     val third: Double = 1.0 / 3.0
     Array(
