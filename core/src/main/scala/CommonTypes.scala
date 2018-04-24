@@ -38,6 +38,7 @@ object Side {
     f(S0)
     f(S1)
   }
+  def exists(f: Side => Boolean): Boolean = f(S0) || f(S1)
   val sides = List(S0,S1)
 }
 

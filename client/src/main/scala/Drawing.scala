@@ -832,6 +832,9 @@ object Drawing {
     val techLocs = ui.Tech.getHexLocs(game)
     for(i <- 0 until game.techLine.length) {
       val techState = game.techLine(i)
+      val changedThisTurn = Side.exists { side => techState.startingLevelThisTurn(side) != techState.level(side) }
+      val alpha = if(changedThisTurn) 0.5 else 1.0
+
       val hexLoc = techLocs(i)
       val (fillColor, strokeColor) =
         (techState.level(S0), techState.level(S1)) match {
@@ -841,15 +844,15 @@ object Drawing {
           case (TechAcquired, (TechLocked | TechUnlocked)) => ("#bbbbff", "#3333ff")
         }
 
-      fillHex(hexLoc, fillColor, techScale, alpha=1.0)
-      strokeHex(hexLoc, strokeColor, techScale, lineWidth=2.0)
+      fillHex(hexLoc, fillColor, techScale, alpha=alpha)
+      strokeHex(hexLoc, strokeColor, techScale, lineWidth=2.0, alpha=alpha)
 
-      text(techState.shortDisplayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black")
+      text(techState.shortDisplayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black", alpha=alpha)
       techState.techNumber.foreach { techNumber =>
-        text("#" + techNumber, PixelLoc.ofHexLoc(hexLoc, gridSize) + PixelVec(0,10), "black")
+        text("#" + techNumber, PixelLoc.ofHexLoc(hexLoc, gridSize) + PixelVec(0,10), "black", alpha=alpha)
       }
-      text(techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techInteriorScale, gridSize), "blue")
-      text(techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techInteriorScale, gridSize), "red")
+      text(techState.level(S0).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(4) * techInteriorScale, gridSize), "blue", alpha=alpha)
+      text(techState.level(S1).toUnicodeSymbol, PixelLoc.ofHexLoc(hexLoc + HexVec.corners(0) * techInteriorScale, gridSize), "red", alpha=alpha)
     }
 
     //Spells
