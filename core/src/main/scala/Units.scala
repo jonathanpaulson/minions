@@ -83,7 +83,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Unsummon),
-    defense = Some(7),
+    defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
     swarmMax = 3,
@@ -461,7 +461,7 @@ object Units {
   val elemental = createPieceStats(
     name = "elemental",
     shortDisplayName = "Element",
-    cost = 9,
+    cost = 8,
     rebate = 4,
     moveRange = 1,
     attackRange = 3,

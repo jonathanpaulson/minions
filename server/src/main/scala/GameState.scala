@@ -140,6 +140,8 @@ case class GameState (
   }
 
   private def doResetBoard(boardIdx: Int, canMove: Boolean): Unit = {
+    // TODO: Another matter is how exactly you get your advanced Necromancer. The draw 3 choose 1 system is what we're using now, but large numbers of boards + Swarm being active can cause weird edge cases here (in 4 boards with a Swarm active, you only have your old Captain left to choose, rather degenerately)
+    // TODO: Pick a unit to keep on reset
     Side.foreach { side =>
       if(specialNecrosRemaining(side).isEmpty)
         specialNecrosRemaining(side) = necroRands(side).shuffle(Units.specialNecromancers.toList).map(_.name)

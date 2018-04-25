@@ -57,6 +57,10 @@ sealed trait Tech {
   }
 }
 case class PieceTech(pieceName:PieceName) extends Tech
+// TODO SPECIAL TECHS
+// 24) Copycat: You may tech to units your opponent has teched to already. Both teams may tech to this tech.
+// 25) Thaumaturgy: Instead of putting a spell under the tech line, you may discard one spell per turn for dollars equal to the number of boards.
+// 26) Metamagic: You can assign your spells to your Captains and to the tech line however you wish.
 
 /** TechState:
   * State of a single tech.
