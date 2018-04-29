@@ -46,32 +46,6 @@ object BoardMaps {
           w g . . . . . . . .
 """)
 
-  val sorcerorsLair = make(10,10,"""
- s w . . . g . . w w
-  w . . . . w . g . w
-   g . 0 . w . . . g .
-    . . . . . . . . . .
-     w . g . s . . . w g
-      . . w . . s . w . .
-       . . . . . . . . . .
-        g . . . w g . 1 . .
-         . w . . . . . . . w
-          w . g . . w . g w s
-""")
-
-  val chaosDiamond = make(10,10,"""
- . . . w . . . . g .
-  . g . . g . . t . w
-   w . 0 . . . . . w w
-    w . . w . . . w . .
-     . . . . g . . . g .
-      . g . . . g . . . .
-       . . w . . . w . . w
-        w w . . . . . 1 . w
-         w . t . . g . . g .
-          . g . . . . w . . .
-""")
-
   val apocalypse = make(10,10,"""
  . . g . . . . . g .
   w . . . . . . . . .
@@ -85,30 +59,30 @@ object BoardMaps {
           . g . . . . . g . .
 """)
 
-  val treacherousPathways = make(10,10,"""
- . g . . . . . g . .
-  . m . . . . . m . .
-   . . 0 . g . . w m g
-    . . . . . . . . . .
-     g . . . . . . . . .
-      w m w w m . . g . .
-       . . . . w . . . . .
-        . . . . w . . 1 . .
-         g w . . m . . . m g
-          . g . . w g . . . .
+  val blackenedShores = make(10,10,"""
+ . . g . . . g . . .
+  w . . . . . . . . .
+   w . 0 . . . . . . .
+    w . . . . g . . . g
+     g w . . . . g . . .
+      w . . w w . . . . .
+       w g . w w . . . . .
+        w . w . . . . 1 . g
+         . . . g . w . . . .
+          . . w w w g w w w .
 """)
 
-  val midnightLake = make(10,10,"""
- . g . w w . . . . .
-  . . . . . . . g . .
-   . . 0 . . . . . g .
-    g . . g . w w . . .
-     w . . . w w w . . .
-      . . . . w w . . . w
-       . g . . . . g . . w
-        . . . . . . . 1 . .
-         . . . g . . . . . g
-          . . . . . w g . . .
+  val chaosDiamond = make(10,10,"""
+ . . . w . . . . g .
+  . g . . g . . t . w
+   w . 0 . . . . . w w
+    w . . w . . . w . .
+     . . . . g . . . g .
+      . g . . . g . . . .
+       . . w . . . w . . w
+        w w . . . . . 1 . w
+         w . t . . g . . g .
+          . g . . . . w . . .
 """)
 
   val eternalBattlefield = make(10,10,"""
@@ -137,7 +111,7 @@ object BoardMaps {
           w w w w w w w w w w
 """)
 
-  val puddles = make(10,10,"""
+  val megaPuddles = make(10,10,"""
  w . . w . . w . . w
   . g . . w . . g . .
    . . 0 . . w . . w .
@@ -150,20 +124,44 @@ object BoardMaps {
           w . . w . . w . . w
 """)
 
-  val blackenedShores = make(10,10,"""
- . . g . . . g . . .
-  w . . . . . . . . .
-   w . 0 . . . . . . .
-    w . . . . g . . . g
-     g w . . . . g . . .
-      w . . w w . . . . .
-       w g . w w . . . . .
-        w . w . . . . 1 . g
-         . . . g . w . . . .
-          . . w w w g w w w .
+  val midnightLake = make(10,10,"""
+ . g . w w . . . . .
+  . . . . . . . g . .
+   . . 0 . . . . . g .
+    g . . g . w w . . .
+     w . . . w w w . . .
+      . . . . w w . . . w
+       . g . . . . g . . w
+        . . . . . . . 1 . .
+         . . . g . . . . . g
+          . . . . . w g . . .
 """)
 
+  val sorcerorsLair = make(10,10,"""
+ s w . . . g . . w w
+  w . . . . w . g . w
+   g . 0 . w . . . g .
+    . . . . . . . . . .
+     w . g . s . . . w g
+      . . w . . s . w . .
+       . . . . . . . . . .
+        g . . . w g . 1 . .
+         . w . . . . . . . w
+          w . g . . w . g w s
+""")
 
+  val treacherousPathways = make(10,10,"""
+ . g . . . . . g . .
+  . m . . . . . m . .
+   . . 0 . g . . w m g
+    . . . . . . . . . .
+     g . . . . . . . . .
+      w m w w m . . g . .
+       . . . . w . . . . .
+        . . . . w . . 1 . .
+         g w . . m . . . m g
+          . g . . w g . . . .
+""")
 
   val advancedMaps = Map(
     "Sorceror's Lair" -> sorcerorsLair,
@@ -176,7 +174,7 @@ object BoardMaps {
     "Midnight Lake" -> midnightLake,
     "Eternal Battlefield" -> eternalBattlefield,
     "Forbidden Isle" -> forbiddenIsle,
-    "Puddles" -> puddles,
+    "MegaPuddles" -> megaPuddles,
     "Blackened Shores" -> blackenedShores,
   )
 
@@ -187,7 +185,7 @@ object BoardMaps {
     "Midnight Lake" -> "img_terrain_grass1",
     "Eternal Battlefield" -> "img_terrain_grass3",
     "Forbidden Isle" -> "img_terrain_grass0",
-    "Puddles" -> "img_terrain_grass2",
+    "MegaPuddles" -> "img_terrain_grass2",
     "Blackened Shores" -> "img_terrain_dirt0",
     "Treacherous Pathways" -> "img_terrain_grass0",
   )
@@ -199,7 +197,7 @@ object BoardMaps {
     "Midnight Lake" -> "img_terrain_water0",
     "Eternal Battlefield" -> "img_terrain_water1",
     "Forbidden Isle" -> "img_terrain_water1",
-    "Puddles" -> "img_terrain_water1",
+    "MegaPuddles" -> "img_terrain_water1",
     "Blackened Shores" -> "img_terrain_water0",
     "Treacherous Pathways" -> "img_terrain_water1",
   )
