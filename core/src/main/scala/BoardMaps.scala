@@ -56,10 +56,10 @@ object BoardMaps {
  . . g . . . . . g .
   w . . . . . . . . .
    w . . . g . . . . .
-    w . . . . . . z . .
+    w . . . w . . z . .
      . . w w . . g w . g
       g . w g . . w w . .
-       . . z . . . . . . w
+       . . z . . w . . . w
         . . . . . g . . . w
          . . . . . . . . . w
           . g . . . . . g . .
@@ -72,7 +72,7 @@ object BoardMaps {
     w . . . . g . . . g
      g w . . . . g . . .
       w . . w w . . . . .
-       w g . w w . . . . .
+       w g . . w . . . . .
         w . w . . . . . . g
          . . . g . w . . . .
           . . w w w g w w w .
@@ -131,9 +131,9 @@ object BoardMaps {
 """)
 
   val midnightLake = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
- . g . w w . . . . .
-  . . . . . . . g . .
-   . . . . . . . . g .
+ . g . w w . . . g .
+  . . . . . . . . . g
+   . . . . . . . . . .
     g . . g . w w . . .
      w . . . w w w . . .
       . . . . w w . . . w
