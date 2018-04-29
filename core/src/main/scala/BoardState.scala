@@ -198,10 +198,11 @@ case class GainSpell(spellId: SpellId) extends GeneralBoardAction
  *  Possibly enchanted due to spells. Later in list -> spells were played later.
  */
 object Tile {
-  def apply(terrain: Terrain): Tile = { new Tile(terrain, List()) }
+  def apply(terrain: Terrain): Tile = { new Tile(terrain, terrain, List()) }
 }
 case class Tile(
   val terrain: Terrain,
+  val startingTerrain: Terrain,
   val modsWithDuration: List[PieceModWithDuration]
 )
 
@@ -284,12 +285,13 @@ case class Piece private (
  * The full state of one board of the game.
  */
 object BoardState {
-  def create(terrain: Plane[Terrain]): BoardState = {
+  def create(terrain: Plane[Terrain], startLocs: SideArray[Loc]): BoardState = {
     val board = new BoardState(
       tiles = terrain.map { terrain =>
-        Tile(terrain = terrain, modsWithDuration = List())
+        Tile(terrain = terrain, terrain, modsWithDuration = Nil)
       },
-      pieces = Plane.create(terrain.xSize,terrain.ySize,terrain.topology,List()),
+      startLocs = startLocs,
+      pieces = Plane.create(terrain.xSize,terrain.ySize,terrain.topology,Nil),
       pieceById = Map(),
       nextPieceId = 0,
       piecesSpawnedThisTurn = Map(),
@@ -298,7 +300,7 @@ object BoardState {
       unsummonedThisTurn = Nil,
       turnNumber = 0,
       reinforcements = SideArray.create(Map()),
-      spellsInHand = SideArray.create(List()),
+      spellsInHand = SideArray.create(Nil),
       spellsPlayed = Nil,
       sorceryPower = 0,
       hasUsedSpawnerTile = false,
@@ -336,6 +338,7 @@ case class BoardState private (
 
   //Tiles of the board
   val tiles: Plane[Tile],
+  val startLocs: SideArray[Loc],
   //List of pieces in each space. Order is irrelevant
   val pieces: Plane[List[Piece]],
 
@@ -391,6 +394,7 @@ case class BoardState private (
   def copy(): BoardState = {
     val newBoard = new BoardState(
       tiles = tiles.copy(),
+      startLocs = startLocs,
       pieces = pieces.copy(),
       pieceById = Map(), //Set below after construction
       nextPieceId = nextPieceId,
@@ -594,18 +598,8 @@ case class BoardState private (
 
   //Reset the board to the starting position
   def resetBoard(necroNames: SideArray[PieceName], canMoveFirstTurn: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
-    //Remove tile modifiers
-    tiles.transform { tile =>
-      val newtile = tile.terrain match {
-        case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) | Mist =>
-          tile
-        case Earthquake | Firestorm | Flood | Whirlwind =>
-          Tile(Ground, modsWithDuration = tile.modsWithDuration)
-      }
-
-      if(newtile.modsWithDuration.isEmpty) newtile
-      else newtile.copy(modsWithDuration = Nil)
-    }
+    // Reset terrain and remove tile modifiers
+    tiles.transform { tile => Tile(tile.startingTerrain) }
 
     //Remove all pieces and reinforcements
     pieces.transform { _ => Nil }
@@ -625,10 +619,7 @@ case class BoardState private (
 
     //Set up initial pieces
     Side.foreach { side =>
-      val startLoc = tiles.findLoc { tile => tile.terrain == StartHex(side) } match {
-        case None => throw new Exception("Could not find StartHex")
-        case Some(loc) => loc
-      }
+      val startLoc = startLocs(side)
       val necroSwarmMax = Units.pieceMap(necroNames(side)).swarmMax
       for(i <- 0 until necroSwarmMax) {
         val (_: Try[Unit]) = spawnPieceInitial(side,necroNames(side),startLoc)
@@ -969,12 +960,14 @@ case class BoardState private (
   private def tryCanWalkOnTile(baseStats: PieceStats, pieceStats: PieceStats, tile: Tile): Try[Unit] = {
     tile.terrain match {
       case Wall => failed("Cannot move or spawn through borders")
-      case Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) | Mist => Success(())
-      case Water => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
-      case Earthquake => if(baseStats.moveRange >= 2) Success(()) else failed("Only unit types with at least two speed can move through an earthquake")
-      case Firestorm => if(baseStats.defense.getOrElse(4) >= 4) Success(()) else failed("Only unit types with at least four health can move through a firestorm")
-      case Flood => if(baseStats.isFlying) Success(()) else failed("Only flying unit types can move through a flood")
-      case Whirlwind => if(baseStats.isPersistent) Success(()) else failed("Only persistent unit types can move through a whirlwind")
+      case Ground | Graveyard | SorceryNode | Teleporter |  Spawner(_) | Mist => Success(())
+      case Water(_) => if(pieceStats.isFlying) Success(()) else failed("Non-flying pieces cannot move or spawn on water")
+      case Earthquake(_) =>
+        if(baseStats.moveRange >= 2) Success(()) else failed("Only unit types with at least two speed can move through an earthquake")
+      case Firestorm(_) =>
+        if(baseStats.defense.getOrElse(4) >= 4) Success(()) else failed("Only unit types with at least four health can move through a firestorm")
+      case Whirlwind(_) =>
+        if(baseStats.isPersistent) Success(()) else failed("Only persistent unit types can move through a whirlwind")
     }
   }
 
@@ -1131,12 +1124,12 @@ case class BoardState private (
   def moveTerrain(terrain: Terrain, loc: Loc) = {
     tiles.transform { tile =>
       if(tile.terrain == terrain) {
-        Tile(Ground, modsWithDuration = tile.modsWithDuration)
+        Tile(Ground, tile.startingTerrain, modsWithDuration = tile.modsWithDuration)
       } else {
         tile
       }
     }
-    tiles(loc) = Tile(terrain, modsWithDuration = tiles(loc).modsWithDuration)
+    tiles(loc) = Tile(terrain, tiles(loc).startingTerrain, modsWithDuration = tiles(loc).modsWithDuration)
   }
 
   private def killAttackingWailingUnits(otherThan: Option[PieceSpec] = None): Unit = {
@@ -1292,7 +1285,8 @@ case class BoardState private (
       case ActivateTile(loc) =>
         failUnless(tiles.inBounds(loc), "Activated location not in bounds")
         tiles(loc).terrain match {
-          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind | Mist =>
+          case Wall | Ground | Water(_) | Graveyard | SorceryNode | Teleporter |
+               Earthquake(_) | Firestorm(_) | Whirlwind(_) | Mist =>
             fail("Tile cannot be activated")
           case Spawner(spawnName) =>
             failIf(pieces(loc).nonEmpty, "Spawner tile must be unoccupied")
@@ -1446,7 +1440,8 @@ case class BoardState private (
 
       case ActivateTile(loc) =>
         tiles(loc).terrain match {
-          case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind | Mist =>
+          case Wall | Ground | Water(_) | Graveyard | SorceryNode | Teleporter |
+               Earthquake(_) | Firestorm(_) | Whirlwind(_) | Mist =>
             assertUnreachable()
           case Spawner(spawnName) =>
             hasUsedSpawnerTile = true
@@ -1484,13 +1479,13 @@ case class BoardState private (
           case MoveTerrain =>
             moveTerrain(targets.terrain.get, targets.loc0)
           case MoveEarthquake =>
-            moveTerrain(Earthquake, targets.loc0)
+            moveTerrain(Earthquake(true), targets.loc0)
           case MoveFlood =>
-            moveTerrain(Flood, targets.loc0)
+            moveTerrain(Water(true), targets.loc0)
           case MoveWhirlwind =>
-            moveTerrain(Whirlwind, targets.loc0)
+            moveTerrain(Whirlwind(true), targets.loc0)
           case MoveFirestorm =>
-            moveTerrain(Firestorm, targets.loc0)
+            moveTerrain(Firestorm(true), targets.loc0)
           case (ability:SelfEnchantAbility) =>
             piece.modsWithDuration = piece.modsWithDuration :+ ability.mod
           case (ability:TargetedAbility) =>

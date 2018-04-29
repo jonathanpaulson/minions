@@ -86,39 +86,38 @@ object Protocol {
     Format(reads,writes)
   }
 
-  implicit val startHexFormat = Json.format[StartHex]
   implicit val spawnerFormat = Json.format[Spawner]
+  implicit val waterFormat = Json.format[Water]
+  implicit val earthquakeFormat = Json.format[Earthquake]
+  implicit val firestormFormat = Json.format[Firestorm]
+  implicit val whirlwindFormat = Json.format[Whirlwind]
   implicit val terrainFormat = {
     val reads: Reads[Terrain] = readsFromPair[Terrain]("Terrain",Map(
       "Wall" -> ((_:JsValue) => JsSuccess(Wall: Terrain)),
       "Ground" -> ((_:JsValue) => JsSuccess(Ground: Terrain)),
-      "Water" -> ((_:JsValue) => JsSuccess(Water: Terrain)),
+      "Water" -> ((json:JsValue) => waterFormat.reads(json)),
       "Graveyard" -> ((_:JsValue) => JsSuccess(Graveyard: Terrain)),
       "SorceryNode" -> ((_:JsValue) => JsSuccess(SorceryNode: Terrain)),
       "Teleporter" -> ((_:JsValue) => JsSuccess(Teleporter: Terrain)),
-      "StartHex" -> ((json:JsValue) => startHexFormat.reads(json)),
       "Spawner" -> ((json:JsValue) => spawnerFormat.reads(json)),
       "Mist" -> ((_:JsValue) => JsSuccess(Mist: Terrain)),
-      "Earthquake" -> ((json:JsValue) => JsSuccess(Earthquake: Terrain)),
-      "Firestorm" -> ((json:JsValue) => JsSuccess(Firestorm: Terrain)),
-      "Flood" -> ((json:JsValue) => JsSuccess(Flood: Terrain)),
-      "Whirlwind" -> ((json:JsValue) => JsSuccess(Whirlwind: Terrain)),
+      "Earthquake" -> ((json:JsValue) => earthquakeFormat.reads(json)),
+      "Firestorm" -> ((json:JsValue) => firestormFormat.reads(json)),
+      "Whirlwind" -> ((json:JsValue) => whirlwindFormat.reads(json)),
     ))
     val writes: Writes[Terrain] = new Writes[Terrain] {
       def writes(t: Terrain): JsValue = t match {
         case (Wall) => jsPair("Wall",JsString(""))
         case (Ground) => jsPair("Ground",JsString(""))
-        case (Water) => jsPair("Water",JsString(""))
+        case (t:Water) => jsPair("Water",waterFormat.writes(t))
         case (Graveyard) => jsPair("Graveyard",JsString(""))
         case (SorceryNode) => jsPair("SorceryNode",JsString(""))
         case (Teleporter) => jsPair("Teleporter",JsString(""))
-        case (t:StartHex) => jsPair("StartHex",startHexFormat.writes(t))
         case (t:Spawner) => jsPair("Spawner",spawnerFormat.writes(t))
         case (Mist) => jsPair("Mist",JsString(""))
-        case (Earthquake) => jsPair("Earthquake", JsString(""))
-        case (Firestorm) => jsPair("Firestorm", JsString(""))
-        case (Flood) => jsPair("Flood", JsString(""))
-        case (Whirlwind) => jsPair("Whirlwind", JsString(""))
+        case (t:Earthquake) => jsPair("Earthquake", earthquakeFormat.writes(t))
+        case (t:Firestorm) => jsPair("Firestorm", firestormFormat.writes(t))
+        case (t:Whirlwind) => jsPair("Whirlwind", whirlwindFormat.writes(t))
       }
     }
     Format(reads,writes)
@@ -345,26 +344,7 @@ object Protocol {
   implicit val pieceModWithDurationFormat = Json.format[PieceModWithDuration]
   implicit val pieceFormat = Json.format[Piece]
 
-  implicit val tileFormat = new Format[Tile] {
-    def fail(): JsResult[Tile] =
-      JsError("Could not parse JSON for tile")
-    def reads(json: JsValue): JsResult[Tile] = json match {
-      case JsArray(arr) =>
-        if(arr.length != 2) fail()
-        else {
-          terrainFormat.reads(arr(0)).flatMap { terrain =>
-            arr(1).validate[List[PieceModWithDuration]].map { modsWithDuration =>
-              Tile(terrain,modsWithDuration)
-            }
-          }
-        }
-      case _ => fail()
-    }
-
-    def writes(t: Tile): JsValue = {
-      JsArray(Array(Json.toJson(t.terrain),Json.toJson(t.modsWithDuration)))
-    }
-  }
+  implicit val tileFormat = Json.format[Tile]
   implicit val boardStateFormat = Json.format[BoardState]
 
   //Board.scala--------------------------------------------------------------------------------

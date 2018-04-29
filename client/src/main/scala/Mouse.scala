@@ -392,7 +392,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                       }
                     case (_: TerrainAndTileSpell) =>
                       curTarget.getLoc().foreach { loc =>
-                        val arbitraryTerrain = Whirlwind
+                        val arbitraryTerrain = Whirlwind(true)
                         def makeAction(terrain: Terrain) = {
                           PlaySpell(spellId, SpellOrAbilityTargets.terrainAndLoc(terrain, loc))
                         }
@@ -555,7 +555,8 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           if(undo) ()
           else {
             board.tiles(loc).terrain match {
-              case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind | Mist => ()
+              case Wall | Ground | Water(_) | Graveyard | SorceryNode | Teleporter |
+                   Earthquake(_) | Firestorm(_) | Whirlwind(_) | Mist => ()
               case Spawner(_) =>
                 mouseState.client.doActionOnCurBoard(PlayerActions(List(ActivateTile(loc)),makeActionId()))
             }
@@ -613,7 +614,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                           def makeAction(terrain:Terrain, loc:Loc) = {
                             ActivateAbility(spec, abilityName, SpellOrAbilityTargets.terrainAndLoc(terrain,loc))
                           }
-                          val arbitraryTerrain = Whirlwind
+                          val arbitraryTerrain = Whirlwind(true)
                           def isLegal(loc:Loc) = {
                             board.tryLegality(makeAction(arbitraryTerrain, loc), mouseState.client.externalInfo).isSuccess
                           }

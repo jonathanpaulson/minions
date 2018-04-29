@@ -377,7 +377,8 @@ case class Board private (
                   delayedToSpawnRev = playerAction :: delayedToSpawnRev
                 case ActivateTile(loc) =>
                   newMoveAttackState.tiles(loc).terrain match {
-                    case Wall | Ground | Water | Graveyard | SorceryNode | Teleporter | StartHex(_) | Earthquake | Firestorm | Flood | Whirlwind | Mist =>
+                    case Wall | Ground | Water(_) | Graveyard | SorceryNode | Teleporter | Mist |
+                         Earthquake(_) | Firestorm(_) | Whirlwind(_) =>
                       assertUnreachable()
                     case Spawner(_) =>
                       delayedToSpawnRev = playerAction :: delayedToSpawnRev

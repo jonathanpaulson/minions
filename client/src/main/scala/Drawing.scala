@@ -166,19 +166,24 @@ object Drawing {
 
     def drawTile(hexLoc: HexLoc, loc: Loc, tile: Tile, scaleBy: Double, alpha: Double = 1.0, showLoc: Boolean = false) : Unit = {
       val scale = scaleBy*tileScale
+
+      def moveableAlpha(moveable: Boolean): Double = { if(moveable) 0.8 else 1.0 }
+      def maybeDrawMoveableBorder(moveable: Boolean): Unit = {
+        if(moveable) {
+          strokeHex(hexLoc, "#bbeeff", scale, alpha=alpha, lineWidth=2.0*scaleBy)
+        }
+      }
+
       tile.terrain match {
         case Wall => fillHex(hexLoc, "white", scale, alpha=alpha)
-        case Ground | StartHex(_) =>
+        case Ground =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
           //fillHex(hexLoc, "green", scale)
-        case Water =>
+        case Water(moveable) =>
           val texture = BoardMaps.waterImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
-        case Flood =>
-          val texture = BoardMaps.waterImage(boardNames(boardIdx))
-          fillHexWithTexture(hexLoc, texture, scale, alpha=0.8*alpha)
-          strokeHex(hexLoc, "#bbeeff", scale, alpha=alpha, lineWidth=2.0*scaleBy)
+          fillHexWithTexture(hexLoc, texture, scale, alpha=moveableAlpha(moveable)*alpha)
+          maybeDrawMoveableBorder(moveable)
         case Graveyard =>
           val texture = BoardMaps.groundImage(boardNames(boardIdx))
           fillHexWithTexture(hexLoc, texture, scale, alpha=alpha)
@@ -210,15 +215,18 @@ object Drawing {
         case Mist =>
           fillHex(hexLoc, "#6E754C", scale, alpha=alpha)
           strokeHex(hexLoc, "#6E754C", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
-        case Earthquake =>
+        case Earthquake(moveable) =>
           fillHex(hexLoc, "#846935", scale, alpha=alpha)
-          strokeHex(hexLoc, "#846935", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
-        case Firestorm =>
-          fillHex(hexLoc, "#e25822", scale, alpha=alpha)
+          strokeHex(hexLoc, "#846935", scale, alpha=moveableAlpha(moveable)*alpha, lineWidth=2.0*scaleBy)
+          maybeDrawMoveableBorder(moveable)
+        case Firestorm(moveable) =>
+          fillHex(hexLoc, "#e25822", scale, alpha=moveableAlpha(moveable)*alpha)
           strokeHex(hexLoc, "#e25822", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
-        case Whirlwind =>
-          fillHex(hexLoc, "#8ECCCC", scale, alpha=alpha)
+          maybeDrawMoveableBorder(moveable)
+        case Whirlwind(moveable) =>
+          fillHex(hexLoc, "#8ECCCC", scale, alpha=moveableAlpha(moveable)*alpha)
           strokeHex(hexLoc, "#8ECCCC", scale, alpha=0.8*alpha, lineWidth=2.0*scaleBy)
+          maybeDrawMoveableBorder(moveable)
       }
       if(showLoc) {
         text(loc.toString, PixelLoc.ofHexLoc(hexLoc, gridSize)+PixelVec(0, -gridSize/2.0), "black")
@@ -528,11 +536,14 @@ object Drawing {
             case Wall =>
               show("Terrain: Wall")
               show("Impassable")
-            case Ground | StartHex(_) =>
+            case Ground =>
               show("Terrain: Ground")
-            case Water =>
+            case Water(moveable) =>
               show("Terrain: Water")
               show("Only passable by flying units.")
+              if(moveable)
+                show("This tile can be moved by certain abilities and spells.")
+
             case Graveyard =>
               show("Terrain: Graveyard")
               show("Gain 1 soul at end of turn if occupied.")
@@ -553,18 +564,21 @@ object Drawing {
             case Mist =>
               show("Terrain: Mist")
               show("Non-persistent units are unsummoned at the end of the turn.")
-            case Earthquake =>
+            case Earthquake(moveable) =>
               show("Terrain: Earthquake")
               show("Only passable by unit types with at least two speed")
-            case Firestorm =>
+              if(moveable)
+                show("This tile can be moved by certain abilities and spells.")
+            case Firestorm(moveable) =>
               show("Terrain: Firestorm")
               show("Only passable by unit types with at least four health")
-            case Flood =>
-              show("Terrain: Flood")
-              show("Only passable by flying unit types.")
-            case Whirlwind =>
+              if(moveable)
+                show("This tile can be moved by certain abilities and spells.")
+            case Whirlwind(moveable) =>
               show("Terrain: Whirlwind")
               show("Only passable by persistent unit types.")
+              if(moveable)
+                show("This tile can be moved by certain abilities and spells.")
           }
       }
       spell match {
@@ -1161,7 +1175,7 @@ object Drawing {
         case Spawner(_) =>
           val img = "img_terrain_spawner"
           fillHexWithImage(hexLoc, img, scale=1.0, alpha=0.4)
-        case Ground | Water | Earthquake | Whirlwind | Firestorm | Flood | StartHex(_) | Wall | Mist => ()
+        case Ground | Water(_) | Earthquake(_) | Whirlwind(_) | Firestorm(_) | Wall | Mist => ()
       }
     }
 
@@ -1457,7 +1471,7 @@ object Drawing {
                         }
                       }
                     case (spell: TerrainAndTileSpell) =>
-                      val arbitraryTerrain = Whirlwind
+                      val arbitraryTerrain = Whirlwind(true)
                       board.tiles.foreachLoc { loc =>
                         spell.tryCanTarget(board.side,arbitraryTerrain,loc,board) match {
                           case Failure(_) => ()

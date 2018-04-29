@@ -1,164 +1,183 @@
 package minionsgame.core
 
 object BoardMaps {
-  private def make(xSize: Int, ySize: Int, s: String): (() => BoardState) = { () =>
+  private def make(xSize: Int, ySize: Int, startLocs: SideArray[Loc], s: String): (() => BoardState) = { () =>
     val map: Array[Terrain] =
       s.toArray.flatMap {
-        case '0' => Some(StartHex(S0))
-        case '1' => Some(StartHex(S1))
         case '.' => Some(Ground)
-        case 'w' => Some(Water)
+        case 'w' => Some(Water(false))
         case 'g' => Some(Graveyard)
         case 's' => Some(SorceryNode)
         case 't' => Some(Teleporter)
         case 'z' => Some(Spawner(Units.zombie.name))
         case 'm' => Some(Mist)
+        case 'f' => Some(Firestorm(false))
+        case 'a' => Some(Whirlwind(false))
+        case 'e' => Some(Earthquake(false))
+
+        case 'W' => Some(Water(true))
+        case 'F' => Some(Firestorm(true))
+        case 'A' => Some(Whirlwind(true))
+        case 'E' => Some(Earthquake(true))
 
         case _ => None
       }
     val plane = new Plane(xSize,ySize,HexTopology,map)
-    BoardState.create(plane)
+    BoardState.create(plane, startLocs)
   }
 
-  val empty = make(10,10,"""
+  val empty = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(8, 8)), """
  . . . . . . . . . .
   . . . . . . . . . .
-   . . 0 . . . . . . .
+   . . . . . . . . . .
     . . . . . . . . . .
      . . . . . . . . . .
       . . . . . . . . . .
        . . . . . . . . . .
-        . . . . . . . 1 . .
+        . . . . . . . . . .
          . . . . . . . . . .
           . . . . . . . . . .
 """)
 
-  val testMap = make(10,10,"""
+  val testMap = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(8, 8)), """
  . . . . . . . . g w
   . . . . . g . . . .
-   g . 0 . . . . . . .
+   g . . . . . . . . .
     . . . . . . g w . g
      . . . w . . w w . .
       . . w w . . w . . .
        g . w g . . . . . .
-        . . . . . . . 1 . g
+        . . . . . . . . . g
          . . . . g . . . . .
           w g . . . . . . . .
 """)
 
-  val apocalypse = make(10,10,"""
+  val apocalypse = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  . . g . . . . . g .
   w . . . . . . . . .
-   w . 0 . g . . . . .
+   w . . . g . . . . .
     w . . . . . . z . .
      . . w w . . g w . g
       g . w g . . w w . .
        . . z . . . . . . w
-        . . . . . g . 1 . w
+        . . . . . g . . . w
          . . . . . . . . . w
           . g . . . . . g . .
 """)
 
-  val blackenedShores = make(10,10,"""
+  val blackenedShores = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  . . g . . . g . . .
   w . . . . . . . . .
-   w . 0 . . . . . . .
+   w . . . . . . . . .
     w . . . . g . . . g
      g w . . . . g . . .
       w . . w w . . . . .
        w g . w w . . . . .
-        w . w . . . . 1 . g
+        w . w . . . . . . g
          . . . g . w . . . .
           . . w w w g w w w .
 """)
 
-  val chaosDiamond = make(10,10,"""
+  val chaosDiamond = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  . . . w . . . . g .
   . g . . g . . t . w
-   w . 0 . . . . . w w
+   w . . . . . . . w w
     w . . w . . . w . .
      . . . . g . . . g .
       . g . . . g . . . .
        . . w . . . w . . w
-        w w . . . . . 1 . w
+        w w . . . . . . . w
          w . t . . g . . g .
           . g . . . . w . . .
 """)
 
-  val eternalBattlefield = make(10,10,"""
+  val eternalBattlefield = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  w w . g . . . . . g
   w . . . . . g . . .
-   . . 0 . . . . . . .
+   . . . . . . . . . .
     . . . . . . . . g .
      . g w . . . . . . .
       w w g . . . . . . .
        w . . . . . . . . g
-        . . . . g w . 1 . .
+        . . . . g w . . . .
          . g . . w g . . . w
           . . . w w . . . w w
 """)
 
-  val forbiddenIsle = make(10,10,"""
+  val forbiddenIsle = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  w w w w w w w w w w
   w w . . g . w g . w
-   w g 0 . . . . . . w
+   w g . . . . . . . w
     w . . . . . . . . w
      w . . g w . . . g w
       w g . . . w g . . w
        w . . . . . . . . w
-        w . . . . . . 1 g w
+        w . . . . . . . g w
          w . g w . g . . w w
           w w w w w w w w w w
 """)
 
-  val megaPuddles = make(10,10,"""
+  val megaPuddles = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  w . . w . . w . . w
   . g . . w . . g . .
-   . . 0 . . w . . w .
+   . . . . . w . . w .
     w . . g . . . . . g
      . w . . g . . w . .
       . . w . . g . . w .
        g . . . . . g . . w
-        . w . . w . . 1 . .
+        . w . . w . . . . .
          . . g . . w . . g .
           w . . w . . w . . w
 """)
 
-  val midnightLake = make(10,10,"""
+  val midnightLake = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  . g . w w . . . . .
   . . . . . . . g . .
-   . . 0 . . . . . g .
+   . . . . . . . . g .
     g . . g . w w . . .
      w . . . w w w . . .
       . . . . w w . . . w
        . g . . . . g . . w
-        . . . . . . . 1 . .
+        . . . . . . . . . .
          . . . g . . . . . g
           . . . . . w g . . .
 """)
 
-  val sorcerorsLair = make(10,10,"""
+  val sorcerorsLair = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  s w . . . g . . w w
   w . . . . w . g . w
-   g . 0 . w . . . g .
+   g . . . w . . . g .
     . . . . . . . . . .
      w . g . s . . . w g
       . . w . . s . w . .
        . . . . . . . . . .
-        g . . . w g . 1 . .
+        g . . . w g . . . .
          . w . . . . . . . w
           w . g . . w . g w s
 """)
 
-  val treacherousPathways = make(10,10,"""
+  val treacherousPathways = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+ . g . . . . . g . .
+  . . . . . . . a . .
+   . . f . g . . W a g
+    . . . . . . . . . .
+     g . . . . . . . . .
+      w e w w F . . g . .
+       . . . . w . . . . .
+        . . . . w . . f . .
+         g A . . e . . . . g
+          E g . . w g . . . .
+""")
+
+  val treacherousPathwaysMist = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
  . g . . . . . g . .
   . m . . . . . m . .
-   . . 0 . g . . w m g
+   . . . . g . . w m g
     . . . . . . . . . .
      g . . . . . . . . .
       w m w w m . . g . .
        . . . . w . . . . .
-        . . . . w . . 1 . .
+        . . . . w . . . . .
          g w . . m . . . m g
           . g . . w g . . . .
 """)

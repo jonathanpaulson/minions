@@ -328,18 +328,15 @@ case class NoTargetSpell(
 sealed trait Terrain
 case object Wall extends Terrain
 case object Ground extends Terrain
-case object Water extends Terrain
+case class Water(moveable: Boolean) extends Terrain
 case object Graveyard extends Terrain
 case object SorceryNode extends Terrain
 case object Teleporter extends Terrain
-case class StartHex(side:Side) extends Terrain
 case class Spawner(pieceName:PieceName) extends Terrain
-case object Earthquake extends Terrain
-case object Firestorm extends Terrain
-case object Flood extends Terrain
-case object Whirlwind extends Terrain
+case class Earthquake(moveable: Boolean) extends Terrain
+case class Firestorm(moveable: Boolean) extends Terrain
+case class Whirlwind(moveable: Boolean) extends Terrain
 case object Mist extends Terrain
-
 
 /**
  * Loc, Vec:

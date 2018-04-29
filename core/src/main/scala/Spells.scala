@@ -357,7 +357,7 @@ case object Spells {
     spellType = NormalSpell,
     spawnPhaseOnly = true,
     tryCanTarget = canMoveTerrain,
-    effect = moveTerrain(Earthquake)
+    effect = moveTerrain(Earthquake(true))
   )
   val firestorm = TileSpell(
     name = "firestorm",
@@ -367,7 +367,7 @@ case object Spells {
     spellType = NormalSpell,
     spawnPhaseOnly = true,
     tryCanTarget = canMoveTerrain,
-    effect = moveTerrain(Firestorm)
+    effect = moveTerrain(Firestorm(true))
   )
   val flood = TileSpell(
     name = "flood",
@@ -377,7 +377,7 @@ case object Spells {
     spellType = NormalSpell,
     spawnPhaseOnly = true,
     tryCanTarget = canMoveTerrain,
-    effect = moveTerrain(Flood)
+    effect = moveTerrain(Water(true))
   )
   val whirlwind = TileSpell(
     name = "whirlwind",
@@ -387,7 +387,7 @@ case object Spells {
     spellType = NormalSpell,
     spawnPhaseOnly = true,
     tryCanTarget = canMoveTerrain,
-    effect = moveTerrain(Whirlwind)
+    effect = moveTerrain(Whirlwind(true))
   )
   val terraform = TerrainAndTileSpell(
     name = "terraform",
@@ -409,13 +409,14 @@ case object Spells {
     spawnPhaseOnly = true,
     tryCanTarget = ((side: Side, loc: Loc, board: BoardState) =>
         board.tiles(loc).terrain match {
-          case Earthquake | Firestorm | Flood | Whirlwind => Success(())
-          case Wall | Water | Ground | Graveyard | SorceryNode | Teleporter | StartHex(_) | Spawner(_) | Mist =>
+          case Earthquake(true) | Firestorm(true) | Water(true) | Whirlwind(true) => Success(())
+          case Wall | Water(false) | Ground | Graveyard | SorceryNode | Teleporter | Spawner(_) | Mist |
+               Earthquake(false) | Firestorm(false) | Whirlwind(false) =>
             Failure(new Exception("Must target earthquake, firestorm, flood, or whirlwind"))
         }
     ),
     effect = { (board: BoardState, loc: Loc) =>
-      board.tiles(loc) = Tile(Ground, modsWithDuration = board.tiles(loc).modsWithDuration)
+      board.tiles(loc) = Tile(Ground, board.tiles(loc).startingTerrain, modsWithDuration = board.tiles(loc).modsWithDuration)
     }
   )
 
