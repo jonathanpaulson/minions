@@ -143,6 +143,20 @@ object BoardMaps {
           . . . . . w g . . .
 """)
 
+  val riverStyx = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
+ . . . . w w . . g .
+  . g . . w . . . . .
+   . . . g . . . . . .
+    . . . . . . . w . .
+     . . w w . . g w g .
+      . g w g . . w w . .
+       . . w . . . . . . .
+        . . . . . . g . . .
+         . . . . . w . . g .
+          . g . . w w . . . .
+
+    """)
+
   val sorcerorsLair = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  s w . . . g . . w w
   w . . . . w . g . w
@@ -195,6 +209,7 @@ object BoardMaps {
     "Forbidden Isle" -> forbiddenIsle,
     "MegaPuddles" -> megaPuddles,
     "Blackened Shores" -> blackenedShores,
+    "River Styx" -> riverStyx
   )
 
   val groundImage = Map(
@@ -207,6 +222,7 @@ object BoardMaps {
     "MegaPuddles" -> "img_terrain_grass2",
     "Blackened Shores" -> "img_terrain_dirt0",
     "Treacherous Pathways" -> "img_terrain_grass0",
+    "River Styx" -> "img_terrain_dirt0",
   )
 
   val waterImage = Map(
@@ -219,5 +235,6 @@ object BoardMaps {
     "MegaPuddles" -> "img_terrain_water1",
     "Blackened Shores" -> "img_terrain_water0",
     "Treacherous Pathways" -> "img_terrain_water1",
+    "River Styx" -> "img_terrain_water0",
   )
 }
