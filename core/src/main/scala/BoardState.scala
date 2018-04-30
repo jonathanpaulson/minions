@@ -1118,7 +1118,15 @@ case class BoardState private (
   def canMoveTerrain(loc: Loc) : Try[Unit] = {
     if(pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
     else if(tiles(loc).terrain != Ground) Failure(new Exception("Target terrain is not Ground"))
-    else Success(())
+    else {
+      val pieceInRange =
+        pieceById.values.exists { piece =>
+          val distance = topology.distance(loc, piece.loc)
+          piece.actState < DoneActing && distance <= 1 && piece.side == side
+        }
+      if(!pieceInRange) Failure(new Exception("No adjacent friendly piece"))
+      else Success(())
+    }
   }
 
   def moveTerrain(terrain: Terrain, loc: Loc) = {
