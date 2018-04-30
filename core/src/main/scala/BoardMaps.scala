@@ -26,7 +26,7 @@ object BoardMaps {
     BoardState.create(plane, startLocs)
   }
 
-  val empty = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(8, 8)), """
+  val empty = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . . . . . . . . . .
   . . . . . . . . . .
    . . . . . . . . . .
@@ -39,7 +39,7 @@ object BoardMaps {
           . . . . . . . . . .
 """)
 
-  val testMap = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(8, 8)), """
+  val testMap = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . . . . . . . . g w
   . . . . . g . . . .
    g . . . . . . . . .
@@ -52,7 +52,7 @@ object BoardMaps {
           w g . . . . . . . .
 """)
 
-  val apocalypse = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val apocalypse = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . . g . . . . . g .
   w . . . . . . . . .
    w . . . g . . . . .
@@ -65,7 +65,7 @@ object BoardMaps {
           . g . . . . . g . .
 """)
 
-  val blackenedShores = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val blackenedShores = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . . g . . . g . . .
   w . . . . . . . . .
    w . . . . . . . . .
@@ -78,7 +78,7 @@ object BoardMaps {
           . . w w w g w w w .
 """)
 
-  val chaosDiamond = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val chaosDiamond = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . . . w . . . . g .
   . g . . g . . t . w
    w . . . . . . . w w
@@ -91,7 +91,7 @@ object BoardMaps {
           . g . . . . w . . .
 """)
 
-  val eternalBattlefield = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val eternalBattlefield = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  w w . g . . . . . g
   w . . . . . g . . .
    . . . . . . . . . .
@@ -104,7 +104,7 @@ object BoardMaps {
           . . . w w . . . w w
 """)
 
-  val forbiddenIsle = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val forbiddenIsle = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  w w w w w w w w w w
   w w . . g . w g . w
    w g . . . . . . . w
@@ -117,7 +117,7 @@ object BoardMaps {
           w w w w w w w w w w
 """)
 
-  val megaPuddles = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val megaPuddles = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  w . . w . . w . . w
   . g . . w . . g . .
    . . . . . w . . w .
@@ -130,7 +130,7 @@ object BoardMaps {
           w . . w . . w . . w
 """)
 
-  val midnightLake = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val midnightLake = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . g . w w . . . g .
   . . . . . . . . . g
    . . . . . . . . . .
@@ -143,7 +143,7 @@ object BoardMaps {
           . . . . . w g . . .
 """)
 
-  val sorcerorsLair = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val sorcerorsLair = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  s w . . . g . . w w
   w . . . . w . g . w
    g . . . w . . . g .
@@ -156,7 +156,7 @@ object BoardMaps {
           w . g . . w . g w s
 """)
 
-  val treacherousPathways = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val treacherousPathways = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . g . . . . . g . .
   . . . . . . . a . .
    . . f . g . . W a g
@@ -169,7 +169,7 @@ object BoardMaps {
           E g . . w g . . . .
 """)
 
-  val treacherousPathwaysMist = make(10,10,SideArray.createTwo(Loc(2,2), Loc(8,8)), """
+  val treacherousPathwaysMist = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . g . . . . . g . .
   . m . . . . . m . .
    . . . . g . . w m g
