@@ -222,7 +222,9 @@ case object Spells {
     ),
     effect = { (board: BoardState, piece: Piece, loc: Loc) =>
       board.doMovePieceToLoc(piece,loc)
-      piece.actState = Spawning
+      if(piece.actState <= Spawning) {
+        piece.actState = Spawning
+      }
     }
   )
   val displace = PieceAndLocSpell(
