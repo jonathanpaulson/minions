@@ -74,8 +74,21 @@ object Units {
     isNecromancer = true,
     extraSouls = 3
   )
-  // TODO: Sorcery Necromancer
-  // +1 mana / turn
+  val mana_necromancer = createPieceStats(
+    name = "mana_necromancer",
+    shortDisplayName = "Sorceror",
+    cost = 0,
+    rebate = 0,
+    moveRange = 1,
+    attackRange = 1,
+    attackEffect = Some(Unsummon),
+    defense = Some(7),
+    spawnRange = Some(1),
+    isPersistent = true,
+    isNecromancer = true,
+    extraSouls = 3,
+    extraMana = 1
+  )
   val battle_necromancer = createPieceStats(
     name = "battle_necromancer",
     shortDisplayName = "FlurryNec",
@@ -525,6 +538,7 @@ object Units {
     immortal_necromancer,
     deadly_necromancer,
     battle_necromancer,
+    mana_necromancer,
     //swarm_necromancer,
     //summoner_necromancer,
     zombie, acolyte, spire,
@@ -541,6 +555,7 @@ object Units {
     immortal_necromancer,
     deadly_necromancer,
     battle_necromancer,
+    mana_necromancer,
     //swarm_necromancer,
     //summoner_necromancer,
   )
