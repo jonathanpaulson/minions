@@ -74,6 +74,22 @@ object Units {
     isNecromancer = true,
     extraMana = 3
   )
+  // TODO: Sorcery Necromancer
+  // +1 sorcery power / turn
+  val battle_necromancer = createPieceStats(
+    name = "battle_necromancer",
+    shortDisplayName = "FlurryNec",
+    cost = 0,
+    rebate = 0,
+    moveRange = 1,
+    attackRange = 1,
+    attackEffect = Some(Damage(1)),
+    defense = Some(10),
+    spawnRange = Some(1),
+    isPersistent = true,
+    isNecromancer = true,
+    extraMana = 3
+  )
   val swarm_necromancer = createPieceStats(
     name = "swarm_necromancer",
     shortDisplayName = "SNec",
@@ -114,7 +130,7 @@ object Units {
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Unsummon),
-    defense = Some(7),
+    defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
@@ -207,7 +223,7 @@ object Units {
 
   val spire = createPieceStats(
     name = "spire",
-    cost = 5,
+    cost = 4,
     rebate = 1,
     moveRange = 0,
     attackRange = 1,
@@ -454,6 +470,7 @@ object Units {
     attackRange = 1,
     attackEffect = Some(Kill),
     defense = Some(2),
+    isPersistent = true,
     canHurtNecromancer = false,
     abilities = List(KillAdjacent)
   )
@@ -506,7 +523,8 @@ object Units {
     mounted_necromancer,
     immortal_necromancer,
     deadly_necromancer,
-    swarm_necromancer,
+    battle_necromancer,
+    //swarm_necromancer,
     //summoner_necromancer,
     zombie, acolyte, spire,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
@@ -521,7 +539,8 @@ object Units {
     mounted_necromancer,
     immortal_necromancer,
     deadly_necromancer,
-    swarm_necromancer,
+    battle_necromancer,
+    //swarm_necromancer,
     //summoner_necromancer,
   )
 
