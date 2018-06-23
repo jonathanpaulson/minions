@@ -363,10 +363,10 @@ class Client() {
         resetLocalBoards(boardIdx)
 
       case Protocol.ReportNewTurn(newSide) =>
-        val mana = serverBoards.foldLeft(game.get.extraManaPerTurn(newSide)) { case (sum,board) =>
-          sum + board.curState.manaThisRound(newSide)
+        val souls = serverBoards.foldLeft(game.get.extraSoulsPerTurn(newSide)) { case (sum,board) =>
+          sum + board.curState.soulsThisRound(newSide)
         }
-        game.get.addMana(newSide,mana)
+        game.get.addSouls(newSide,souls)
         game.get.endTurn()
 
         serverBoards.foreach { board => board.endTurn() }

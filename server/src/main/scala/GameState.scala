@@ -236,11 +236,11 @@ case class GameState (
       }
     }
 
-    //Accumulate mana on all the boards for the side about to move
-    val mana = boards.foldLeft(game.extraManaPerTurn(newSide)) { case (sum,board) =>
-      sum + board.curState.manaThisRound(newSide)
+    //Accumulate souls on all the boards for the side about to move
+    val souls = boards.foldLeft(game.extraSoulsPerTurn(newSide)) { case (sum,board) =>
+      sum + board.curState.soulsThisRound(newSide)
     }
-    game.addMana(newSide,mana)
+    game.addSouls(newSide,souls)
 
     //Automatically tech if it hasn't happened yet, as a convenience
     var moreAutoTechsToBuy = true
@@ -273,7 +273,7 @@ case class GameState (
       }
     }
 
-    //Discard spells to meet sorcery power requirements
+    //Discard spells to meet mana requirements
     for(boardIdx <- 0 until numBoards) {
       val board = boards(boardIdx)
       val spellIdsToDiscard = board.curState.spellsToAutoDiscardBeforeEndTurn(externalInfo)
@@ -526,10 +526,10 @@ object GameState {
 
   def create(
     secondsPerTurn: SideArray[Double],
-    startingManaPerBoard: SideArray[Int],
-    extraManaPerTurn: SideArray[Int],
+    startingSoulsPerBoard: SideArray[Int],
+    extraSoulsPerTurn: SideArray[Int],
     targetWins: Int,
-    techMana: Int,
+    techSouls: Int,
     maps_opt: Option[List[String]],
     seed_opt: Option[Long],
     password: Option[String]
@@ -572,7 +572,7 @@ object GameState {
     val numBoards = chosenMaps.length
     val game = {
       val targetNumWins = targetWins
-      val startingMana = startingManaPerBoard.map(x => x*numBoards)
+      val startingSouls = startingSoulsPerBoard.map(x => x*numBoards)
       val techsAlwaysAcquired: Array[Tech] =
         Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
       val lockedTechs: Array[(Tech,Int)] = {
@@ -596,15 +596,15 @@ object GameState {
           (fixedTechs ++ interleaved).map { case (piece,origIdx) => (PieceTech(piece.name),origIdx+1) }
         }
       }
-      val extraTechCost = techMana * numBoards
+      val extraTechCost = techSouls * numBoards
 
       val game = Game(
         numBoards = numBoards,
         targetNumWins = targetNumWins,
         startingSide = S0,
-        startingMana = startingMana,
+        startingSouls = startingSouls,
         extraTechCost = extraTechCost,
-        extraManaPerTurn = extraManaPerTurn,
+        extraSoulsPerTurn = extraSoulsPerTurn,
         techsAlwaysAcquired = techsAlwaysAcquired,
         lockedTechs = lockedTechs
       )
@@ -626,7 +626,7 @@ object GameState {
           state.spawnPieceInitial(S0, Units.void.name, Loc(2,4))
           state.spawnPieceInitial(S0, Units.haunt.name, Loc(4,3))
           state.spawnPieceInitial(S0, Units.elemental.name, Loc(4,4))
-          state.sorceryPower = 5*/
+          state.mana = 5*/
 
          /*
          state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))

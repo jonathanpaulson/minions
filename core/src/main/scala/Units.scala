@@ -25,8 +25,8 @@ object Units {
     canHurtNecromancer : Boolean = true,
     swarmMax : Int = 1,
     spawnRange : Option[Int] = None,
+    extraSouls : Int = 0,
     extraMana : Int = 0,
-    extraSorceryPower : Int = 0,
     deathSpawn : Option[PieceName] = None,
     abilities : List[PieceAbility] = List.empty,
   ) : PieceStats = {
@@ -53,8 +53,8 @@ object Units {
       canHurtNecromancer = canHurtNecromancer,
       swarmMax = swarmMax,
       spawnRange = spawnRange,
+      extraSouls = extraSouls,
       extraMana = extraMana,
-      extraSorceryPower = extraSorceryPower,
       deathSpawn = deathSpawn,
       abilities = abilities.map { ability => (ability.name -> ability) }.toMap
     )
@@ -72,10 +72,10 @@ object Units {
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    extraMana = 3
+    extraSouls = 3
   )
   // TODO: Sorcery Necromancer
-  // +1 sorcery power / turn
+  // +1 mana / turn
   val battle_necromancer = createPieceStats(
     name = "battle_necromancer",
     shortDisplayName = "FlurryNec",
@@ -89,7 +89,7 @@ object Units {
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    extraMana = 3
+    extraSouls = 3
   )
   val swarm_necromancer = createPieceStats(
     name = "swarm_necromancer",
@@ -105,7 +105,7 @@ object Units {
     isPersistent = true,
     swarmMax = 3,
     isNecromancer = true,
-    extraMana = 1,
+    extraSouls = 1,
   )
   val arcane_necromancer = createPieceStats(
     name = "arcane_necromancer",
@@ -120,7 +120,7 @@ object Units {
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    extraMana = 5,
+    extraSouls = 5,
   )
   val mounted_necromancer = createPieceStats(
     name = "mounted_necromancer",
@@ -135,7 +135,7 @@ object Units {
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    extraMana = 3,
+    extraSouls = 3,
   )
   val ranged_necromancer = createPieceStats(
     name = "ranged_necromancer",
@@ -150,7 +150,7 @@ object Units {
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    extraMana = 3,
+    extraSouls = 3,
   )
   val deadly_necromancer = createPieceStats(
     name = "deadly_necromancer",
@@ -165,7 +165,7 @@ object Units {
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    extraMana = 3,
+    extraSouls = 3,
     canHurtNecromancer = false,
   )
   val immortal_necromancer = createPieceStats(
@@ -182,7 +182,7 @@ object Units {
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    extraMana = 3,
+    extraSouls = 3,
   )
   val summoner_necromancer = createPieceStats(
     name = "summoner_necromancer",
@@ -197,7 +197,7 @@ object Units {
     spawnRange = Some(2),
     isPersistent = true,
     isNecromancer = true,
-    extraMana = 3,
+    extraSouls = 3,
   )
 
   val zombie = createPieceStats(

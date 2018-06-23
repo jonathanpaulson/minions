@@ -94,9 +94,9 @@ case object Game {
     numBoards: Int,
     targetNumWins: Int,
     startingSide: Side,
-    startingMana: SideArray[Int],
+    startingSouls: SideArray[Int],
     extraTechCost: Int,
-    extraManaPerTurn: SideArray[Int],
+    extraSoulsPerTurn: SideArray[Int],
     techsAlwaysAcquired: Array[Tech],
     lockedTechs: Array[(Tech,Int)]
   ) = {
@@ -130,7 +130,7 @@ case object Game {
       curSide = startingSide,
       turnNumber = 0,
       winner = None,
-      mana = startingMana.copy(),
+      souls = startingSouls.copy(),
       wins = SideArray.create(0),
       techLine = techStatesAlwaysAcquired ++ techStatesLocked,
       piecesAcquired = SideArray.create(piecesAlwaysAcquired),
@@ -141,7 +141,7 @@ case object Game {
       upcomingSpells = SideArray.create(Vector()),
       targetNumWins = targetNumWins,
       extraTechCost = extraTechCost,
-      extraManaPerTurn = extraManaPerTurn,
+      extraSoulsPerTurn = extraSoulsPerTurn,
       isBoardDone = Array.fill(numBoards)(false),
       newTechsThisTurn = Vector()
     )
@@ -158,7 +158,7 @@ case class Game (
   var turnNumber: Int,
   var winner: Option[Side],
 
-  val mana: SideArray[Int],
+  val souls: SideArray[Int],
   val wins: SideArray[Int],
 
   val techLine: Array[TechState],
@@ -172,7 +172,7 @@ case class Game (
 
   val targetNumWins: Int,
   val extraTechCost: Int,
-  val extraManaPerTurn: SideArray[Int],
+  val extraSoulsPerTurn: SideArray[Int],
 
   //Flags set when user indicates that the board is done. Server ends the turn when all boards have this set.
   val isBoardDone: Array[Boolean],
@@ -181,14 +181,14 @@ case class Game (
   var newTechsThisTurn: Vector[(Side,Tech)]
 ) {
 
-  def addMana(side: Side, amount: Int): Unit = {
-    mana(side) = mana(side) + amount
+  def addSouls(side: Side, amount: Int): Unit = {
+    souls(side) = souls(side) + amount
   }
-  def manaThisRound(side: Side): Int = {
+  def soulsThisRound(side: Side): Int = {
     if(side == curSide) {
       0
     } else {
-      extraManaPerTurn(side)
+      extraSoulsPerTurn(side)
     }
   }
 
@@ -310,7 +310,7 @@ case class Game (
             Failure(new Exception("Cannot buy pieces on the same turn as teching to them"))
           else {
             val stats = Units.pieceMap(pieceName)
-            if(mana(side) < stats.cost)
+            if(souls(side) < stats.cost)
               Failure(new Exception("Not enough souls"))
             else
               Success(())
@@ -324,7 +324,7 @@ case class Game (
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
         val stats = Units.pieceMap(pieceName)
-        addMana(side, -stats.cost)
+        addSouls(side, -stats.cost)
         suc
     }
   }
@@ -343,7 +343,7 @@ case class Game (
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
         val stats = Units.pieceMap(pieceName)
-        addMana(side, stats.cost)
+        addSouls(side, stats.cost)
         suc
     }
   }
@@ -486,7 +486,7 @@ case class Game (
   private def tryCanBuyExtraTechAndSpell(side: Side): Try[Unit] = {
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
-    else if(mana(side) < extraTechCost)
+    else if(souls(side) < extraTechCost)
       Failure(new Exception("Not enough souls"))
     else
       Success(())
@@ -496,7 +496,7 @@ case class Game (
     tryCanBuyExtraTechAndSpell(side) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        addMana(side, -extraTechCost)
+        addSouls(side, -extraTechCost)
         extraTechsAndSpellsThisTurn += 1
         val spellId = upcomingSpells(curSide)(0)
         upcomingSpells(curSide) = upcomingSpells(curSide).drop(1)
@@ -522,7 +522,7 @@ case class Game (
     tryCanUnbuyExtraTechAndSpell(side) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        addMana(side, extraTechCost)
+        addSouls(side, extraTechCost)
         extraTechsAndSpellsThisTurn -= 1
         val spellId = spellsToChoose.last
         upcomingSpells(curSide) = spellId +: upcomingSpells(curSide)

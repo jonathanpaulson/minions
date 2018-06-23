@@ -498,11 +498,11 @@ object Drawing {
           if(!stats.canHurtNecromancer) {
             show("Cannot attack necromancers.")
           }
-          if(stats.extraMana > 0) {
-            show("Produces " + stats.extraMana + " souls/turn.")
+          if(stats.extraSouls > 0) {
+            show("Produces " + stats.extraSouls + " souls/turn.")
           }
-          if(stats.extraSorceryPower > 0) {
-            show("Produces " + stats.extraSorceryPower + " sorcery power/turn.")
+          if(stats.extraMana > 0) {
+            show("Produces " + stats.extraMana + " mana/turn.")
           }
           stats.abilities.foreach { case (_,ability) =>
             show("")
@@ -551,7 +551,7 @@ object Drawing {
               show("occupy at least 8 graveyards.")
             case SorceryNode =>
               show("Terrain: Ley Line")
-              show("Gain 1 sorcery power at start of turn if occupied.")
+              show("Gain 1 mana at start of turn if occupied.")
             case Teleporter =>
               show("Terrain: Teleporter")
               show("A piece that begins the turn here may spend its")
@@ -610,12 +610,12 @@ object Drawing {
                 case NormalSpell => ()
                 case Sorcery =>
                   show("");
-                  show("Sorcery (costs 1 sorcery power to play)")
-                  show("If sorcery power is negative, will auto-discard")
+                  show("Sorcery (costs 1 mana to play)")
+                  show("If mana is negative, will auto-discard")
                   show("spells at end of turn.")
                 case Cantrip =>
                   show("");
-                  show("Cantrip (gain 1 sorcery power when played)")
+                  show("Cantrip (gain 1 mana when played)")
                 case DoubleCantrip => () //double cantrip spell description covers this
               }
               if(spell.spawnPhaseOnly) {
@@ -674,11 +674,11 @@ object Drawing {
       val infoLoc = ui.TopInfo.getHexLoc(side)
       val pixelLoc = PixelLoc.ofHexLoc(infoLoc, gridSize)
       val color = textColorOfSide(side)
-      val mana = boards.foldLeft(game.mana(side) + game.manaThisRound(side)) { case (sum,board) =>
-        sum + board.curState.manaThisRound(side)
+      val souls = boards.foldLeft(game.souls(side) + game.soulsThisRound(side)) { case (sum,board) =>
+        sum + board.curState.soulsThisRound(side)
       }
-      val newMana = boards.foldLeft(game.extraManaPerTurn(side)) { case (sum, board) =>
-        sum + board.curState.endOfTurnMana(side)
+      val newSouls = boards.foldLeft(game.extraSoulsPerTurn(side)) { case (sum, board) =>
+        sum + board.curState.endOfTurnSouls(side)
       }
 
       def textAtLoc(s: String, dpx: Double, dpy: Double, style:String = "normal") =
@@ -691,7 +691,7 @@ object Drawing {
 
       textAtLoc(side.toColorName + " Team:", 0.0, -10.0, style = "bold")
       textAtLoc("Wins: " + game.wins(side) + "/" + game.targetNumWins, 110.0, -10.0)
-      textAtLoc("Souls: " + mana + " (+" + newMana + "/turn)", 200.0, -10.0)
+      textAtLoc("Souls: " + souls + " (+" + newSouls + "/turn)", 200.0, -10.0)
       if(side == game.curSide) {
         textAtLoc("Techs Used: " + game.numTechsThisTurn + "/" + (game.extraTechsAndSpellsThisTurn + 1), 345.0, -10.0)
       }
@@ -718,15 +718,15 @@ object Drawing {
       def textAtLoc(s: String, dpx: Double, dpy: Double, style:String = "normal", size:Int = 14) =
         text(s, pixelLoc+PixelVec(dpx,dpy), color, textAlign="left", fontSize = size, style = style)
 
-      textAtLoc("Souls: +" + board.endOfTurnMana(side) + "/turn", 0, 0)
-      textAtLoc("Souls in play: " + board.manaOnBoard(side), 100, -7, size=11)
+      textAtLoc("Souls: +" + board.endOfTurnSouls(side) + "/turn", 0, 0)
+      textAtLoc("Souls in play: " + board.soulsOnBoard(side), 100, -7, size=11)
       textAtLoc("Souls spent: " + board.totalCosts(side), 100, 3, size=11)
 
       if(side == board.side) {
-        if(board.sorceryPower < 0)
-          textAtLoc("Sorcery Power: " + board.sorceryPower, 220, 0, style = "bold")
+        if(board.mana < 0)
+          textAtLoc("Mana: " + board.mana, 220, 0, style = "bold")
         else
-          textAtLoc("Sorcery Power: " + board.sorceryPower, 220, 0)
+          textAtLoc("Mana: " + board.mana, 220, 0)
       }
     }
 

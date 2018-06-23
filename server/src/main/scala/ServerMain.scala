@@ -358,14 +358,14 @@ if(!username || username.length == 0) {
     parameter("tutorial" ? false) { doTutorial =>
       parameter("difficulty" ? 10) { difficulty =>
         val secondsPerTurn = SideArray.create(120.0)
-        val startingMana = SideArray.createTwo(0, 5)
-        val extraManaPerTurn = SideArray.createTwo(0, difficulty)
+        val startingSouls = SideArray.createTwo(0, 5)
+        val extraSoulsPerTurn = SideArray.createTwo(0, difficulty)
         val targetWins = 1
-        val techMana = 4
+        val techSouls = 4
         val maps_opt = None
         val seed_opt = None
 
-        val gameState = GameState.create(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt, None)
+        val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None)
         val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
         val gameid = "ai" + games.size.toString
         games = games + (gameid -> ((gameActor, gameState)))
@@ -420,10 +420,10 @@ if(!username || username.length == 0) {
       val blueSecondsPerTurn = config.getDouble("app.s0SecondsPerTurn")
       val redSecondsPerTurn = config.getDouble("app.s1SecondsPerTurn")
       val targetNumWins = config.getInt("app.targetNumWins")
-      val blueStartingMana = config.getInt("app.s0StartingManaPerBoard")
-      val redStartingMana = config.getInt("app.s1StartingManaPerBoard")
-      val blueManaPerTurn = config.getInt("app.s0ExtraManaPerTurn")
-      val redManaPerTurn = config.getInt("app.s1ExtraManaPerTurn")
+      val blueStartingSouls = config.getInt("app.s0StartingSoulsPerBoard")
+      val redStartingSouls = config.getInt("app.s1StartingSoulsPerBoard")
+      val blueSoulsPerTurn = config.getInt("app.s0ExtraSoulsPerTurn")
+      val redSoulsPerTurn = config.getInt("app.s1ExtraSoulsPerTurn")
       val extraTechCost = config.getInt("app.extraTechCostPerBoard")
 
       val map_html =
@@ -458,11 +458,11 @@ if(!username || username.length == 0) {
             <p>&nbsp
             <p><h3>Advanced Options</h3>
             <p><label>Random seed (optional) </label><input type="text" name="seed"></input><br>
-            <p><label>Blue starting mana per board&nbsp&nbsp </label><input type="text" name=blueMana value=$blueStartingMana></input><br>
-            <p><label>Red starting mana per board </label><input type="text" name=redMana value=$redStartingMana></input><br>
-            <p><label>Blue extra mana per turn&nbsp&nbsp </label><input type="text" name=blueManaPerTurn value=$blueManaPerTurn></input><br>
-            <p><label>Red extra mana per turn</label><input type="text" name=redManaPerTurn value=$redManaPerTurn></input><br>
-            <p><label>Tech cost per board </label><input type="text" name=techMana value=$extraTechCost></input><br>
+            <p><label>Blue starting souls per board&nbsp&nbsp </label><input type="text" name=blueSouls value=$blueStartingSouls></input><br>
+            <p><label>Red starting souls per board </label><input type="text" name=redSouls value=$redStartingSouls></input><br>
+            <p><label>Blue extra souls per turn&nbsp&nbsp </label><input type="text" name=blueSoulsPerTurn value=$blueSoulsPerTurn></input><br>
+            <p><label>Red extra souls per turn</label><input type="text" name=redSoulsPerTurn value=$redSoulsPerTurn></input><br>
+            <p><label>Tech cost per board </label><input type="text" name=techSouls value=$extraTechCost></input><br>
 
             <p><input type="submit" value="Start Game"></input>
           </form>
@@ -472,8 +472,8 @@ if(!username || username.length == 0) {
       } ~ post {
         formFields(('game, 'password, 'seed)) { (gameid, password, seed) =>
           formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
-            formFields(('blueMana.as[Int], 'redMana.as[Int], 'techMana.as[Int], 'map.*)) { (blueMana, redMana, techMana, maps) =>
-              formFields(('blueManaPerTurn.as[Int], 'redManaPerTurn.as[Int])) { (blueManaPerTurn, redManaPerTurn) =>
+            formFields(('blueSouls.as[Int], 'redSouls.as[Int], 'techSouls.as[Int], 'map.*)) { (blueSouls, redSouls, techSouls, maps) =>
+              formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int])) { (blueSoulsPerTurn, redSoulsPerTurn) =>
                 games.get(gameid) match {
                   case Some(_) =>
                     complete(s"""A game named "$gameid" already exists; pick a different name""")
@@ -481,10 +481,10 @@ if(!username || username.length == 0) {
                     val seed_opt = if(seed=="") None else Some(seed.toLong)
                     val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
                     val passwordOpt = if(password == "") None else Some(password)
-                    val startingMana = SideArray.createTwo(blueMana, redMana)
+                    val startingSouls = SideArray.createTwo(blueSouls, redSouls)
                     val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
-                    val extraManaPerTurn = SideArray.createTwo(blueManaPerTurn, redManaPerTurn)
-                    val gameState = GameState.create(secondsPerTurn, startingMana, extraManaPerTurn, targetWins, techMana, maps_opt, seed_opt, passwordOpt)
+                    val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
+                    val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt)
                     val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
                     gameActor ! StartGame()
                     games = games + (gameid -> ((gameActor, gameState)))
@@ -499,14 +499,14 @@ seed=$seed_opt
 blueSeconds=$blueSeconds
 redSeconds=$redSeconds
 targetWins=$targetWins
-techMana=$techMana
+techSouls=$techSouls
 maps=$maps_opt
 seed=$seed_opt
 
-blueMana=$blueMana
-redMana=$redMana
-blueManaPerTurn=$blueManaPerTurn
-redManaPerTurn=$redManaPerTurn
+blueSouls=$blueSouls
+redSouls=$redSouls
+blueSoulsPerTurn=$blueSoulsPerTurn
+redSoulsPerTurn=$redSoulsPerTurn
 </pre>
 
 <a href="/play?game=$gameid&side=0">Join blue</a><br>

@@ -43,7 +43,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
     case Protocol.ReportTimeLeft(_) => ()
     case Protocol.ReportNewTurn(S1) =>
       if(game.game.winner.isEmpty) {
-        if(game.game.mana(S1) > 10) {
+        if(game.game.souls(S1) > 10) {
           out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
         }
         val techs = game.game.techLine
@@ -55,7 +55,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           techs(i).tech match {
             case PieceTech(pieceName) =>
               val stats = Units.pieceMap(pieceName)
-              if(stats.name!="zombie" && stats.moveRange > 0 && stats.cost <= game.game.mana(S1) && !stats.attackEffect.isEmpty) {
+              if(stats.name!="zombie" && stats.moveRange > 0 && stats.cost <= game.game.souls(S1) && !stats.attackEffect.isEmpty) {
                 Some(stats)
               } else {
                 None
@@ -66,7 +66,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
         var keepBuying = true
         while(keepBuying && !unlockedUnits.isEmpty) {
           val chosenUnit = unlockedUnits(aiRand.nextInt(unlockedUnits.length))
-          if(game.game.mana(S1) >= chosenUnit.cost) {
+          if(game.game.souls(S1) >= chosenUnit.cost) {
             out ! Protocol.DoBoardAction(0, DoGeneralBoardAction(BuyReinforcement(chosenUnit.name), makeActionId()))
             Thread.sleep(100)
             keepBuying = true
@@ -203,7 +203,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("Move units by clicking on them and dragging them to a new hex.")
           chat("Undo by right-clicking on the unit.")
           chat("For now, move zombies onto the two nearby graveyards.")
-        } else if(tutorialStep == 1 && board.endOfTurnMana(S0) == 4) {
+        } else if(tutorialStep == 1 && board.endOfTurnSouls(S0) == 4) {
           tutorialStep = 2
           chat("")
           chat("You now control the first graveyard.")
@@ -213,7 +213,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("Souls are the most important resource in the game.")
           chat("You can spend them to buy more units or unlock new types of units.")
           chat("Claim the other nearby graveyard.")
-        } else if(tutorialStep <=2 && board.endOfTurnMana(S0) == 5) {
+        } else if(tutorialStep <=2 && board.endOfTurnSouls(S0) == 5) {
           tutorialStep = 3
           chat("")
           chat("You now control both graveyards, and earn 5 souls per turn.")
@@ -264,7 +264,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           tutorialStep = 8
           chat("")
           chat("Right click on the acolyte in your reinforcements to get your souls back")
-        } else if(tutorialStep == 8 && game.game.mana(S0) == 5) {
+        } else if(tutorialStep == 8 && game.game.souls(S0) == 5) {
           tutorialStep = 9
           chat("")
           chat("The third basic unit is the spire")

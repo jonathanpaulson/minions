@@ -426,7 +426,7 @@ case object Spells {
     name = "doubleCantrip",
     displayName = "Double Cantrip",
     shortDisplayName = "DCant",
-   desc = List("Gain 2 sorcery power when played or discarded."),
+   desc = List("Gain 2 mana when played or discarded."),
     spellType = DoubleCantrip,
     spawnPhaseOnly = false,
   )
@@ -504,7 +504,7 @@ case object Spells {
       // lesser spawn (cantrip) (spawn phase) (2) Spawn target minion in your reinforcements next to target (friendly?) minion
 
       // NoTargetSpell
-      // Drain (2) (cantrip) - opponent has -1 sorcery power next turn (can sacrifice any unit to pay for it)
+      // Drain (2) (cantrip) - opponent has -1 mana next turn (can sacrifice any unit to pay for it)
 
       // PieceAndPieceSpell
       // Critical hit (sorcery) (2) - Target minion takes damage from the previous attack again

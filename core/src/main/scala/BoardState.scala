@@ -166,7 +166,7 @@ object SpellOrAbilityTargets {
 }
 
 /** GeneralBoardAction:
-  * Actions relating to this board that involve interaction with the broader game (a shared spell pool, a shared mana pool).
+  * Actions relating to this board that involve interaction with the broader game (a shared spell pool, a shared souls pool).
   * These are NOT part of the normal action stack.
   *
   * Requirement: spellId should be a unique identifier for a particular spell card. Users of BoardState should ensure that this is the case.
@@ -302,14 +302,14 @@ object BoardState {
       reinforcements = SideArray.create(Map()),
       spellsInHand = SideArray.create(Nil),
       spellsPlayed = Nil,
-      sorceryPower = 0,
+      mana = 0,
       hasUsedSpawnerTile = false,
       hasGainedSpell = false,
       side = S0,
       hasWon = false,
       canMove = false,
-      manaThisRound = SideArray.create(0),
-      totalMana = SideArray.create(0),
+      soulsThisRound = SideArray.create(0),
+      totalSouls = SideArray.create(0),
       totalCosts = SideArray.create(0)
     )
     board
@@ -364,8 +364,8 @@ case class BoardState private (
   // List of all spellIDs played this board
   var spellsPlayed: List[SpellPlayedInfo],
 
-  //How many units of sorcery power the side to move has (from cantrips and spell discards)
-  var sorceryPower: Int,
+  //How many units of mana the side to move has (from cantrips and spell discards)
+  var mana: Int,
   //Has the side to move used a spawner this turn?
   var hasUsedSpawnerTile: Boolean,
   //Has this side picked its spell for the turn?
@@ -379,11 +379,11 @@ case class BoardState private (
   // False for a turn immediately after a graveyard victory
   var canMove: Boolean,
 
-  //Accumulated mana from spires and rebate for costs for units that died, this turn.
+  //Accumulated souls from spires and rebate for costs for units that died, this turn.
   //(Only clears at the beginning of a side's turn)
-  val manaThisRound: SideArray[Int],
+  val soulsThisRound: SideArray[Int],
   //Same, but never clears - summed over the whole board's lifetime.
-  val totalMana: SideArray[Int],
+  val totalSouls: SideArray[Int],
   //Total cost of units added to reinforcements of this board over the board's lifetime
   val totalCosts: SideArray[Int]
 ) {
@@ -406,14 +406,14 @@ case class BoardState private (
       reinforcements = reinforcements.copy(),
       spellsInHand = spellsInHand.copy(),
       spellsPlayed = spellsPlayed,
-      sorceryPower = sorceryPower,
+      mana = mana,
       hasUsedSpawnerTile = hasUsedSpawnerTile,
       hasGainedSpell = hasGainedSpell,
       side = side,
       hasWon = hasWon,
       canMove = canMove,
-      manaThisRound = manaThisRound.copy(),
-      totalMana = totalMana.copy(),
+      soulsThisRound = soulsThisRound.copy(),
+      totalSouls = totalSouls.copy(),
       totalCosts = totalCosts.copy()
     )
     val newPieceById = pieceById.transform({ (_k, piece) => piece.copy() })
@@ -479,27 +479,11 @@ case class BoardState private (
     doActionSingleAssumeLegal(action,externalInfo)
   }
 
-  def resetSorceryPower(): Unit = {
-    var newSorceryPower = 0
-    tiles.foreachi { case (loc,tile) =>
-      val occupied = pieceById.values.exists { piece => piece.side == side && piece.loc == loc }
-      if(tile.terrain == SorceryNode && occupied)
-        newSorceryPower += 1
-    }
-    pieceById.values.foreach { piece =>
-      if(piece.side == side) {
-        val stats = piece.curStats(this)
-        newSorceryPower += stats.extraSorceryPower
-      }
-    }
-    sorceryPower = newSorceryPower
-  }
-
-  def endOfTurnMana(side : Side) : Int = {
+  def resetMana(): Unit = {
     var newMana = 0
     tiles.foreachi { case (loc,tile) =>
       val occupied = pieceById.values.exists { piece => piece.side == side && piece.loc == loc }
-      if(tile.terrain == Graveyard && occupied)
+      if(tile.terrain == SorceryNode && occupied)
         newMana += 1
     }
     pieceById.values.foreach { piece =>
@@ -508,10 +492,26 @@ case class BoardState private (
         newMana += stats.extraMana
       }
     }
-    newMana
+    mana = newMana
   }
 
-  def manaOnBoard(side: Side): Int = {
+  def endOfTurnSouls(side : Side) : Int = {
+    var newSouls = 0
+    tiles.foreachi { case (loc,tile) =>
+      val occupied = pieceById.values.exists { piece => piece.side == side && piece.loc == loc }
+      if(tile.terrain == Graveyard && occupied)
+        newSouls += 1
+    }
+    pieceById.values.foreach { piece =>
+      if(piece.side == side) {
+        val stats = piece.curStats(this)
+        newSouls += stats.extraSouls
+      }
+    }
+    newSouls
+  }
+
+  def soulsOnBoard(side: Side): Int = {
     pieceById.values.foldLeft(0) { case (ans, piece) =>
       if(piece.side == side) {
         val stats = piece.curStats(this)
@@ -522,15 +522,15 @@ case class BoardState private (
     }
   }
 
-  //What spells would need to be discarded to meet sorcery power requirements?
+  //What spells would need to be discarded to meet mana requirements?
   //This is NOT handled within the endTurn function, but rather by the server so that we can also get proper spell revealing.
   def spellsToAutoDiscardBeforeEndTurn(externalInfo: ExternalInfo): List[SpellId] = {
-    var sorceryPowerTmp = sorceryPower
+    var manaTmp = mana
     var discardCount = 0
-    while(sorceryPowerTmp < 0 && discardCount < spellsInHand(side).length) {
+    while(manaTmp < 0 && discardCount < spellsInHand(side).length) {
       val spellId = spellsInHand(side)(discardCount)
       val spell = Spells.spellMap(externalInfo.spellsRevealed(spellId))
-      sorceryPowerTmp += sorceryPowerOfDiscard(spell.spellType)
+      manaTmp += manaOfDiscard(spell.spellType)
       discardCount += 1
     }
     spellsInHand(side).take(discardCount)
@@ -541,7 +541,7 @@ case class BoardState private (
     //Wailing units that attacked and have not been finished yet die
     killAttackingWailingUnits()
 
-    val newMana = endOfTurnMana(side)
+    val newSouls = endOfTurnSouls(side)
     // Mist
     tiles.foreachLoc { loc =>
       if(tiles(loc).terrain == Mist) {
@@ -565,19 +565,19 @@ case class BoardState private (
         tile.copy(modsWithDuration = tile.modsWithDuration.flatMap(_.decay))
     }
 
-    manaThisRound(side) += newMana
-    totalMana(side) += newMana
+    soulsThisRound(side) += newSouls
+    totalSouls(side) += newSouls
 
     //Flip turn
     side = side.opp
     turnNumber += 1
     canMove = true
 
-    //Handle sorcery power for the new turn
-    resetSorceryPower()
+    //Handle mana for the new turn
+    resetMana()
 
-    //Clear mana for the side to move, and other board state
-    manaThisRound(side) = 0
+    //Clear souls for the side to move, and other board state
+    soulsThisRound(side) = 0
     piecesSpawnedThisTurn = Map()
     numPiecesSpawnedThisTurnAt = Map()
     killedThisTurn = Nil
@@ -610,7 +610,7 @@ case class BoardState private (
     Side.foreach { side =>
       reinforcements(side) = new_reinforcements(side)
     }
-    totalMana.transform { _ => 0 }
+    totalSouls.transform { _ => 0 }
     totalCosts.transform { _ => 0 }
 
     //Unset win flag
@@ -630,8 +630,8 @@ case class BoardState private (
       }
     }
 
-    //Handle sorcery power for the first turn
-    resetSorceryPower()
+    //Handle mana for the first turn
+    resetMana()
   }
 
   def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
@@ -1175,7 +1175,7 @@ case class BoardState private (
     }
   }
 
-  private def sorceryPowerOfDiscard(spellType: SpellType): Int = {
+  private def manaOfDiscard(spellType: SpellType): Int = {
     spellType match {
       case NormalSpell => 1
       case Sorcery => 1
@@ -1184,18 +1184,18 @@ case class BoardState private (
     }
   }
 
-  private def sorceryPowerInHand(side: Side, externalInfo: ExternalInfo, excludingSpell: Option[SpellId] = None): Int = {
+  private def manaInHand(side: Side, externalInfo: ExternalInfo, excludingSpell: Option[SpellId] = None): Int = {
     spellsInHand(side).foldLeft(0) { case (power,spellId) =>
       if(excludingSpell == Some(spellId))
         power
       else {
         externalInfo.spellsRevealed.get(spellId) match {
-          //Assume that unknown spells are worth 2 sorcery power when discarded so that we
+          //Assume that unknown spells are worth 2 mana when discarded so that we
           //don't complain about move legality from the opponent when we don't know their hand
           case None => power + 2
           case Some(spellName) =>
             val spell = Spells.spellMap(spellName)
-            power + sorceryPowerOfDiscard(spell.spellType)
+            power + manaOfDiscard(spell.spellType)
         }
       }
     }
@@ -1313,7 +1313,7 @@ case class BoardState private (
               case None => fail("Piece does not have this ability")
               case Some(ability) =>
                 requireSuccess(ability.tryIsUsableNow(piece))
-                failIf(ability.isSorcery && sorceryPower + sorceryPowerInHand(side,externalInfo) <= 0, "No sorcery power (must first play cantrip or discard spell)")
+                failIf(ability.isSorcery && mana + manaInHand(side,externalInfo) <= 0, "No mana (must first play cantrip or discard spell)")
                 ability match {
                   case Suicide | SpawnZombies | (_:SelfEnchantAbility) => ()
                   case KillAdjacent =>
@@ -1369,8 +1369,8 @@ case class BoardState private (
                   case None => fail("Unknown spell name")
                   case Some(spell) =>
                     failIf(
-                      spell.spellType == Sorcery && sorceryPower + sorceryPowerInHand(side,externalInfo,excludingSpell=Some(spellId)) <= 0,
-                      "No sorcery power (must first play cantrip or discard spell)")
+                      spell.spellType == Sorcery && mana + manaInHand(side,externalInfo,excludingSpell=Some(spellId)) <= 0,
+                      "No mana (must first play cantrip or discard spell)")
                     trySpellTargetLegality(spell,targets).get
                 }
             }
@@ -1464,7 +1464,7 @@ case class BoardState private (
         val pieceStats = piece.curStats(this)
         val ability = pieceStats.abilities(abilityName)
         if(ability.isSorcery)
-          sorceryPower -= 1
+          mana -= 1
 
         ability match {
           case Suicide =>
@@ -1516,9 +1516,9 @@ case class BoardState private (
         val spell = Spells.spellMap(externalInfo.spellsRevealed(spellId))
         spell.spellType match {
           case NormalSpell => ()
-          case Sorcery => sorceryPower -= 1
-          case Cantrip => sorceryPower += 1
-          case DoubleCantrip => sorceryPower += 2
+          case Sorcery => mana -= 1
+          case Cantrip => mana += 1
+          case DoubleCantrip => mana += 2
         }
 
         spell match {
@@ -1542,7 +1542,7 @@ case class BoardState private (
 
       case DiscardSpell(spellId) =>
         val spell = Spells.spellMap(externalInfo.spellsRevealed(spellId))
-        sorceryPower += sorceryPowerOfDiscard(spell.spellType)
+        mana += manaOfDiscard(spell.spellType)
         spellsInHand(side) = spellsInHand(side).filterNot { i => i == spellId }
         spellsPlayed = spellsPlayed :+ SpellPlayedInfo(spellId, side, None)
     }
@@ -1584,8 +1584,8 @@ case class BoardState private (
 
   //Perform the rebase and death spawn updates happening after a piece kill
   private def updateAfterPieceKill(pieceSide: Side, pieceStats: PieceStats, loc: Loc): Unit = {
-    //Rebate mana
-    manaThisRound(pieceSide) += pieceStats.rebate
+    //Rebate souls
+    soulsThisRound(pieceSide) += pieceStats.rebate
     totalCosts(pieceSide) -= pieceStats.rebate
 
     //Death spawn

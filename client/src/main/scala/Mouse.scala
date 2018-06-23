@@ -597,7 +597,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                             board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
                           }
                           // TODO: It would be nice to distinguish:
-                          // 1) "This is illegal regardless of the target" (e.g. no sorcery power)
+                          // 1) "This is illegal regardless of the target" (e.g. no mana)
                           // 2) "There happen to be no legal targets right now"
                           if(locTargets.isEmpty) { // No legal targets, get error message
                             mouseState.client.doActionOnCurBoard(PlayerActions(List(makeAction(piece.loc)), makeActionId()))
