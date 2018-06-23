@@ -84,6 +84,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
+    numAttacks = 3,
     defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
