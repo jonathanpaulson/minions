@@ -578,7 +578,7 @@ object GameState {
       val lockedTechs: Array[(Tech,Int)] = {
         val pieceTechs = Units.techPieces.map { piece => PieceTech(piece.name) }
         val allTechs = pieceTechs :+ Copycat
-        val techsWithIdx = allTechs.zipWithIndex.map { case (tech, idx) => (tech, idx+1) }
+        val techsWithIdx = allTechs.zipWithIndex.map { case (tech, idx) => (tech, idx) }
         if(!config.getBoolean("app.randomizeTechLine"))
           techsWithIdx.toArray
         else {

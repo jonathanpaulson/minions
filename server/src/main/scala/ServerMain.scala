@@ -28,6 +28,7 @@ import akka.stream.scaladsl.Keep
 object Paths {
   val applicationConf = "./application.conf"
   val mainPage = "./web/index.html"
+  val favicon = "./web/img/favicon.jpg"
   val webjs = "./web/js/"
   val webimg = "./web/img/"
 }
@@ -228,7 +229,8 @@ object ServerMain extends App {
   val route = get {
     pathEndOrSingleSlash {
       val html = new StringBuilder
-      html ++= """
+      html ++= s"""
+<link rel="icon" href="/img/favicon.png?v=4" />
 <style>
 .button {
     background-color: #4CAF50; /* Green */
@@ -319,7 +321,9 @@ th {
               case Some(gameid) =>
                 username match {
                   case None =>
-                    val html = """<script type="text/javascript">
+                    val html = """
+<link rel="icon" href="/img/favicon.png?v=4" />
+<script type="text/javascript">
 var username = window.prompt('Username?', '')
 if(!username || username.length == 0) {
   window.history.back()
@@ -433,6 +437,7 @@ if(!username || username.length == 0) {
       complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
         s"""
         <head>
+          <link rel="icon" href="/img/favicon.png?v=4" />
           <style type="text/css">
             form  { display: table;      }
             p     { display: table-row;  }
@@ -491,6 +496,7 @@ if(!username || username.length == 0) {
                     println("Created game " + gameid)
                     complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
                       s"""
+<link rel="icon" href="/img/favicon.png?v=4" />
 <pre>
 Created game $gameid
 
