@@ -495,6 +495,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                 techState.tech match {
                   case PieceTech(pieceName) =>
                     mouseState.client.doActionOnCurBoard(BuyReinforcementUndo(pieceName,makeActionId()))
+                  case Copycat => ()
                 }
               case _ =>
                 mouseState.client.doGameAction(UndoTech(game.curSide,techIdx))
@@ -508,6 +509,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                 techState.tech match {
                   case PieceTech(pieceName) =>
                     mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(BuyReinforcement(pieceName),makeActionId()))
+                  case Copycat => ()
                 }
             }
           }

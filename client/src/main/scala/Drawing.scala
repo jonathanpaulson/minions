@@ -311,6 +311,7 @@ object Drawing {
       side: Option[Side] = None,
       tile: Option[Tile] = None,
       spell: Option[Int] = None,
+      freeform: Option[List[String]] = None,
       spellTargets: Option[Option[SpellOrAbilityTargets]] = None,
     ) = {
       val hexLoc = ui.Sidebar.origin
@@ -322,10 +323,6 @@ object Drawing {
         case None => ()
         case Some(stats) => drawPiece(hexLoc, pieceScale*6.0, side, stats.name)
       }
-      spell match {
-        case None => ()
-        case Some(_) => drawSpell(hexLoc, spellScale*6.0, side, spellId=None)
-      }
       var row_idx = 0
       def row(n:Int) : PixelLoc = {
         PixelLoc.ofHexLoc(hexLoc, gridSize) + PixelVec(0, 16.0*(n-6))
@@ -333,6 +330,21 @@ object Drawing {
       def show(s:String, color:String = "black") : Unit = {
         text(s, row(row_idx), color, fontSize = 11)
         row_idx = row_idx + 1
+      }
+      freeform match {
+        case None => ()
+        case Some(lines) =>
+          val color = "#cccccc"
+          val scale = pieceScale * 6.0
+          fillHex(hexLoc, color, scale, alpha = 1.0)
+          strokeHex(hexLoc, "black", scale, alpha = 0.2)
+          lines.foreach { line =>
+            show(line)
+          }
+      }
+      spell match {
+        case None => ()
+        case Some(_) => drawSpell(hexLoc, spellScale*6.0, side, spellId=None)
       }
       stats match {
         case None => ()
@@ -1281,6 +1293,7 @@ object Drawing {
               case PieceTech(name) =>
                 if(name == pieceName)
                   highlightHex(hexLoc,scale=techScale)
+              case Copycat => ()
             }
           }
         case GainSpell(spellId) =>
@@ -1405,7 +1418,17 @@ object Drawing {
             if(canClickOnTech(techIdx)) {
               strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
             }
-            drawSidebar(stats=Some(game.techLine(techIdx).tech.pieceStats))
+            val tech = game.techLine(techIdx).tech
+            tech.pieceStats match {
+              case None =>
+                // Must be Copycat. This is ugly...
+                drawSidebar(freeform=Some(List(
+                  "Copycat",
+                  "You may acquire techs",
+                  "that are already owned by the other team"
+                )))
+              case Some(stats) => drawSidebar(stats=Some(stats))
+            }
           case MouseReinforcement(pieceNameOpt,side,loc) =>
             pieceNameOpt match {
               case None => ()
@@ -1550,6 +1573,7 @@ object Drawing {
                       case Some(action) => highlightUndoneGeneralAction(action)
                       case None => ()
                     }
+                  case Copycat => ()
                 }
               }
               else {

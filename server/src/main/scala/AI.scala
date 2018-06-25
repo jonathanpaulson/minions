@@ -60,6 +60,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
               } else {
                 None
               }
+            case Copycat => None
           }
         }
 

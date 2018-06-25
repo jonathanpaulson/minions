@@ -393,10 +393,12 @@ object Protocol {
   implicit val techFormat = {
     val reads: Reads[Tech] = readsFromPair[Tech]("Tech",Map(
       "PieceTech" -> ((json:JsValue) => pieceTechFormat.reads(json)),
+      "Copycat" -> ((_:JsValue) => JsSuccess(Copycat: Tech)),
     ))
     val writes: Writes[Tech] = new Writes[Tech] {
       def writes(t: Tech): JsValue = t match {
         case (t:PieceTech) => jsPair("PieceTech",pieceTechFormat.writes(t))
+        case Copycat => jsPair("Copycat", JsString(""))
       }
     }
     Format(reads,writes)
