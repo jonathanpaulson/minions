@@ -422,7 +422,7 @@ case class Game (
       (techState.level(side), techState.level(side.opp)) match {
         case (TechAcquired, _) => Failure(new Exception("Already own this tech"))
         case (TechUnlocked, TechAcquired) =>
-          if(hasCopycat(side))
+          if(hasCopycat(side) || techState.tech == Copycat)
             Success(())
           else
             Failure(new Exception("Cannot acquire tech owned by the opponent"))

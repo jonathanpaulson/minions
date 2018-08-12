@@ -1425,7 +1425,9 @@ object Drawing {
                 drawSidebar(freeform=Some(List(
                   "Copycat",
                   "You may acquire techs",
-                  "that are already owned by the other team"
+                  "that are already owned by the other team",
+                  "",
+                  "Both teams may acquire this"
                 )))
               case Some(stats) => drawSidebar(stats=Some(stats))
             }

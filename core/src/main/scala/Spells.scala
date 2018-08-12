@@ -483,10 +483,8 @@ case object Spells {
       (lumbering, 2),
       (shackle, 2),
 
-      (displace, 2),
       (spawn, 2),
       (rising_horde, 2),
-      (blink, 2),
       (raiseZombie, 2),
       (doubleCantrip, 2),
 

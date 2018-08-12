@@ -293,7 +293,7 @@ object Units {
   val ghost = createPieceStats(
     name = "ghost",
     cost = 3,
-    rebate = 0,
+    rebate = 1,
     moveRange = 1,
     isFlying = true,
     attackRange = 1,
@@ -308,10 +308,10 @@ object Units {
     rebate = 0,
     moveRange = 1,
     attackRange = 1,
-    attackEffect = Some(Damage(3)),
+    attackEffect = Some(Damage(1)),
+    numAttacks = 6,
     defense = Some(3),
     deathSpawn = Some(zombie.name),
-    abilities = List(Abilities.double_attack),
   )
 
   val haunt = createPieceStats(
