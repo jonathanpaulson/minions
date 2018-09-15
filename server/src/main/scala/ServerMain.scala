@@ -13,6 +13,7 @@ import akka.stream.{ActorMaterializer,OverflowStrategy}
 import akka.stream.scaladsl.{Flow,Sink,Source}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ContentTypes,HttpEntity,StatusCodes}
+import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.ws.{Message,TextMessage}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives._
@@ -313,6 +314,11 @@ th {
       }
     } ~
     path("play") {
+      respondWithHeaders(
+        RawHeader("CacheControl", "no-cache, no-store, must-revalidate"),
+        RawHeader("Expires", "0"),
+        RawHeader("Pragma", "no-cache")
+      ) {
       parameter("game".?) { gameid_opt =>
         parameter("username".?) { username =>
           parameter("password".?) { password =>
@@ -349,6 +355,7 @@ if(!username || username.length == 0) {
             }
           }
         }
+      }
       }
     } ~
     pathPrefix("js") {
