@@ -705,7 +705,7 @@ object Drawing {
       textAtLoc("Wins: " + game.wins(side) + "/" + game.targetNumWins, 110.0, -10.0)
       textAtLoc("Souls: " + souls + " (+" + newSouls + "/turn)", 200.0, -10.0)
       if(side == game.curSide) {
-        textAtLoc("Techs Used: " + game.numTechsThisTurn + "/" + (game.extraTechsAndSpellsThisTurn + 1), 345.0, -10.0)
+        textAtLoc("Techs Used: " + game.usedTechsThisTurn + "/" + game.techsThisTurn(), 345.0, -10.0)
       }
     }
 
@@ -1294,6 +1294,7 @@ object Drawing {
                 if(name == pieceName)
                   highlightHex(hexLoc,scale=techScale)
               case Copycat => ()
+              case TechSeller => ()
             }
           }
         case GainSpell(spellId) =>
@@ -1419,9 +1420,11 @@ object Drawing {
               strokeHex(ui.Tech.hexLoc(loc), "black", tileScale, alpha=0.5)
             }
             val tech = game.techLine(techIdx).tech
-            tech.pieceStats match {
-              case None =>
-                // Must be Copycat. This is ugly...
+            tech match {
+              case PieceTech(name) =>
+                val stats = Units.pieceMap(name)
+                drawSidebar(stats=Some(stats))
+              case Copycat =>
                 drawSidebar(freeform=Some(List(
                   "Copycat",
                   "You may acquire techs",
@@ -1429,8 +1432,14 @@ object Drawing {
                   "",
                   "Both teams may acquire this"
                 )))
-              case Some(stats) => drawSidebar(stats=Some(stats))
+              case TechSeller =>
+                drawSidebar(freeform=Some(List(
+                  "Thaumaturgy",
+                  "You may sell your starting tech",
+                  "for" + game.numBoards + " souls"
+                )))
             }
+
           case MouseReinforcement(pieceNameOpt,side,loc) =>
             pieceNameOpt match {
               case None => ()
@@ -1576,6 +1585,9 @@ object Drawing {
                       case None => ()
                     }
                   case Copycat => ()
+                  case TechSeller =>
+                    if(game.soldTechThisTurn)
+                      highlightHex(ui.Tech.hexLoc(loc))
                 }
               }
               else {

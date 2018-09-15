@@ -44,25 +44,21 @@ sealed trait Tech {
     this match {
       case PieceTech(pieceName) => Units.pieceMap(pieceName).shortDisplayName
       case Copycat => "Copycat"
+      case TechSeller => "Thaum"
     }
   }
   def displayName: String = {
     this match {
       case PieceTech(pieceName) => Units.pieceMap(pieceName).displayName
       case Copycat => "Copycat"
-    }
-  }
-  def pieceStats : Option[PieceStats] = {
-    this match {
-      case PieceTech(pieceName) => Some(Units.pieceMap(pieceName))
-      case Copycat => None
+      case TechSeller => "Thaumaturgy"
     }
   }
 }
 case class PieceTech(pieceName:PieceName) extends Tech
 case object Copycat extends Tech
+case object TechSeller extends Tech
 // TODO SPECIAL TECHS
-// 24) Copycat: You may tech to units your opponent has teched to already. Both teams may tech to this tech.
 // 25) Thaumaturgy: Instead of putting a spell under the tech line, you may discard one spell per turn for dollars equal to the number of boards.
 // 26) Metamagic: You can assign your spells to your Captains and to the tech line however you wish.
 
@@ -85,6 +81,8 @@ case class SetBoardDone(boardIdx: Int, done: Boolean) extends GameAction
 case class ResignBoard(boardIdx: Int) extends GameAction
 case class BuyExtraTechAndSpell(side: Side) extends GameAction
 case class UnbuyExtraTechAndSpell(side: Side) extends GameAction
+case class SellTech(side: Side) extends GameAction
+case class UnsellTech(side: Side) extends GameAction
 //server->client only
 case class PayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
 case class UnpayForReinforcement(side: Side, pieceName: PieceName) extends GameAction
@@ -129,6 +127,7 @@ case object Game {
         techState.tech match {
           case PieceTech(pieceName) => Some(pieceName -> techState)
           case Copycat => None
+          case TechSeller => None
         }
       }.toMap
 
@@ -141,9 +140,9 @@ case object Game {
       wins = SideArray.create(0),
       techLine = techStatesAlwaysAcquired ++ techStatesLocked,
       piecesAcquired = SideArray.create(piecesAlwaysAcquired),
-      hasCopycat = SideArray.create(false),
+      soldTechThisTurn = false,
       extraTechsAndSpellsThisTurn = 0,
-      numTechsThisTurn = 0,
+      usedTechsThisTurn = 0,
       spellsToChoose = Vector(),
       spellsChosen = Set(),
       upcomingSpells = SideArray.create(Vector()),
@@ -171,9 +170,9 @@ case class Game (
 
   val techLine: Array[TechState],
   val piecesAcquired: SideArray[Map[PieceName,TechState]],
-  val hasCopycat: SideArray[Boolean],
+  var soldTechThisTurn: Boolean,
   var extraTechsAndSpellsThisTurn: Int,
-  var numTechsThisTurn: Int,
+  var usedTechsThisTurn: Int,
 
   var spellsToChoose: Vector[Int],
   var spellsChosen: Set[Int],
@@ -201,6 +200,10 @@ case class Game (
     }
   }
 
+  def techsThisTurn(): Int = {
+    extraTechsAndSpellsThisTurn + (if(soldTechThisTurn) 0 else 1)
+  }
+
   def tryIsLegal(action: GameAction): Try[Unit] = {
     action match {
       case PayForReinforcement(side,pieceName) => tryCanPayForReinforcement(side,pieceName)
@@ -209,6 +212,8 @@ case class Game (
       case UnchooseSpell(side,spellId) => tryCanUnchooseSpell(side,spellId)
       case BuyExtraTechAndSpell(side) => tryCanBuyExtraTechAndSpell(side)
       case UnbuyExtraTechAndSpell(side) => tryCanUnbuyExtraTechAndSpell(side)
+      case SellTech(side) => tryCanSellTech(side)
+      case UnsellTech(side) => tryCanUnsellTech(side)
       case AddWin(_,_) => Success(())
       case AddUpcomingSpells(_,_) => Success(())
       case PerformTech(side,techLineIdx) => tryCanPerformTech(side,techLineIdx)
@@ -226,6 +231,8 @@ case class Game (
       case UnchooseSpell(side,spellId) => unchooseSpell(side,spellId)
       case BuyExtraTechAndSpell(side) => buyExtraTechAndSpell(side)
       case UnbuyExtraTechAndSpell(side) => unbuyExtraTechAndSpell(side)
+      case SellTech(side) => sellTech(side)
+      case UnsellTech(side) => unsellTech(side)
       case AddWin(side,_) => { doAddWin(side); Success(()) }
       case AddUpcomingSpells(side,spellIds) => { doAddUpcomingSpells(side,spellIds); Success(()) }
       case PerformTech(side,techLineIdx) => performTech(side,techLineIdx)
@@ -287,8 +294,9 @@ case class Game (
   def endTurn(): Unit = {
     curSide = curSide.opp
     turnNumber += 1
-    numTechsThisTurn = 0
+    usedTechsThisTurn = 0
     extraTechsAndSpellsThisTurn = 0
+    soldTechThisTurn = false
 
     newTechsThisTurn = Vector()
     techLine.foreach { techState =>
@@ -411,7 +419,7 @@ case class Game (
   private def tryCanPerformTech(side: Side, techLineIdx: Int): Try[Unit] = {
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
-    else if(numTechsThisTurn >= extraTechsAndSpellsThisTurn + 1)
+    else if(usedTechsThisTurn >= techsThisTurn())
       Failure(new Exception("Must buy extra tech to tech additional times this turn"))
     else if(techLineIdx < 0 || techLineIdx >= techLine.length)
       Failure(new Exception("Invalid tech idx"))
@@ -422,7 +430,12 @@ case class Game (
       (techState.level(side), techState.level(side.opp)) match {
         case (TechAcquired, _) => Failure(new Exception("Already own this tech"))
         case (TechUnlocked, TechAcquired) =>
-          if(hasCopycat(side) || techState.tech == Copycat)
+          val hasCopycat =
+            techLine.find({ state => state.tech == Copycat}) match {
+              case None => false
+              case Some(copycat_state) => copycat_state.level(side) == TechAcquired
+            }
+          if(hasCopycat || techState.tech == Copycat)
             Success(())
           else
             Failure(new Exception("Cannot acquire tech owned by the opponent"))
@@ -435,7 +448,7 @@ case class Game (
     tryCanPerformTech(side,techLineIdx) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        numTechsThisTurn += 1
+        usedTechsThisTurn += 1
         val techState = techLine(techLineIdx)
         techState.level(side) match {
           case TechAcquired => assertUnreachable()
@@ -446,8 +459,7 @@ case class Game (
             techState.tech match {
               case PieceTech(pieceName) =>
                 piecesAcquired(side) = piecesAcquired(side) + (pieceName -> techState)
-              case Copycat =>
-                hasCopycat(side) = true
+              case Copycat | TechSeller => ()
             }
         }
         suc
@@ -480,7 +492,7 @@ case class Game (
     tryCanUndoTech(side,techLineIdx) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        numTechsThisTurn -= 1
+        usedTechsThisTurn -= 1
         val techState = techLine(techLineIdx)
         techState.level(side) match {
           case TechAcquired =>
@@ -489,7 +501,6 @@ case class Game (
               case PieceTech(pieceName) =>
                 piecesAcquired(side) = piecesAcquired(side) - pieceName
               case Copycat =>
-                hasCopycat(side) = false
                 techLine.zipWithIndex.foreach { case (state,idx) =>
                   if(state.startingLevelThisTurn(side) != state.level(side) &&
                     state.level(side) == TechAcquired &&
@@ -497,6 +508,7 @@ case class Game (
                       undoTech(side, idx)
                     }
                 }
+              case TechSeller => ()
             }
           case TechUnlocked =>
             techState.level(side) = TechLocked
@@ -536,7 +548,7 @@ case class Game (
       Failure(new Exception("No extra techs and spells to undo this turn"))
     else if(spellsChosen.contains(spellsToChoose.last))
       Failure(new Exception("Undo not possible since extra spell was claimed, that board must first undo claiming that spell"))
-    else if(numTechsThisTurn >= extraTechsAndSpellsThisTurn + 1)
+    else if(usedTechsThisTurn >= techsThisTurn())
       Failure(new Exception("Undo not possible since extra tech was used, must first choose a tech to undo"))
     else
       Success(())
@@ -551,6 +563,54 @@ case class Game (
         val spellId = spellsToChoose.last
         upcomingSpells(curSide) = spellId +: upcomingSpells(curSide)
         spellsToChoose = spellsToChoose.dropRight(1)
+        suc
+    }
+  }
+
+  private def tryCanSellTech(side: Side): Try[Unit] = {
+    if(side != curSide) {
+      Failure(new Exception("Currently the other team's turn"))
+    } else {
+      val hasTechSeller =
+        techLine.find({ state => state.tech == TechSeller}) match {
+          case None => false
+          case Some(copycat_state) => copycat_state.level(side) == TechAcquired
+        }
+      if(!hasTechSeller)
+        Failure(new Exception("Cannot sell tech without buying thaumaturgy"))
+      else if(soldTechThisTurn)
+        Failure(new Exception("Already sold starting tech this turn"))
+      else if(usedTechsThisTurn >= techsThisTurn())
+        Failure(new Exception("Cannot sell tech; already used this turn"))
+      else
+        Success(())
+    }
+  }
+  private def sellTech(side: Side): Try[Unit] = {
+    tryCanSellTech(side) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        addSouls(side, numBoards)
+        soldTechThisTurn = true
+        suc
+    }
+  }
+  private def tryCanUnsellTech(side: Side): Try[Unit] = {
+    if(side != curSide)
+      Failure(new Exception("Currently the other team's turn"))
+    else if(souls(side) < numBoards)
+      Failure(new Exception("Not enough souls to buy back starting tech"))
+    else if(!soldTechThisTurn)
+      Failure(new Exception("No tech sell to undo this turn"))
+    else
+      Success(())
+  }
+  private def unsellTech(side: Side): Try[Unit] = {
+    tryCanUnsellTech(side) match {
+      case (err : Failure[Unit]) => err
+      case (suc : Success[Unit]) =>
+        addSouls(side, -numBoards)
+        soldTechThisTurn = false
         suc
     }
   }

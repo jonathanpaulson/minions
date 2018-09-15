@@ -116,6 +116,7 @@ case class GameState (
         case PayForReinforcement(_, _) | UnpayForReinforcement(_, _) => ()
         case ChooseSpell(_, _) | UnchooseSpell(_, _) => ()
         case BuyExtraTechAndSpell(_) | UnbuyExtraTechAndSpell(_) => ()
+        case SellTech(_) | UnsellTech(_) => ()
         case PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
         case AddUpcomingSpells(_,_) => ()
         case AddWin(side, boardIdx) =>
@@ -244,7 +245,7 @@ case class GameState (
 
     //Automatically tech if it hasn't happened yet, as a convenience
     var moreAutoTechsToBuy = true
-    while(moreAutoTechsToBuy && game.numTechsThisTurn < game.extraTechsAndSpellsThisTurn + 1) {
+    while(moreAutoTechsToBuy && game.usedTechsThisTurn < game.techsThisTurn()) {
       val idx = game.techLine.indexWhere { techState => techState.level(oldSide) == TechLocked}
       if(idx >= 0) { //-1 if not found
         performAndBroadcastGameActionIfLegal(PerformTech(oldSide,idx)) match {
@@ -424,7 +425,7 @@ case class GameState (
             else {
               //Some game actions are special and are meant to be server -> client only, or need extra checks
               val specialResult: Try[Unit] = gameAction match {
-                case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) => Success(())
+                case (_: PerformTech) | (_: UndoTech) | (_: SetBoardDone) | (_: SellTech) | (_: UnsellTech)=> Success(())
                 case BuyExtraTechAndSpell(_) =>
                   refillUpcomingSpells()
                   Success(())
@@ -577,7 +578,7 @@ object GameState {
         Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
       val lockedTechs: Array[(Tech,Int)] = {
         val pieceTechs = Units.techPieces.map { piece => PieceTech(piece.name) }
-        val allTechs = pieceTechs :+ Copycat
+        val allTechs = pieceTechs :+ Copycat :+ TechSeller
         val techsWithIdx = allTechs.zipWithIndex.map { case (tech, idx) => (tech, idx) }
         if(!config.getBoolean("app.randomizeTechLine"))
           techsWithIdx.toArray

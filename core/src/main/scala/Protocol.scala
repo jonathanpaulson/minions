@@ -394,11 +394,13 @@ object Protocol {
     val reads: Reads[Tech] = readsFromPair[Tech]("Tech",Map(
       "PieceTech" -> ((json:JsValue) => pieceTechFormat.reads(json)),
       "Copycat" -> ((_:JsValue) => JsSuccess(Copycat: Tech)),
+      "TechSeller" -> ((_:JsValue) => JsSuccess(TechSeller: Tech)),
     ))
     val writes: Writes[Tech] = new Writes[Tech] {
       def writes(t: Tech): JsValue = t match {
         case (t:PieceTech) => jsPair("PieceTech",pieceTechFormat.writes(t))
         case Copycat => jsPair("Copycat", JsString(""))
+        case TechSeller => jsPair("TechSeller", JsString(""))
       }
     }
     Format(reads,writes)
@@ -412,6 +414,8 @@ object Protocol {
   implicit val unchooseSpellFormat = Json.format[UnchooseSpell]
   implicit val buyExtraTechAndSpellFormat = Json.format[BuyExtraTechAndSpell]
   implicit val unbuyExtraTechAndSpellFormat = Json.format[UnbuyExtraTechAndSpell]
+  implicit val sellTechFormat = Json.format[SellTech]
+  implicit val unsellTechFormat = Json.format[UnsellTech]
   implicit val addWinFormat = Json.format[AddWin]
   implicit val addUpcomingSpellsFormat = Json.format[AddUpcomingSpells]
   implicit val performTechFormat = Json.format[PerformTech]
@@ -425,6 +429,8 @@ object Protocol {
       "ChooseSpell" -> ((json:JsValue) => chooseSpellFormat.reads(json)),
       "UnchooseSpell" -> ((json:JsValue) => unchooseSpellFormat.reads(json)),
       "BuyExtraTechAndSpell" -> ((json:JsValue) => buyExtraTechAndSpellFormat.reads(json)),
+      "SellTech" -> ((json:JsValue) => sellTechFormat.reads(json)),
+      "UnsellTech" -> ((json:JsValue) => unsellTechFormat.reads(json)),
       "UnbuyExtraTechAndSpell" -> ((json:JsValue) => unbuyExtraTechAndSpellFormat.reads(json)),
       "AddWin" -> ((json:JsValue) => addWinFormat.reads(json)),
       "AddUpcomingSpells" -> ((json:JsValue) => addUpcomingSpellsFormat.reads(json)),
@@ -441,6 +447,8 @@ object Protocol {
         case (t:UnchooseSpell) => jsPair("UnchooseSpell",unchooseSpellFormat.writes(t))
         case (t:BuyExtraTechAndSpell) => jsPair("BuyExtraTechAndSpell",buyExtraTechAndSpellFormat.writes(t))
         case (t:UnbuyExtraTechAndSpell) => jsPair("UnbuyExtraTechAndSpell",unbuyExtraTechAndSpellFormat.writes(t))
+        case (t:SellTech) => jsPair("SellTech", sellTechFormat.writes(t))
+        case (t:UnsellTech) => jsPair("UnsellTech", unsellTechFormat.writes(t))
         case (t:AddWin) => jsPair("AddWin",addWinFormat.writes(t))
         case (t:AddUpcomingSpells) => jsPair("AddUpcomingSpells",addUpcomingSpellsFormat.writes(t))
         case (t:PerformTech) => jsPair("PerformTech",performTechFormat.writes(t))
