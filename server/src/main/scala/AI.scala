@@ -62,6 +62,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
               }
             case Copycat => None
             case TechSeller => None
+            case Metamagic => None
           }
         }
 
@@ -221,7 +222,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("You now control both graveyards, and earn 5 souls per turn.")
           chat("Just above the board is the spell row. You can choose from one of two spells each turn.")
           chat("Choose a spell now.")
-        } else if(tutorialStep == 3 && board.hasGainedSpell) {
+        } else if(tutorialStep == 3 && game.game.boardsWithSpells.getOrElse(0, 0) == 1) {
           tutorialStep = 4
           chat("")
           chat("The spell appears in your hand, to the left of the board.")

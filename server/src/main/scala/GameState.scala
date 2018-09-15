@@ -114,7 +114,7 @@ case class GameState (
     game.doAction(gameAction).map { case () =>
       gameAction match {
         case PayForReinforcement(_, _) | UnpayForReinforcement(_, _) => ()
-        case ChooseSpell(_, _) | UnchooseSpell(_, _) => ()
+        case ChooseSpell(_,_,_) | UnchooseSpell(_,_,_) => ()
         case BuyExtraTechAndSpell(_) | UnbuyExtraTechAndSpell(_) => ()
         case SellTech(_) | UnsellTech(_) => ()
         case PerformTech(_, _) |  UndoTech(_, _) | SetBoardDone(_, _) => ()
@@ -262,9 +262,9 @@ case class GameState (
     //Automatically choose spells if it hasn't happened yet, as a convenience
     for(boardIdx <- 0 until numBoards) {
       val board = boards(boardIdx)
-      if(!board.curState.hasGainedSpell) {
+      if(game.boardsWithSpells.getOrElse(boardIdx, 0) == 0) {
         game.spellsToChoose.find { spellId => !game.spellsChosen.contains(spellId)}.foreach { spellId =>
-          val gameAction: GameAction = ChooseSpell(game.curSide,spellId)
+          val gameAction: GameAction = ChooseSpell(game.curSide,spellId,boardIdx)
           performAndBroadcastGameActionIfLegal(gameAction)
           val boardAction: BoardAction = DoGeneralBoardAction(GainSpell(spellId),"autospell")
           board.doAction(boardAction,externalInfo)
@@ -368,7 +368,7 @@ case class GameState (
                   //Check ahead of time if it's legal
                   boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
                     //And if so, go ahead and recover the cost of the unit
-                    val gameAction: GameAction = UnchooseSpell(side,spellId)
+                    val gameAction: GameAction = UnchooseSpell(side,spellId,boardIdx)
                     performAndBroadcastGameActionIfLegal(gameAction)
                   }
                 case DoGeneralBoardAction(generalBoardAction,_) =>
@@ -381,7 +381,7 @@ case class GameState (
                       //Check ahead of time if it's legal
                       boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
                         //Make sure the spell can be chosen
-                        val gameAction: GameAction = ChooseSpell(side,spellId)
+                        val gameAction: GameAction = ChooseSpell(side,spellId,boardIdx)
                         performAndBroadcastGameActionIfLegal(gameAction)
                       }
                   }
@@ -578,7 +578,7 @@ object GameState {
         Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
       val lockedTechs: Array[(Tech,Int)] = {
         val pieceTechs = Units.techPieces.map { piece => PieceTech(piece.name) }
-        val allTechs = pieceTechs :+ Copycat :+ TechSeller
+        val allTechs = pieceTechs :+ Copycat :+ TechSeller :+ Metamagic
         val techsWithIdx = allTechs.zipWithIndex.map { case (tech, idx) => (tech, idx) }
         if(!config.getBoolean("app.randomizeTechLine"))
           techsWithIdx.toArray

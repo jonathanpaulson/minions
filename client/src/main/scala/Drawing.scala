@@ -940,7 +940,7 @@ object Drawing {
             }
             val hexLoc = ui.SpellChoice.hexLoc(ui.SpellChoice.getLoc(i))
 
-            if(board.hasGainedSpell && game.spellsToChoose.contains(spellId))
+            if(game.boardsWithSpells.getOrElse(boardIdx, 0) > 0 && game.spellsToChoose.contains(spellId))
               drawSpell(hexLoc, spellScale, spellSide, Some(spellId), alpha=0.4)
             else
               drawSpell(hexLoc, spellScale, spellSide, Some(spellId), alpha=1.0)
@@ -1293,8 +1293,7 @@ object Drawing {
               case PieceTech(name) =>
                 if(name == pieceName)
                   highlightHex(hexLoc,scale=techScale)
-              case Copycat => ()
-              case TechSeller => ()
+              case Copycat | TechSeller | Metamagic => ()
             }
           }
         case GainSpell(spellId) =>
@@ -1439,6 +1438,13 @@ object Drawing {
                   "for " + game.numBoards + " "  + (if(game.numBoards == 1) "soul" else "souls"),
                   "(by clicking this hex; right-click to undo)"
                 )))
+              case Metamagic =>
+                drawSidebar(freeform=Some(List(
+                  "Metamagic",
+                  "Each board may take multiple spells per turn",
+                  "(but your team can't take more than " + game.numBoards + " per turn total)"
+                )))
+
             }
 
           case MouseReinforcement(pieceNameOpt,side,loc) =>
@@ -1585,7 +1591,7 @@ object Drawing {
                       case Some(action) => highlightUndoneGeneralAction(action)
                       case None => ()
                     }
-                  case Copycat => ()
+                  case Copycat | Metamagic => ()
                   case TechSeller =>
                     if(game.soldTechThisTurn)
                       highlightHex(ui.Tech.hexLoc(loc))

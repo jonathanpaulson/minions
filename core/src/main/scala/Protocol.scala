@@ -395,12 +395,14 @@ object Protocol {
       "PieceTech" -> ((json:JsValue) => pieceTechFormat.reads(json)),
       "Copycat" -> ((_:JsValue) => JsSuccess(Copycat: Tech)),
       "TechSeller" -> ((_:JsValue) => JsSuccess(TechSeller: Tech)),
+      "Metamagic" -> ((_:JsValue) => JsSuccess(Metamagic: Tech)),
     ))
     val writes: Writes[Tech] = new Writes[Tech] {
       def writes(t: Tech): JsValue = t match {
         case (t:PieceTech) => jsPair("PieceTech",pieceTechFormat.writes(t))
         case Copycat => jsPair("Copycat", JsString(""))
         case TechSeller => jsPair("TechSeller", JsString(""))
+        case Metamagic => jsPair("Metamagic", JsString(""))
       }
     }
     Format(reads,writes)

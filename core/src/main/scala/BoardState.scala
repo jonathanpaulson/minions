@@ -304,7 +304,6 @@ object BoardState {
       spellsPlayed = Nil,
       mana = 0,
       hasUsedSpawnerTile = false,
-      hasGainedSpell = false,
       side = S0,
       hasWon = false,
       canMove = false,
@@ -368,8 +367,6 @@ case class BoardState private (
   var mana: Int,
   //Has the side to move used a spawner this turn?
   var hasUsedSpawnerTile: Boolean,
-  //Has this side picked its spell for the turn?
-  var hasGainedSpell: Boolean,
 
   //Current side to move
   var side: Side,
@@ -408,7 +405,6 @@ case class BoardState private (
       spellsPlayed = spellsPlayed,
       mana = mana,
       hasUsedSpawnerTile = hasUsedSpawnerTile,
-      hasGainedSpell = hasGainedSpell,
       side = side,
       hasWon = hasWon,
       canMove = canMove,
@@ -583,7 +579,6 @@ case class BoardState private (
     killedThisTurn = Nil
     unsummonedThisTurn = Nil
     hasUsedSpawnerTile = false
-    hasGainedSpell = false
 
     //Check for win conditions - start of turn at least 8 graveyards
     var startNumGraveyards = 0
@@ -642,9 +637,6 @@ case class BoardState private (
         else
           Success(())
       case GainSpell(_) =>
-        if(hasGainedSpell)
-          Failure(new Exception("Already chose a spell for this board this turn"))
-        else
           Success(())
     }
   }
@@ -661,7 +653,6 @@ case class BoardState private (
 
       case GainSpell(spellId) =>
         spellsInHand(side) = spellsInHand(side) :+ spellId
-        hasGainedSpell = true
     }
   }
 
