@@ -1435,8 +1435,9 @@ object Drawing {
               case TechSeller =>
                 drawSidebar(freeform=Some(List(
                   "Thaumaturgy",
-                  "You may sell your starting tech",
-                  "for" + game.numBoards + " souls"
+                  "You may sell your starting tech each turn",
+                  "for " + game.numBoards + " "  + (if(game.numBoards == 1) "soul" else "souls"),
+                  "(by clicking this hex; right-click to undo)"
                 )))
             }
 
