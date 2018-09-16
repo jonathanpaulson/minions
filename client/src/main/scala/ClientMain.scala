@@ -8,6 +8,7 @@ import org.scalajs.jquery.{JQuery,jQuery,JQueryEventObject}
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.{MouseEvent, KeyboardEvent}
 import org.scalajs.dom.html.{Canvas, TextArea, Input, Button}
+import org.scalajs.dom.raw.HTMLAudioElement
 import org.scalajs.dom.window
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -55,7 +56,7 @@ class MainPageClient() {
 }*/
 
 class Client() {
-  val (gameid: String, username: String, password: Option[String], ourSide: Option[Side]) = {
+  val (gameid: String, username: String, password: Option[String], ourSide: Option[Side], beeps: Array[Int]) = {
     val params = (new java.net.URI(window.location.href)).getQuery()
     val fields = params.split("&").flatMap { piece =>
       piece.split("=").toList match {
@@ -69,7 +70,8 @@ class Client() {
     val username = fields("username")
     val password = fields.get("password")
     val ourSide = fields.get("side").map(Side.ofString)
-    (gameid, username,password,ourSide)
+    val beeps = fields.getOrElse("beeps", "60,30,15,5,4,3,2,1").split(",").map(_.toInt).sorted.reverse
+    (gameid, username,password,ourSide, beeps)
   }
   def init(): Unit = {
     ()
@@ -226,12 +228,21 @@ class Client() {
   var isPaused: Boolean = true
   var turnTimeLeft: Option[Double] = None
   var now: Double = getNow()
+
+  var currentBeep = 0
+  val beep = org.scalajs.dom.document.createElement("audio").asInstanceOf[HTMLAudioElement]
+  beep.src = "img/beep.wav"
   def updateTimeLeft(): Unit = {
     val newNow = getNow()
     if(!isPaused) {
       turnTimeLeft match {
         case None => ()
         case Some(left) =>
+          println(currentBeep+" "+(if(currentBeep<beeps.size) beeps(currentBeep) else "") + " " +left)
+          if(Some(game.get.curSide) == ourSide && currentBeep < beeps.size && left <= beeps(currentBeep)) {
+            beep.play()
+            currentBeep += 1
+          }
           turnTimeLeft = Some(left - (newNow - now))
       }
     }
@@ -384,6 +395,7 @@ class Client() {
 
         //At each new turn, clear the time left so that it can be refreshed by the next server update
         turnTimeLeft = None
+        currentBeep = 0
 
       case Protocol.ReportRevealSpells(spellIdsAndNames) =>
         externalInfo.revealSpells(spellIdsAndNames)
