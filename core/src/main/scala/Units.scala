@@ -76,7 +76,7 @@ object Units {
   )
   val mana_necromancer = createPieceStats(
     name = "mana_necromancer",
-    shortDisplayName = "Sorceror",
+    shortDisplayName = "Sorcerer",
     cost = 0,
     rebate = 0,
     moveRange = 1,
@@ -97,7 +97,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    numAttacks = 3,
+    numAttacks = 4,
     defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
@@ -248,13 +248,13 @@ object Units {
 
   val initiate = createPieceStats(
     name = "initiate",
-    cost = 5,
-    rebate = 3,
+    cost = 2,
+    rebate = 0,
     moveRange = 2,
     isLumbering = true,
     attackRange = 1,
-    attackEffect = Some(Damage(5)),
-    defense = Some(5),
+    attackEffect = Some(Damage(1)),
+    defense = Some(3),
     spawnRange = Some(1),
   )
 
@@ -305,13 +305,13 @@ object Units {
   val wight = createPieceStats(
     name = "wight",
     cost = 5,
-    rebate = 0,
-    moveRange = 1,
-    attackRange = 1,
+    rebate = 2,
+    moveRange = 0,
+    attackRange = 2,
     attackEffect = Some(Damage(1)),
-    numAttacks = 6,
+    numAttacks = 5,
     defense = Some(3),
-    deathSpawn = Some(zombie.name),
+    canBlink = true,
   )
 
   val haunt = createPieceStats(
@@ -328,24 +328,24 @@ object Units {
 
   val shrieker = createPieceStats(
     name = "shrieker",
-    cost = 7,
+    cost = 6,
     rebate = 4,
+    moveRange = 3,
+    attackRange = 1,
+    attackEffect = Some(Damage(3)),
+    defense = Some(1),
+  )
+
+  val fog = createPieceStats(
+    name = "fog",
+    cost = 5,
+    rebate = 2,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    numAttacks = 3,
-    defense = Some(2),
-    abilities = List(Abilities.range_two)
-  )
-
-  val warg = createPieceStats(
-    name = "warg",
-    cost = 7,
-    rebate = 5,
-    moveRange = 3,
-    attackRange = 1,
-    attackEffect = Some(Damage(2)),
-    defense = Some(3),
+    defense = Some(7),
+    spawnRange = Some(1),
+    isFlying = true,
   )
 
   val dark_tower = createPieceStats(
@@ -363,27 +363,26 @@ object Units {
     abilities = List(SpawnZombies),
   )
 
-  val bone_rat = createPieceStats(
-    name = "bone_rat",
-    shortDisplayName = "BnRat",
-    displayName = "Bone Rat",
-    cost = 3,
-    rebate = 2,
+
+  val sorcerer = createPieceStats(
+    name = "sorceror",
+    cost = 4,
+    rebate = 0,
     moveRange = 1,
-    attackRange = 1,
-    attackEffect = Some(Damage(3)),
-    defense = Some(1),
+    attackRange = 2,
+    attackEffect = Some(Unsummon),
+    defense = Some(3),
     swarmMax = 3,
   )
 
   val witch = createPieceStats(
     name = "witch",
-    cost = 4,
+    cost = 3,
     rebate = 0,
     moveRange = 1,
     attackRange = 3,
     attackEffect = Some(Damage(1)),
-    defense = Some(2),
+    defense = Some(1),
     swarmMax = 3,
   )
 
@@ -403,14 +402,13 @@ object Units {
 
   val mummy = createPieceStats(
     name = "mummy",
-    cost = 8,
-    rebate = 0,
+    cost = 5,
+    rebate = 1,
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Damage(5)),
     defense = Some(8),
     spawnRange = Some(1),
-    deathSpawn = Some(initiate.name),
   )
 
   val lich = createPieceStats(
@@ -444,7 +442,7 @@ object Units {
     displayName = "Hell Hound",
     cost = 4,
     rebate = 2,
-    moveRange = 3,
+    moveRange = 4,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(2),
@@ -454,13 +452,14 @@ object Units {
 
   val wraith = createPieceStats(
     name = "wraith",
-    cost = 8,
-    rebate = 3,
-    moveRange = 1,
+    cost = 6,
+    rebate = 2,
+    moveRange = 3,
     isFlying = true,
-    attackRange = 1,
-    attackEffect = Some(Damage(3)),
-    defense = Some(13),
+    isLumbering = true,
+    attackRange = 2,
+    attackEffect = Some(Damage(4)),
+    defense = Some(9),
     isPersistent = true,
   )
 
@@ -486,7 +485,7 @@ object Units {
     defense = Some(2),
     isPersistent = true,
     canHurtNecromancer = false,
-    abilities = List(KillAdjacent)
+    abilities = List(Abilities.double_attack),
   )
 
   val elemental = createPieceStats(
@@ -520,7 +519,7 @@ object Units {
     name = "shadowlord",
     shortDisplayName = "SLord",
     cost = 13,
-    rebate = 6,
+    rebate = 9,
     moveRange = 2,
     isFlying = true,
     attackRange = 1,
@@ -543,7 +542,7 @@ object Units {
     //summoner_necromancer,
     zombie, acolyte, spire,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
-    warg, dark_tower, witch, vampire, mummy, lich, bone_rat, void, hell_hound,
+    fog, dark_tower, witch, vampire, mummy, lich, bone_rat, void, hell_hound,
     wraith, fiend, banshee, elemental, fallen_angel, shadowlord
   )
 
@@ -577,7 +576,7 @@ object Units {
     wight,
     haunt,
     shrieker,
-    warg,
+    fog,
     dark_tower,
     bone_rat,
     witch,

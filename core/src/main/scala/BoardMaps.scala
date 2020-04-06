@@ -157,7 +157,7 @@ object BoardMaps {
 
     """)
 
-  val sorcerorsLair = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
+  val sorcerersLair = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  s w . . . g . . w w
   w . . . . w . g . w
    g . . . w . . . g .
@@ -197,7 +197,7 @@ object BoardMaps {
 """)
 
   val advancedMaps = Map(
-    "Sorceror's Lair" -> sorcerorsLair,
+    "Sorcerer's Lair" -> sorcerersLair,
     "Chaos Diamond" -> chaosDiamond,
     "Apocalypse" -> apocalypse,
     "Treacherous Pathways" -> treacherousPathways,
@@ -213,7 +213,7 @@ object BoardMaps {
   )
 
   val groundImage = Map(
-    "Sorceror's Lair" -> "img_terrain_grass1",
+    "Sorcerer's Lair" -> "img_terrain_grass1",
     "Chaos Diamond" -> "img_terrain_dirt1",
     "Apocalypse" -> "img_terrain_sand0",
     "Midnight Lake" -> "img_terrain_grass1",
@@ -226,7 +226,7 @@ object BoardMaps {
   )
 
   val waterImage = Map(
-    "Sorceror's Lair" -> "img_terrain_water0",
+    "Sorcerer's Lair" -> "img_terrain_water0",
     "Chaos Diamond" -> "img_terrain_water1",
     "Apocalypse" -> "img_terrain_water1",
     "Midnight Lake" -> "img_terrain_water0",
