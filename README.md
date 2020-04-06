@@ -45,6 +45,31 @@ If during a compile in SBT you encounter the error `filename too long` or simila
 
 http://stackoverflow.com/questions/28565837/filename-too-long-sbt
 
+## AWS Setup
+1) Reserve a medium instance
+2) Allocate an elastic IP (default settings)
+3) Associate the elastic IP with the instance
+4) Setup SSH forwarding
+6A) eval `ssh-agent -s`
+6B) ssh-add ~/.ssh/id_rsa
+6C) Edit ~/.ssh/config:
+Host ec2-54-152-88-227.compute-1.amazonaws.com
+  ForwardAgent yes
+5) SSH to the instance
+6) sudo yum install git -y
+7) git clone git@github.com:jonathanpaulson/minions.git
+8) Install Java 8
+8A) wget --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u141-b15/336fa29ff2bb4ef291e347e091f7f4a7/jdk-8u141-linux-x64.rpm
+8B) sudo yum install -y jdk-8u141-linux-x64.rpm
+9) Install SBT:
+8A) curl https://bintray.com/sbt/rpm/rpm | sudo tee /etc/yum.repos.d/bintray-sbt-rpm.repo
+8B) sudo yum install sbt
+10) Build minions
+10A) cd minions
+10B) sbt
+10C) buildEverything
+10D) minionsJVM/run
+
 ## Contributors
 
 * Jonathan Paulson

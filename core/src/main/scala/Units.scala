@@ -363,7 +363,6 @@ object Units {
     abilities = List(SpawnZombies),
   )
 
-
   val sorcerer = createPieceStats(
     name = "sorceror",
     cost = 4,
@@ -542,7 +541,7 @@ object Units {
     //summoner_necromancer,
     zombie, acolyte, spire,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
-    fog, dark_tower, witch, vampire, mummy, lich, bone_rat, void, hell_hound,
+    fog, dark_tower, witch, vampire, mummy, lich, sorcerer, void, hell_hound,
     wraith, fiend, banshee, elemental, fallen_angel, shadowlord
   )
 
@@ -578,7 +577,7 @@ object Units {
     shrieker,
     fog,
     dark_tower,
-    bone_rat,
+    sorcerer,
     witch,
     vampire,
     mummy,
