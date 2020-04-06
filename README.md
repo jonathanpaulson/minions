@@ -64,6 +64,7 @@ Host ec2-54-152-88-227.compute-1.amazonaws.com
 9) Install SBT:
 8A) curl https://bintray.com/sbt/rpm/rpm | sudo tee /etc/yum.repos.d/bintray-sbt-rpm.repo
 8B) sudo yum install sbt
+11) Edit AWS security groups to allow port 8080
 10) Build minions
 10A) cd minions
 10B) sbt

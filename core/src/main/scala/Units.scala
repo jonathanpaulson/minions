@@ -76,7 +76,7 @@ object Units {
   )
   val mana_necromancer = createPieceStats(
     name = "mana_necromancer",
-    shortDisplayName = "Sorcerer",
+    shortDisplayName = "ManaNecro",
     cost = 0,
     rebate = 0,
     moveRange = 1,
@@ -364,7 +364,7 @@ object Units {
   )
 
   val sorcerer = createPieceStats(
-    name = "sorceror",
+    name = "sorcerer",
     cost = 4,
     rebate = 0,
     moveRange = 1,
