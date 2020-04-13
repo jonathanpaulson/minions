@@ -226,16 +226,7 @@ case class GameState (
     val oldSide = game.curSide
     val newSide = game.curSide.opp
 
-    //Check win condition and reset boards as needed
-    for(boardIdx <- 0 until boards.length) {
-      val board = boards(boardIdx)
-      if(board.curState.hasWon) {
-        doAddWin(oldSide,boardIdx)
-        if(game.winner.isEmpty) {
-          doResetBoard(boardIdx, true)
-        }
-      }
-    }
+
 
     //Accumulate souls on all the boards for the side about to move
     val souls = boards.foldLeft(game.extraSoulsPerTurn(newSide)) { case (sum,board) =>
@@ -285,6 +276,17 @@ case class GameState (
           boards(boardIdx).doAction(boardAction,externalInfo)
           boardSequences(boardIdx) += 1
           broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
+        }
+      }
+    }
+
+    //Check win condition and reset boards as needed
+    for(boardIdx <- 0 until boards.length) {
+      val board = boards(boardIdx)
+      if(board.curState.hasWon) {
+        doAddWin(oldSide,boardIdx)
+        if(game.winner.isEmpty) {
+          doResetBoard(boardIdx, true)
         }
       }
     }

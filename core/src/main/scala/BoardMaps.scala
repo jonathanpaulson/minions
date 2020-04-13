@@ -56,10 +56,10 @@ object BoardMaps {
  . . g . . . . . g .
   w . . . . . . . . .
    w . . . g . . . . .
-    w . . . w . . z . .
+    w . . . . . . z . .
      . . w w . . g w . g
       g . w g . . w w . .
-       . . z . . w . . . w
+       . . z . . . . . . w
         . . . . . g . . . w
          . . . . . . . . . w
           . g . . . . . g . .
@@ -121,10 +121,10 @@ object BoardMaps {
  w . . w . . w . . w
   . g . . w . . g . .
    . . . . . w . . w .
-    w . . g . . . . . g
+    w . . g . . w . . g
      . w . . g . . w . .
       . . w . . g . . w .
-       g . . . . . g . . w
+       g . . w . . g . . w
         . w . . w . . . . .
          . . g . . w . . g .
           w . . w . . w . . w
