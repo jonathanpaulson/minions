@@ -29,9 +29,9 @@ case object Spells {
           val areEnemies = piece.side != target.side
           val inRange = board.topology.distance(target.loc, piece.loc) <= piece.curStats(board).attackRange
           val attackedAnother = piece.attackedPiecesThisTurn.exists { attacked => attacked.id != target.id }
-          areEnemies && inRange && attackedAnother
+          areEnemies && inRange && attackedAnother && !piece.isNecromancer
         }
-      if(!existsCleaverInRange) Failure(new Exception("No friendly piece in range that attacked a different minion this turn"))
+      if(!existsCleaverInRange) Failure(new Exception("No friendly minion in range that attacked a different enemy this turn"))
       else Success(())
     }
   }
@@ -39,7 +39,7 @@ case object Spells {
     name = "cleave",
     displayName = "Cleave",
     shortDisplayName = "Cleave",
-    desc = List("Deal 1 damage to target minion", "within range of one of your minions", "that attacked a *different* minion this turn"),
+    desc = List("Deal 1 damage to target minion", "within range of one of your minions", "that attacked a *different* enemy this turn"),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
     tryCanTarget = cleaveSunderTarget,
@@ -49,7 +49,7 @@ case object Spells {
     name = "sunder",
     displayName = "Sunder",
     shortDisplayName = "Sunder",
-    desc = List("Deal 2 damage to target minion", "within range of one of your minions", "that attacked a *different* minion this turn"),
+    desc = List("Deal 2 damage to target minion", "within range of one of your minions", "that attacked a *different* enemy this turn"),
     spellType = Sorcery,
     spawnPhaseOnly = false,
     tryCanTarget = cleaveSunderTarget,
