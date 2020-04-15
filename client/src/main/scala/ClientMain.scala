@@ -238,7 +238,6 @@ class Client() {
       turnTimeLeft match {
         case None => ()
         case Some(left) =>
-          println(currentBeep+" "+(if(currentBeep<beeps.size) beeps(currentBeep) else "") + " " +left)
           if(Some(game.get.curSide) == ourSide && currentBeep < beeps.size && left <= beeps(currentBeep)) {
             beep.play()
             currentBeep += 1

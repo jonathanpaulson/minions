@@ -226,6 +226,22 @@ case class GameState (
     val oldSide = game.curSide
     val newSide = game.curSide.opp
 
+    //Discard spells to meet mana requirements
+    for(boardIdx <- 0 until numBoards) {
+      val board = boards(boardIdx)
+      val spellIdsToDiscard = board.curState.spellsToAutoDiscardBeforeEndTurn(externalInfo)
+      Log.log("Discarding " + spellIdsToDiscard)
+      if(spellIdsToDiscard.nonEmpty) {
+        revealSpellsToSide(game.curSide.opp,spellIdsToDiscard.toArray, revealToSpectators = true)
+        spellIdsToDiscard.foreach { spellId =>
+          val boardAction: BoardAction = PlayerActions(List(DiscardSpell(spellId)),"autodiscard")
+          boards(boardIdx).doAction(boardAction,externalInfo)
+          boardSequences(boardIdx) += 1
+          broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
+        }
+      }
+    }
+
     //Check win condition and reset boards as needed
     for(boardIdx <- 0 until boards.length) {
       val board = boards(boardIdx)
@@ -274,21 +290,6 @@ case class GameState (
       }
     }
 
-    //Discard spells to meet mana requirements
-    for(boardIdx <- 0 until numBoards) {
-      val board = boards(boardIdx)
-      val spellIdsToDiscard = board.curState.spellsToAutoDiscardBeforeEndTurn(externalInfo)
-      if(spellIdsToDiscard.nonEmpty) {
-        revealSpellsToSide(game.curSide.opp,spellIdsToDiscard.toArray, revealToSpectators = true)
-        spellIdsToDiscard.foreach { spellId =>
-          val boardAction: BoardAction = PlayerActions(List(DiscardSpell(spellId)),"autodiscard")
-          boards(boardIdx).doAction(boardAction,externalInfo)
-          boardSequences(boardIdx) += 1
-          broadcastAll(Protocol.ReportBoardAction(boardIdx,boardAction,boardSequences(boardIdx)))
-        }
-      }
-    }
-
     game.endTurn()
     boards.foreach { board => board.endTurn() }
 
@@ -308,15 +309,16 @@ case class GameState (
     broadcastAll(Protocol.ReportNewTurn(newSide))
 
     //Schedule the next end of turn
-    scheduleEndOfTurn(NewTurn)
     game.winner match {
       case Some(winner) =>
         allMessages = allMessages :+ ("GAME: Team " + winner.toColorName + " won the game!")
+        scheduleEndOfTurn(Pause(true))
       case None =>
         game.newTechsThisTurn.foreach { case (side,tech) =>
           allMessages = allMessages :+ ("GAME: Team " + side.toColorName + " acquired new tech: " + tech.displayName)
         }
         allMessages = allMessages :+ ("GAME: Beginning " + newSide.toColorName + " team turn (turn #" + game.turnNumber + ")")
+        scheduleEndOfTurn(NewTurn)
     }
     broadcastMessages()
   }
@@ -645,7 +647,7 @@ object GameState {
           */
          /*state.tiles.foreachi { (loc, tile) =>
            if (tile.terrain == Graveyard) {
-             val _ = state.spawnPieceInitial(S0, Units.serpent.name, loc)
+             val _ = state.spawnPieceInitial(S0, Units.fiend.name, loc)
            }
          }*/
         /*

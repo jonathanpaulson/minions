@@ -1216,7 +1216,6 @@ case class BoardState private (
   //Check if a single action is legal
   private def tryLegalitySingle(action: PlayerAction, externalInfo: ExternalInfo): Try[Unit] = Try {
     failIf(turnNumber < 0, "Game is not started yet")
-    failIf(hasWon, "Already won this board, wait for reset next turn")
     failIf(!canMove, "After you win on graveyards, your opponent gets the first turn")
     action match {
       case Movements(movements) =>
@@ -1591,8 +1590,9 @@ case class BoardState private (
 
     //Check for necromancers win condition - win when one is killed
     //(does not check side, simply relies on there not being a way to kill own necro on your turn)
-    if(pieceStats.isNecromancer)
+    if(pieceStats.isNecromancer) {
       hasWon = true
+    }
   }
 
   //Kill a piece, for any reason

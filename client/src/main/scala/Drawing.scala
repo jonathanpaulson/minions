@@ -747,19 +747,18 @@ object Drawing {
       text("Connection error", ui.Clock.origin, "red", textAlign="left", style = "bold", fontSize=24)
     }
     else {
+      fillHex(ui.Clock.origin, "#dddddd", tileScale)
+      strokeHex(ui.Clock.origin, "#666666", tileScale, lineWidth=1.0)
+      val pauseText = if(client.isPaused) { "Unpause" } else { "Pause" }
+      text(pauseText, ui.Clock.origin, "black")
+
       timeLeft match {
         case None => ()
         case Some(timeLeft) =>
-          fillHex(ui.Clock.origin, "#dddddd", tileScale)
-          strokeHex(ui.Clock.origin, "#666666", tileScale, lineWidth=1.0)
-          val pauseText = if(client.isPaused) { "Unpause" } else { "Pause" }
-          text(pauseText, ui.Clock.origin, "black")
-
           val seconds: Int = Math.floor(timeLeft).toInt
-          val timeStr = {
+          val timeStr =
             if(seconds < 0) "-" + ((-seconds) / 60).toString + ":" + "%02d".format((-seconds) % 60)
             else (seconds / 60).toString + ":" + "%02d".format(seconds % 60)
-          }
           val clockStr = board.side.toColorName + " Team Time left: " + timeStr
           text(clockStr, ui.Clock.origin + HexVec(1,0), textColorOfSide(board.side), textAlign="left", style = "bold", fontSize=16)
       }
