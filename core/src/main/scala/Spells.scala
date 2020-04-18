@@ -331,7 +331,7 @@ case object Spells {
       if(board.pieces(loc).nonEmpty) Failure(new Exception("Target location is not empty"))
       else {
         val adjacentToFriendly = board.pieceById.values.exists { piece =>
-          piece.side == side && board.topology.distance(loc,piece.loc) == 1
+          piece.side == side && board.topology.distance(loc,piece.loc) == 1 && piece.actState < DoneActing
         }
         if(!adjacentToFriendly) Failure(new Exception("Target location is not adjacent to a friendly unit"))
         else board.trySpawnIsLegal(side, Units.zombie.name, loc)
