@@ -45,15 +45,30 @@ If during a compile in SBT you encounter the error `filename too long` or simila
 
 http://stackoverflow.com/questions/28565837/filename-too-long-sbt
 
+## Local Setup
+1. Clone the repo
+  * git clone https://github.com/jonathanpaulson/minions.git
+2. Install Java/Scala/sbt. We'll use https://sdkman.io/
+  * $ curl -s "https://get.sdkman.io" | bash
+  * $ sdk install java 8.0.242.j9-adpt
+  * $ sdk install scala 2.13.1
+  * $ sdk install sbt 1.3.9
+3. Compile + Run
+  * $ cd minions (go to directory where you cloned the repo)
+  * $ sbt
+  * $ buildEverything (in sbt console)
+  * $ minionsJVM/run
+4. Visit localhost:8080. Your local copy should be running there.
+
 ## AWS Setup
 1. Reserve a medium instance (in AWS console)
 2. Allocate an elastic IP (default settings; in AWS console)
 3. Associate the elastic IP with the instance (in AWS console)
 
 4. Setup SSH forwarding
-  1. eval `ssh-agent -s`
-  2. ssh-add ~/.ssh/id_rsa (on your box)
-  3. Edit ~/.ssh/config (on your box) to contain:
+  * $ eval `ssh-agent -s`
+  * $ ssh-add ~/.ssh/id_rsa (on your box)
+  * Edit ~/.ssh/config (on your box) to contain:
 ```
 Host ec2-54-152-88-227.compute-1.amazonaws.com
   ForwardAgent yes
@@ -65,23 +80,25 @@ Host ec2-54-152-88-227.compute-1.amazonaws.com
 
 8. Install Java 8 (locally on instance)
   1. wget --no-check-certificate --no-cookies --header "Cookie: oraclelicense=accept-securebackup-cookie" http://download.oracle.com/otn-pub/java/jdk/8u141-b15/336fa29ff2bb4ef291e347e091f7f4a7/jdk-8u141-linux-x64.rpm
-  2. sudo yum install -y jdk-8u141-linux-x64.rpm
+  * sudo yum install -y jdk-8u141-linux-x64.rpm
 
 9. Install SBT (locally on instance).
-  1. curl https://bintray.com/sbt/rpm/rpm | sudo tee /etc/yum.repos.d/bintray-sbt-rpm.repo
-  2. sudo yum install sbt
+  * curl https://bintray.com/sbt/rpm/rpm | sudo tee /etc/yum.repos.d/bintray-sbt-rpm.repo
+  * sudo yum install sbt
 
 10. Edit AWS security groups to allow port 80 (in AWS console).
 
 11. Edit application.conf file in minions (locally on instance).
-  1. Change "interface" to your instance's *private* IP
-  2. Change port to 80
+  * Change "interface" to your instance's *private* IP
+  * Change port to 80
 
 12. Build + run server (locally on instance). Do this in a tmux session so it stays up.
-  1. cd minions
-  2. sudo sbt (need sudo to connect to port 80)
-  3. buildEverything (in sbt console)
-  4. minionsJVM/run (in sbt console)
+  * $ cd minions
+  * $ sudo sbt (need sudo to connect to port 80)
+  * $ buildEverything (in sbt console)
+  * $ minionsJVM/run (in sbt console)
+
+13. It's running. Open a web browser at your instance's public IP. Anyone can use this.
 
 ## Contributors
 
