@@ -270,12 +270,21 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
   //The action to perform on mouseup from dragging the given piece
   def dragPieceMouseUpActions(curTarget: MouseTarget, curLoc: Loc, piece: Piece, board: BoardState): List[PlayerAction] = {
     //Attack if enemy piece under the mouseUp
-    val attack: Option[PlayerAction] = {
+    val attack: Option[List[PlayerAction]] = {
       curTarget.findPiece(board) match {
         case None => None
         case Some(other) =>
-          if(other.side == piece.side) None
-          else Some(Attack(piece.spec, other.spec))
+          if(other.side == piece.side) {
+            None
+          } else {
+            // Pieces with flurry automatically attack as many times as necessary to kill the unit.
+            val stats = piece.curStats(board)
+            val attacks = stats.attackEffect match {
+              case Some(Damage(1)) => Math.min(stats.numAttacks, other.curStats(board).defense.getOrElse(stats.numAttacks))
+              case _ => 1
+            }
+            Some(List.tabulate(attacks)(_ => Attack(piece.spec, other.spec)))
+          }
       }
     }
     val movementFromPath: Option[PlayerAction] = {
@@ -326,7 +335,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           None
       }
 
-    List(movement,attack,blink).flatten
+    movement.toList ++ attack.getOrElse(Nil) ++ blink.toList
   }
 
   def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, game: Game, board: BoardState, boardIdx: Int, undo: Boolean, ourSide: Option[Side]): Unit = {
@@ -668,13 +677,14 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                     }
                   }
                   //Otherwise, normal click-and-drag
-                else {
-                  curTarget.getLoc().foreach { curLoc =>
-                    val actions = dragPieceMouseUpActions(curTarget, curLoc, piece, board)
-                    if(actions.length > 0)
-                      mouseState.client.doActionOnCurBoard(PlayerActions(actions,makeActionId()))
+                  else {
+                    curTarget.getLoc().foreach { curLoc =>
+                      val actions = dragPieceMouseUpActions(curTarget, curLoc, piece, board)
+                      actions.foreach { action =>
+                        mouseState.client.doActionOnCurBoard(PlayerActions(List(action),makeActionId()))
+                      }
+                    }
                   }
-                }
                 }
             }
           }
