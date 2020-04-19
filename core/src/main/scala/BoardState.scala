@@ -532,7 +532,7 @@ case class BoardState private (
     spellsInHand(side).take(discardCount)
   }
 
-  private def gainStartOfTurnReinformcents() : Unit = {
+  private def gainStartOfTurnReinforcements() : Unit = {
     pieceById.values.foreach { piece =>
       if(piece.side == side) {
         val stats = piece.curStats(this)
@@ -556,7 +556,7 @@ case class BoardState private (
     hasUsedSpawnerTile = false
 
     //Gain any free pieces we're supposed to
-    gainStartOfTurnReinformcents()
+    gainStartOfTurnReinforcements()
 
     //Check for win conditions - start of turn at least 8 graveyards
     var startNumGraveyards = 0
