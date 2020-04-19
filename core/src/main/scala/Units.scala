@@ -615,6 +615,13 @@ object Units {
     shadowlord
   )
 
+  //Given a piece, get its index within the pieces array
+  val allPiecesIdx: Map[PieceName,Int] =
+    pieces.zipWithIndex.groupBy { case (piece,_) => piece.name }.mapValues { grouped =>
+      assert(grouped.length == 1)
+      grouped.head._2
+    }
+
   //Generally, we store and send the PieceName everywhere in the protocol, since unlike a PieceStats it's easily serialized.
   //This is the global map that everything uses to look up the stats again from the name.
   val pieceMap: Map[PieceName,PieceStats] = pieces.groupBy(piece => piece.name).mapValues { pieces =>

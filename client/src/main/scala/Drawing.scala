@@ -881,6 +881,24 @@ object Drawing {
 
       fillHex(hexLoc, fillColor, techScale, alpha=alpha)
       strokeHex(hexLoc, strokeColor, techScale, lineWidth=2.0, alpha=alpha)
+    }
+    for(i <- 0 until game.techLine.length) {
+      val techState = game.techLine(i)
+      val hexLoc = techLocs(i)
+      techState.tech match {
+        case PieceTech(pieceName) =>
+          if(board.canFreeBuyPiece(game.curSide,pieceName)) {
+            fillHex(hexLoc, "#ffee77", techScale, alpha=0.8)
+            strokeHex(hexLoc, "#ffdd11", techScale, lineWidth=4.0, alpha=0.8)
+          }
+        case _ => ()
+      }
+    }
+    for(i <- 0 until game.techLine.length) {
+      val techState = game.techLine(i)
+      val hexLoc = techLocs(i)
+      val changedThisTurn = Side.exists { side => techState.startingLevelThisTurn(side) != techState.level(side) }
+      val alpha = if(changedThisTurn) 0.5 else 1.0
 
       text(techState.shortDisplayName, PixelLoc.ofHexLoc(hexLoc, gridSize), "black", alpha=alpha)
       techState.techNumber.foreach { techNumber =>
@@ -1288,7 +1306,7 @@ object Drawing {
 
     def highlightUndoneGeneralAction(action: GeneralBoardAction): Unit = {
       action match {
-        case BuyReinforcement(pieceName) =>
+        case BuyReinforcement(pieceName,_) =>
           ui.Reinforcements.getHexLocsAndContents(board.side,board).foreach { case (hexLoc,name,_) =>
             if(name == pieceName)
               strokeHex(hexLoc, "black", tileScale, alpha=0.5)

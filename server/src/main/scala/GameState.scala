@@ -374,9 +374,18 @@ case class GameState (
                 case BuyReinforcementUndo(pieceName,_) =>
                   //Check ahead of time if it's legal
                   boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
-                    //And if so, go ahead and recover the cost of the unit
-                    val gameAction: GameAction = UnpayForReinforcement(side,pieceName)
-                    performAndBroadcastGameActionIfLegal(gameAction)
+                    boards(boardIdx).findBuyReinforcementUndoAction(pieceName) match {
+                      case None => Failure(new Exception("BUG? Could not find buy reinforcement action that would be undone"))
+                      case Some(BuyReinforcement(_,free)) =>
+                        if(free) Success(())
+                        else {
+                          //And if so, go ahead and recover the cost of the unit
+                          val gameAction: GameAction = UnpayForReinforcement(side,pieceName)
+                          performAndBroadcastGameActionIfLegal(gameAction)
+                        }
+                      case Some(_)=>
+                        Failure(new Exception("BUG? Buy reinforcement action that would be undone is wrong type"))
+                    }
                   }
                 case GainSpellUndo(spellId,_) =>
                   //Check ahead of time if it's legal
@@ -387,10 +396,16 @@ case class GameState (
                   }
                 case DoGeneralBoardAction(generalBoardAction,_) =>
                   generalBoardAction match {
-                    case BuyReinforcement(pieceName) =>
-                      //Pay for the cost of the unit
-                      val gameAction: GameAction = PayForReinforcement(side,pieceName)
-                      performAndBroadcastGameActionIfLegal(gameAction)
+                    case BuyReinforcement(pieceName,free) =>
+                      //Check ahead of time if it's legal
+                      boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
+                        if(free) Success(())
+                        else {
+                          //Pay for the cost of the unit
+                          val gameAction: GameAction = PayForReinforcement(side,pieceName)
+                          performAndBroadcastGameActionIfLegal(gameAction)
+                        }
+                      }
                     case GainSpell(spellId) =>
                       //Check ahead of time if it's legal
                       boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>

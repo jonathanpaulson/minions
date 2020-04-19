@@ -175,7 +175,7 @@ sealed trait GeneralBoardAction {
   //Does this action involve buying the named piece?
   def involvesBuyPiece(pieceName: PieceName): Boolean = {
     this match {
-      case BuyReinforcement(name) => pieceName == name
+      case BuyReinforcement(name,_) => pieceName == name
       case GainSpell(_) => false
     }
   }
@@ -184,13 +184,13 @@ sealed trait GeneralBoardAction {
   def involvesGainSpell(spellId: SpellId): Boolean = {
     this match {
       case GainSpell(id) => spellId == id
-      case BuyReinforcement(_) => false
+      case BuyReinforcement(_,_) => false
     }
   }
 
 }
 
-case class BuyReinforcement(pieceName: PieceName) extends GeneralBoardAction
+case class BuyReinforcement(pieceName: PieceName, free: Boolean) extends GeneralBoardAction
 case class GainSpell(spellId: SpellId) extends GeneralBoardAction
 
 /** Tile:
@@ -298,6 +298,8 @@ object BoardState {
       numPiecesSpawnedThisTurnAt = Map(),
       killedThisTurn = Nil,
       unsummonedThisTurn = Nil,
+      allowedFreeBuyPieces = SideArray.create(Set[PieceName]()),
+      numFreeBuysAllowed = SideArray.create(0),
       turnNumber = 0,
       reinforcements = SideArray.create(Map()),
       spellsInHand = SideArray.create(Nil),
@@ -330,6 +332,65 @@ object BoardState {
 }
 import BoardState.Imports._
 
+//Stupid hack because the JSON library we use doesn't support case classes with more than 22 fields
+case class BoardStateFragment0 (
+  val tiles: Plane[Tile],
+  val startLocs: SideArray[Loc],
+  val pieces: Plane[List[Piece]],
+  var pieceById: Map[Int,Piece],
+  var nextPieceId: Int,
+  var piecesSpawnedThisTurn: Map[SpawnedThisTurn,Piece],
+  var numPiecesSpawnedThisTurnAt: Map[Loc,Int],
+  var killedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
+  var unsummonedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
+  var allowedFreeBuyPieces: SideArray[Set[PieceName]],
+  var numFreeBuysAllowed: SideArray[Int],
+  var turnNumber: Int
+)
+case class BoardStateFragment1 (
+  val reinforcements: SideArray[Map[PieceName,Int]],
+  val spellsInHand: SideArray[List[Int]],
+  var spellsPlayed: List[SpellPlayedInfo],
+  var mana: Int,
+  var hasUsedSpawnerTile: Boolean,
+  var side: Side,
+  var hasWon: Boolean,
+  var canMove: Boolean,
+  val soulsThisRound: SideArray[Int],
+  val totalSouls: SideArray[Int],
+  val totalCosts: SideArray[Int]
+)
+
+object BoardStateOfFragments {
+  def ofFragments(f0: BoardStateFragment0, f1: BoardStateFragment1) : BoardState = {
+    BoardState(
+      tiles = f0.tiles,
+      startLocs = f0.startLocs,
+      pieces = f0.pieces,
+      pieceById = f0.pieceById,
+      nextPieceId = f0.nextPieceId,
+      piecesSpawnedThisTurn = f0.piecesSpawnedThisTurn,
+      numPiecesSpawnedThisTurnAt = f0.numPiecesSpawnedThisTurnAt,
+      killedThisTurn = f0.killedThisTurn,
+      unsummonedThisTurn = f0.unsummonedThisTurn,
+      allowedFreeBuyPieces = f0.allowedFreeBuyPieces,
+      numFreeBuysAllowed = f0.numFreeBuysAllowed,
+      turnNumber = f0.turnNumber,
+      reinforcements = f1.reinforcements,
+      spellsInHand = f1.spellsInHand,
+      spellsPlayed = f1.spellsPlayed,
+      mana = f1.mana,
+      hasUsedSpawnerTile = f1.hasUsedSpawnerTile,
+      side = f1.side,
+      hasWon = f1.hasWon,
+      canMove = f1.canMove,
+      soulsThisRound = f1.soulsThisRound,
+      totalSouls = f1.totalSouls,
+      totalCosts = f1.totalCosts
+    )
+  }
+}
+
 case class BoardState private (
   //For convenience, we leave these fields exposed rather than making them private and
   //carefully wrapping them in a bunch of getters and setters. But users of BoardState
@@ -351,6 +412,10 @@ case class BoardState private (
   //Pieces killed this turn
   var killedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
   var unsummonedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
+
+  //This turn, a player is allowed to freely buy any of these pieces
+  var allowedFreeBuyPieces: SideArray[Set[PieceName]],
+  var numFreeBuysAllowed: SideArray[Int],
 
   //Number of turns completed
   var turnNumber: Int,
@@ -388,6 +453,38 @@ case class BoardState private (
   val ySize: Int = tiles.ySize
   val topology: PlaneTopology = tiles.topology
 
+  def toFragments() : (BoardStateFragment0,BoardStateFragment1) = {
+    (
+      BoardStateFragment0(
+        tiles = tiles,
+        startLocs = startLocs,
+        pieces = pieces,
+        pieceById = pieceById,
+        nextPieceId = nextPieceId,
+        piecesSpawnedThisTurn = piecesSpawnedThisTurn,
+        numPiecesSpawnedThisTurnAt = numPiecesSpawnedThisTurnAt,
+        killedThisTurn = killedThisTurn,
+        unsummonedThisTurn = unsummonedThisTurn,
+        allowedFreeBuyPieces = allowedFreeBuyPieces,
+        numFreeBuysAllowed = numFreeBuysAllowed,
+        turnNumber = turnNumber,
+      ),
+      BoardStateFragment1(
+        reinforcements = reinforcements,
+        spellsInHand = spellsInHand,
+        spellsPlayed = spellsPlayed,
+        mana = mana,
+        hasUsedSpawnerTile = hasUsedSpawnerTile,
+        side = side,
+        hasWon = hasWon,
+        canMove = canMove,
+        soulsThisRound = soulsThisRound,
+        totalSouls = totalSouls,
+        totalCosts = totalCosts
+      )
+    )
+  }
+
   def copy(): BoardState = {
     val newBoard = new BoardState(
       tiles = tiles.copy(),
@@ -399,6 +496,8 @@ case class BoardState private (
       numPiecesSpawnedThisTurnAt = numPiecesSpawnedThisTurnAt,
       killedThisTurn = killedThisTurn,
       unsummonedThisTurn = unsummonedThisTurn,
+      allowedFreeBuyPieces = allowedFreeBuyPieces.copy(),
+      numFreeBuysAllowed = numFreeBuysAllowed.copy(),
       turnNumber = turnNumber,
       reinforcements = reinforcements.copy(),
       spellsInHand = spellsInHand.copy(),
@@ -598,6 +697,29 @@ case class BoardState private (
         tile.copy(modsWithDuration = tile.modsWithDuration.flatMap(_.decay))
     }
 
+    //Automatically apply free buys of pieces - take the most expensive piece.
+    //Tiebreak by index in all pieces
+    while(numFreeBuysAllowed(side) > 0) {
+      var bestPieceName: Option[String] = None
+      var bestPieceCost: Int = -1
+      var bestPieceIdx: Int = -1
+      allowedFreeBuyPieces(side).foreach { pieceName =>
+        val cost = Units.pieceMap(pieceName).cost
+        val idx = Units.allPiecesIdx(pieceName)
+        if(cost > bestPieceCost || (cost == bestPieceCost && idx > bestPieceIdx)) {
+          bestPieceName = Some(pieceName)
+          bestPieceCost = cost
+          bestPieceIdx = idx
+        }
+      }
+      bestPieceName.foreach { pieceName =>
+        addReinforcementInternal(side,pieceName)
+      }
+      numFreeBuysAllowed(side) -= 1
+    }
+    allowedFreeBuyPieces(side) = Set()
+    numFreeBuysAllowed(side) = 0
+
     soulsThisRound(side) += newSouls
     totalSouls(side) += newSouls
 
@@ -611,6 +733,21 @@ case class BoardState private (
 
   //Reset the board to the starting position
   def resetBoard(necroNames: SideArray[PieceName], canMoveFirstTurn: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
+    //Keep a piece around though as a free buy
+    Side.foreach { side =>
+      numFreeBuysAllowed(side) = 1
+      allowedFreeBuyPieces(side) = Set()
+      pieceById.values.foreach { piece =>
+        if(piece.side == side && !piece.baseStats.isNecromancer)
+          allowedFreeBuyPieces(side) = allowedFreeBuyPieces(side) + piece.baseStats.name
+      }
+      reinforcements(side).foreach { case (name,count) =>
+        if(count > 0 && !Units.pieceMap(name).isNecromancer) {
+          allowedFreeBuyPieces(side) = allowedFreeBuyPieces(side) + name
+        }
+      }
+    }
+
     // Reset terrain and remove tile modifiers
     tiles.transform { tile => Tile(tile.startingTerrain) }
 
@@ -648,9 +785,11 @@ case class BoardState private (
 
   def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
     action match {
-      case BuyReinforcement(pieceName) =>
+      case BuyReinforcement(pieceName,free) =>
         if(!Units.pieceMap.contains(pieceName))
           Failure(new Exception("Bought reinforcement piece with unknown name: " + pieceName))
+        else if(free && !canFreeBuyPiece(side,pieceName))
+          Failure(new Exception("Cannot buy/carry-over this piece for free: " + pieceName))
         else
           Success(())
       case GainSpell(_) =>
@@ -658,15 +797,30 @@ case class BoardState private (
     }
   }
 
+  def canFreeBuyPiece(side: Side, pieceName: String) : Boolean = {
+    allowedFreeBuyPieces(side).contains(pieceName) && numFreeBuysAllowed(side) > 0
+  }
+  def couldFreeBuyPieceThisTurn(side: Side, pieceName: String) : Boolean = {
+    allowedFreeBuyPieces(side).contains(pieceName)
+  }
+
   //Perform a GeneralBoardAction.
   def doGeneralBoardAction(action: GeneralBoardAction): Unit = {
     action match {
-      case BuyReinforcement(pieceName) =>
+      case BuyReinforcement(pieceName,free) =>
         if(!Units.pieceMap.contains(pieceName))
           throw new Exception("Bought reinforcement piece with unknown name: " + pieceName)
-        addReinforcementInternal(side,pieceName)
-        val pieceStats = Units.pieceMap(pieceName)
-        totalCosts(side) = totalCosts(side) + pieceStats.cost
+        if(free && !canFreeBuyPiece(side,pieceName))
+          throw new Exception("Cannot buy/carry-over this piece for free: " + pieceName)
+        if(free) {
+          addReinforcementInternal(side,pieceName)
+          numFreeBuysAllowed(side) -= 1
+        }
+        else {
+          addReinforcementInternal(side,pieceName)
+          val pieceStats = Units.pieceMap(pieceName)
+          totalCosts(side) = totalCosts(side) + pieceStats.cost
+        }
 
       case GainSpell(spellId) =>
         spellsInHand(side) = spellsInHand(side) :+ spellId

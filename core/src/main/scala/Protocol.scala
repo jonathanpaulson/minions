@@ -77,6 +77,23 @@ object Protocol {
     JsArray(Array(JsString(variantName),jsValue))
   }
 
+  def readsFromTuple2[T](typeName: String, f:((JsValue,JsValue) => JsResult[T])): Reads[T] = {
+    new Reads[T]{
+      def fail(): JsResult[T] =
+        JsError("JSON pair expected when parsing " + typeName)
+      def reads(json: JsValue): JsResult[T] = json match {
+        case JsArray(arr) => {
+          if(arr.length != 2) fail()
+          else f(arr(0),arr(1))
+        }
+        case _ => fail()
+      }
+    }
+  }
+  def jsTuple2(jsValue0: JsValue, jsValue1: JsValue): JsValue = {
+    JsArray(Array(jsValue0,jsValue1))
+  }
+
   //CommonTypes.scala--------------------------------------------------------------------------------
   implicit val locFormat = Json.format[Loc]
   implicit val vecFormat = Json.format[Vec]
@@ -346,7 +363,29 @@ object Protocol {
   implicit val pieceFormat = Json.format[Piece]
 
   implicit val tileFormat = Json.format[Tile]
-  implicit val boardStateFormat = Json.format[BoardState]
+
+  implicit val boardStateFragment0Format = Json.format[BoardStateFragment0]
+  implicit val boardStateFragment1Format = Json.format[BoardStateFragment1]
+
+  implicit val boardStateFormat = {
+    val reads: Reads[BoardState] = readsFromTuple2[BoardState]("BoardState",((json0:JsValue,json1:JsValue) => {
+      val fragment0 : JsResult[BoardStateFragment0] = boardStateFragment0Format.reads(json0)
+      val fragment1 : JsResult[BoardStateFragment1] = boardStateFragment1Format.reads(json1)
+        (fragment0,fragment1) match {
+        case (err: JsError,_) => err
+        case (_,err: JsError) => err
+        case (f0: JsSuccess[BoardStateFragment0],f1: JsSuccess[BoardStateFragment1]) =>
+          JsSuccess(BoardStateOfFragments.ofFragments(f0.get,f1.get))
+      }
+    }))
+    val writes: Writes[BoardState] = new Writes[BoardState] {
+      def writes(t:BoardState): JsValue = {
+        val (fragment0,fragment1) = t.toFragments()
+        jsTuple2(boardStateFragment0Format.writes(fragment0),boardStateFragment1Format.writes(fragment1))
+      }
+    }
+    Format(reads,writes)
+  }
 
   //Board.scala--------------------------------------------------------------------------------
   implicit val playerActionsFormat = Json.format[PlayerActions]
