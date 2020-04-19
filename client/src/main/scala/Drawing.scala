@@ -516,6 +516,12 @@ object Drawing {
           if(stats.extraMana > 0) {
             show("Produces " + stats.extraMana + " mana/turn.")
           }
+          stats.perTurnReinforcement match {
+            case None => ()
+            case Some(pieceName) =>
+              show("Produces free " + Units.pieceMap(pieceName).displayName + " per turn.")
+          }
+
           stats.abilities.foreach { case (_,ability) =>
             show("")
             show("Ability (sorcery): " + ability.displayName)

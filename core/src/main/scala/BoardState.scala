@@ -532,6 +532,43 @@ case class BoardState private (
     spellsInHand(side).take(discardCount)
   }
 
+  private def gainStartOfTurnReinforcements() : Unit = {
+    pieceById.values.foreach { piece =>
+      if(piece.side == side) {
+        val stats = piece.curStats(this)
+        stats.perTurnReinforcement.foreach { pieceName =>
+          addReinforcementInternal(side,pieceName)
+        }
+      }
+    }
+  }
+
+  private def handleStartOfTurn(): Unit = {
+    //Handle mana for the new turn
+    resetMana()
+
+    //Clear souls for the side to move, and other board state
+    soulsThisRound(side) = 0
+    piecesSpawnedThisTurn = Map()
+    numPiecesSpawnedThisTurnAt = Map()
+    killedThisTurn = Nil
+    unsummonedThisTurn = Nil
+    hasUsedSpawnerTile = false
+
+    //Gain any free pieces we're supposed to
+    gainStartOfTurnReinforcements()
+
+    //Check for win conditions - start of turn at least 8 graveyards
+    var startNumGraveyards = 0
+    tiles.foreachi { case (loc,tile) =>
+      if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
+        startNumGraveyards += 1
+    }
+    if(startNumGraveyards >= 8) {
+      hasWon = true
+    }
+  }
+
   //End the current turn and begin the next turn
   def endTurn(): Unit = {
     //Wailing units that attacked and have not been finished yet die
@@ -569,26 +606,7 @@ case class BoardState private (
     turnNumber += 1
     canMove = true
 
-    //Handle mana for the new turn
-    resetMana()
-
-    //Clear souls for the side to move, and other board state
-    soulsThisRound(side) = 0
-    piecesSpawnedThisTurn = Map()
-    numPiecesSpawnedThisTurnAt = Map()
-    killedThisTurn = Nil
-    unsummonedThisTurn = Nil
-    hasUsedSpawnerTile = false
-
-    //Check for win conditions - start of turn at least 8 graveyards
-    var startNumGraveyards = 0
-    tiles.foreachi { case (loc,tile) =>
-      if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
-        startNumGraveyards += 1
-    }
-    if(startNumGraveyards >= 8) {
-      hasWon = true
-    }
+    handleStartOfTurn()
   }
 
   //Reset the board to the starting position
@@ -625,8 +643,7 @@ case class BoardState private (
       }
     }
 
-    //Handle mana for the first turn
-    resetMana()
+    handleStartOfTurn()
   }
 
   def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
