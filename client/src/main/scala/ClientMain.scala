@@ -166,7 +166,7 @@ class Client() {
   def resetPlayers(playersAndViewedBoards: SideArray[List[(String,Int)]], spectators: List[String]): Unit = {
     def formatPlayerAndViewedBoard(p:(String,Int)): String = {
       if(numBoards > 1)
-        p._1 + "(board " + p._2 + ")"
+        p._1 + " (board " + (p._2+1) + ")"
       else
         p._1
     }
