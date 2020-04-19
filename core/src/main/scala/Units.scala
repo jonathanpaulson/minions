@@ -237,7 +237,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Unsummon),
-    defense = Some(7),
+    defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
