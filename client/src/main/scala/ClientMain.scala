@@ -163,9 +163,16 @@ class Client() {
     resetChat()
   }
 
-  def resetPlayers(players: SideArray[List[String]], spectators: List[String]): Unit = {
-    val blueMessage = "BLUE TEAM: " + players(S0).mkString(",")
-    val redMessage = "RED TEAM: " + players(S1).mkString(",")
+  def resetPlayers(playersAndViewedBoards: SideArray[List[(String,Int)]], spectators: List[String]): Unit = {
+    def formatPlayerAndViewedBoard(p:(String,Int)): String = {
+      if(numBoards > 1)
+        p._1 + " (board " + (p._2+1) + ")"
+      else
+        p._1
+    }
+
+    val blueMessage = "BLUE TEAM: " + playersAndViewedBoards(S0).map(formatPlayerAndViewedBoard).mkString(",")
+    val redMessage = "RED TEAM: " + playersAndViewedBoards(S1).map(formatPlayerAndViewedBoard).mkString(",")
     val spectatorMessage = "SPECTATORS: " + spectators.mkString(",")
 
     playersBox.value = ""
@@ -213,6 +220,10 @@ class Client() {
   var ui: Option[UI] = None
   //Mouse movement path state
   var mouseState: Option[MouseState] = None
+
+  //For reporting to the server the current viewed board
+  var curBoardIdxReportedToServer: Int = 0
+  var curBoardIdxReportPending: Boolean = false
 
   //Websocket connection!
   val connection = Connection(gameid, username,password,ourSide)
@@ -407,8 +418,8 @@ class Client() {
         updateTimeLeft()
         isPaused = newIsPaused
 
-      case Protocol.Players(players,spectators) =>
-        resetPlayers(players,spectators)
+      case Protocol.Players(playersAndViewedBoards,spectators) =>
+        resetPlayers(playersAndViewedBoards,spectators)
 
       case Protocol.Messages(all, team) =>
         if(all.length != allMessages.length)
@@ -462,6 +473,21 @@ class Client() {
     if(!gotFatalError) {
       //Send it directly to the server
       sendWebsocketQuery(Protocol.DoGameAction(action))
+    }
+  }
+
+  def reportCurBoard(): Unit = {
+    if(curBoardIdx != curBoardIdxReportedToServer && !curBoardIdxReportPending) {
+      curBoardIdxReportPending = true
+      //Basically, throttle how fast we report this
+      scala.scalajs.js.timers.setTimeout(500) {
+        if(curBoardIdx != curBoardIdxReportedToServer) {
+          curBoardIdxReportedToServer = curBoardIdx
+          sendWebsocketQuery(Protocol.ReportViewedBoard(curBoardIdx))
+        }
+        curBoardIdxReportPending = false
+      }
+      ()
     }
   }
 
@@ -558,6 +584,7 @@ class Client() {
       if(curBoardIdx > 0) {
         mouseState.foreach(_.clear())
         curBoardIdx -= 1
+        reportCurBoard()
         draw()
       }
     }
@@ -567,6 +594,7 @@ class Client() {
       if(curBoardIdx < numBoards - 1) {
         mouseState.foreach(_.clear())
         curBoardIdx += 1
+        reportCurBoard()
         draw()
       }
     }

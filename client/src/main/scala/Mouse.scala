@@ -478,6 +478,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           if(client.curBoardIdx < client.numBoards - 1) {
             mouseState.clear()
             client.curBoardIdx += 1
+            client.reportCurBoard()
             client.draw()
           }
         }
@@ -490,6 +491,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           if(client.curBoardIdx > 0) {
             mouseState.clear()
             client.curBoardIdx -= 1
+            client.reportCurBoard()
             client.draw()
           }
         }

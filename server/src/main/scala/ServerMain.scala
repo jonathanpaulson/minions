@@ -156,7 +156,7 @@ object ServerMain extends App {
                 case (e: JsError) => out ! Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
                 case (s: JsSuccess[Protocol.Query]) =>
                   val query = s.get
-                  state.handleQuery(query, out, state.userSides(sessionId), scheduleEndOfTurn)
+                  state.handleQuery(query, out, sessionId, scheduleEndOfTurn)
               }
           }
         }
