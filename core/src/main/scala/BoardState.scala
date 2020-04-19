@@ -662,8 +662,9 @@ case class BoardState private (
     unsummonedThisTurn = Nil
     hasUsedSpawnerTile = false
 
-    //Gain any free pieces we're supposed to
-    gainStartOfTurnReinforcements()
+    //Gain any free pieces we're supposed to, but only on turns we can actually play
+    if(!turnEndingImmediately && canMove)
+      gainStartOfTurnReinforcements()
 
     //Check for win conditions - start of turn at least 8 graveyards
     var startNumGraveyards = 0
