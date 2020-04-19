@@ -23,7 +23,7 @@ object Protocol {
   case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction, newBoardSequence: Int) extends Response
   case class ReportGameAction(gameAction: GameAction, newGameSequence: Int) extends Response
   case class ReportNewTurn(newSide: Side) extends Response
-  case class ReportResetBoard(boardIdx: Int, necroNames:SideArray[PieceName], canMove: Boolean, reinforcements: SideArray[Map[PieceName, Int]]) extends Response
+  case class ReportResetBoard(boardIdx: Int, necroNames:SideArray[PieceName], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, reinforcements: SideArray[Map[PieceName, Int]]) extends Response
   case class ReportRevealSpells(spellsIdsAndNames: Array[(Int,SpellName)]) extends Response
   case class ReportTimeLeft(timeLeft: Double) extends Response
   case class ReportPause(isPaused:Boolean) extends Response

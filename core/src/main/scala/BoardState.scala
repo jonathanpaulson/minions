@@ -309,6 +309,7 @@ object BoardState {
       side = S0,
       hasWon = false,
       canMove = false,
+      turnEndingImmediately = false,
       soulsThisRound = SideArray.create(0),
       totalSouls = SideArray.create(0),
       totalCosts = SideArray.create(0)
@@ -356,6 +357,7 @@ case class BoardStateFragment1 (
   var side: Side,
   var hasWon: Boolean,
   var canMove: Boolean,
+  var turnEndingImmediately: Boolean,
   val soulsThisRound: SideArray[Int],
   val totalSouls: SideArray[Int],
   val totalCosts: SideArray[Int]
@@ -384,6 +386,7 @@ object BoardStateOfFragments {
       side = f1.side,
       hasWon = f1.hasWon,
       canMove = f1.canMove,
+      turnEndingImmediately = f1.turnEndingImmediately,
       soulsThisRound = f1.soulsThisRound,
       totalSouls = f1.totalSouls,
       totalCosts = f1.totalCosts
@@ -440,6 +443,9 @@ case class BoardState private (
   // Is the player allowed to move this turn?
   // False for a turn immediately after a graveyard victory
   var canMove: Boolean,
+  //Set to true when a reset is happening that will be instantly followed by
+  //a turn end, so that we don't update certain things as if this was "really" a turn.
+  var turnEndingImmediately: Boolean,
 
   //Accumulated souls from spires and rebate for costs for units that died, this turn.
   //(Only clears at the beginning of a side's turn)
@@ -478,6 +484,7 @@ case class BoardState private (
         side = side,
         hasWon = hasWon,
         canMove = canMove,
+        turnEndingImmediately = turnEndingImmediately,
         soulsThisRound = soulsThisRound,
         totalSouls = totalSouls,
         totalCosts = totalCosts
@@ -507,6 +514,7 @@ case class BoardState private (
       side = side,
       hasWon = hasWon,
       canMove = canMove,
+      turnEndingImmediately = turnEndingImmediately,
       soulsThisRound = soulsThisRound.copy(),
       totalSouls = totalSouls.copy(),
       totalCosts = totalCosts.copy()
@@ -699,26 +707,30 @@ case class BoardState private (
 
     //Automatically apply free buys of pieces - take the most expensive piece.
     //Tiebreak by index in all pieces
-    while(numFreeBuysAllowed(side) > 0) {
-      var bestPieceName: Option[String] = None
-      var bestPieceCost: Int = -1
-      var bestPieceIdx: Int = -1
-      allowedFreeBuyPieces(side).foreach { pieceName =>
-        val cost = Units.pieceMap(pieceName).cost
-        val idx = Units.allPiecesIdx(pieceName)
-        if(cost > bestPieceCost || (cost == bestPieceCost && idx > bestPieceIdx)) {
-          bestPieceName = Some(pieceName)
-          bestPieceCost = cost
-          bestPieceIdx = idx
+    //We don't do this though if this is a turn end instantly after a reset, since
+    //there is no time for the player to have non-automatedly chosen what piece they want.
+    if(!turnEndingImmediately) {
+      while(numFreeBuysAllowed(side) > 0) {
+        var bestPieceName: Option[String] = None
+        var bestPieceCost: Int = -1
+        var bestPieceIdx: Int = -1
+        allowedFreeBuyPieces(side).foreach { pieceName =>
+          val cost = Units.pieceMap(pieceName).cost
+          val idx = Units.allPiecesIdx(pieceName)
+          if(cost > bestPieceCost || (cost == bestPieceCost && idx > bestPieceIdx)) {
+            bestPieceName = Some(pieceName)
+            bestPieceCost = cost
+            bestPieceIdx = idx
+          }
         }
+        bestPieceName.foreach { pieceName =>
+          addReinforcementInternal(side,pieceName)
+        }
+        numFreeBuysAllowed(side) -= 1
       }
-      bestPieceName.foreach { pieceName =>
-        addReinforcementInternal(side,pieceName)
-      }
-      numFreeBuysAllowed(side) -= 1
+      allowedFreeBuyPieces(side) = Set()
+      numFreeBuysAllowed(side) = 0
     }
-    allowedFreeBuyPieces(side) = Set()
-    numFreeBuysAllowed(side) = 0
 
     soulsThisRound(side) += newSouls
     totalSouls(side) += newSouls
@@ -727,16 +739,18 @@ case class BoardState private (
     side = side.opp
     turnNumber += 1
     canMove = true
+    turnEndingImmediately = false
 
     handleStartOfTurn()
   }
 
   //Reset the board to the starting position
-  def resetBoard(necroNames: SideArray[PieceName], canMoveFirstTurn: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
+  def resetBoard(necroNames: SideArray[PieceName], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
     //Keep a piece around though as a free buy
     Side.foreach { side =>
       numFreeBuysAllowed(side) = 1
-      allowedFreeBuyPieces(side) = Set()
+      //We do NOT do clear allowedFreeBuyPieces(side) so that if somehow the board is resetting while
+      //the player had free buys left over previously, they still get to choose those now.
       pieceById.values.foreach { piece =>
         if(piece.side == side && !piece.baseStats.isNecromancer)
           allowedFreeBuyPieces(side) = allowedFreeBuyPieces(side) + piece.baseStats.name
@@ -766,6 +780,7 @@ case class BoardState private (
     //Unset win flag
     hasWon = false
     canMove = canMoveFirstTurn
+    turnEndingImmediately = turnEndingImmediatelyAfterReset
 
     //Set up initial pieces
     Side.foreach { side =>

@@ -141,7 +141,7 @@ case class GameState (
     }
   }
 
-  private def doResetBoard(boardIdx: Int, canMoveFirstTurn: Boolean): Unit = {
+  private def doResetBoard(boardIdx: Int, canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean): Unit = {
     // TODO: Another matter is how exactly you get your advanced Necromancer. The draw 3 choose 1 system is what we're using now, but large numbers of boards + Swarm being active can cause weird edge cases here (in 4 boards with a Swarm active, you only have your old Captain left to choose, rather degenerately)
     // TODO: Pick a unit to keep on reset
     Side.foreach { side =>
@@ -152,9 +152,9 @@ case class GameState (
     Side.foreach { side =>
       specialNecrosRemaining(side) = specialNecrosRemaining(side).tail
     }
-    val reinforcements = SideArray.create(Map())
-    boards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, reinforcements)
-    broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMoveFirstTurn, reinforcements))
+    val reinforcements = SideArray.create(Map[PieceName,Int]())
+    boards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements)
+    broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements))
   }
 
   private def maybeDoEndOfTurn(scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
@@ -239,7 +239,7 @@ case class GameState (
       if(board.curState.hasWon) {
         doAddWin(oldSide,boardIdx)
         if(game.winner.isEmpty) {
-          doResetBoard(boardIdx, canMoveFirstTurn = true)
+          doResetBoard(boardIdx, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = true)
         }
       }
     }
@@ -286,13 +286,14 @@ case class GameState (
 
     refillUpcomingSpells()
 
+    //Win at start of turn due to graveyards
     for(boardIdx <- 0 until boards.length) {
       val board = boards(boardIdx)
       if(board.curState.hasWon) {
         if(game.winner.isEmpty) {
           doAddWin(newSide,boardIdx)
           if(game.winner.isEmpty) {
-            doResetBoard(boardIdx, canMoveFirstTurn = false)
+            doResetBoard(boardIdx, canMoveFirstTurn = false, turnEndingImmediatelyAfterReset = false)
           }
         }
       }
@@ -453,7 +454,7 @@ case class GameState (
                   //Check ahead of time if it's legal
                   game.tryIsLegal(gameAction).map { case () =>
                     //And if so, reset the board
-                    doResetBoard(boardIdx, canMoveFirstTurn = true)
+                    doResetBoard(boardIdx, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false)
                     allMessages = allMessages :+ ("GAME: Team " + game.curSide.toColorName + " resigned board " + (boardIdx+1) + "!")
                     broadcastMessages()
                   }
@@ -640,7 +641,7 @@ object GameState {
       val boardsAndNames = chosenMaps.toArray.map { case (boardName, map) =>
         val state = map()
         val necroNames = SideArray.create(Units.necromancer.name)
-        state.resetBoard(necroNames, true, SideArray.create(Map()))
+        state.resetBoard(necroNames, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false, SideArray.create(Map()))
 
         //Testing
         {
