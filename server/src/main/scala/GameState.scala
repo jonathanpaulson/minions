@@ -65,6 +65,7 @@ case class GameState (
   var usernameOfSession: Map[Int,String] = Map()
   var userSides: Map[Int,Option[Side]] = Map()
   var userOuts: Map[Int,ActorRef] = Map()
+  var userBoardViewed: Map[Int,Int] = Map()
 
   val spellRands = SideArray.createTwo(
     Rand(RandUtils.sha256Long(randSeed + "#spell0")),
@@ -91,18 +92,18 @@ case class GameState (
   }
   def broadcastPlayers(): Unit = {
     var spectators = List[String]()
-    val players = SideArray.create(List[String]())
+    val playersAndViewedBoards = SideArray.create(List[(String,Int)]())
 
     userSides.foreach { case (sid, side) =>
       val username = usernameOfSession(sid)
       side match {
         case None => spectators = spectators :+ username
-        case Some(side) => players(side) = players(side) :+ username
+        case Some(side) => playersAndViewedBoards(side) = playersAndViewedBoards(side) :+ ((username,userBoardViewed(sid)))
       }
     }
-    broadcastToSide(Protocol.Players(players,spectators),S0)
-    broadcastToSide(Protocol.Players(players,spectators),S1)
-    broadcastToSpectators(Protocol.Players(players,spectators))
+    broadcastToSide(Protocol.Players(playersAndViewedBoards,spectators),S0)
+    broadcastToSide(Protocol.Players(playersAndViewedBoards,spectators),S1)
+    broadcastToSpectators(Protocol.Players(playersAndViewedBoards,spectators))
   }
   def broadcastMessages(): Unit = {
     broadcastToSide(Protocol.Messages(allMessages, teamMessages(S0)), S0)
@@ -323,12 +324,22 @@ case class GameState (
     broadcastMessages()
   }
 
-  def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side], scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
+  private def changeUserBoardViewed(sessionId: Int, boardIdx: Int): Unit = {
+    if(userBoardViewed(sessionId) != boardIdx) {
+      userBoardViewed = userBoardViewed.updated(sessionId,boardIdx)
+      broadcastPlayers()
+    }
+  }
+
+  def handleQuery(query: Protocol.Query, out: ActorRef, sessionId: Int, scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
+    val side = userSides(sessionId)
     query match {
       case Protocol.Heartbeat(i) =>
         out ! Protocol.OkHeartbeat(i)
       case Protocol.RequestPause(newIsPaused) =>
         scheduleEndOfTurn(Pause(newIsPaused))
+      case Protocol.ReportViewedBoard(boardIdx) =>
+        changeUserBoardViewed(sessionId,boardIdx)
       case Protocol.RequestBoardHistory(boardIdx) =>
         if(boardIdx < 0 || boardIdx >= numBoards)
           out ! Protocol.QueryError("Invalid boardIdx")
@@ -353,6 +364,7 @@ case class GameState (
             else if(boards(boardIdx).curState().side != side)
               out ! Protocol.QueryError("Currently the other team's turn")
             else {
+              changeUserBoardViewed(sessionId,boardIdx)
               //Some board actions are special and are meant to be server -> client only, or need extra checks
               val specialResult: Try[Unit] = boardAction match {
                 case (_: PlayerActions) => Success(())
@@ -482,6 +494,7 @@ case class GameState (
       usernameOfSession = usernameOfSession + (sessionId -> username)
       userSides = userSides + (sessionId -> side)
       userOuts = userOuts + (sessionId -> out)
+      userBoardViewed = userBoardViewed + (sessionId -> 0)
 
       out ! Protocol.Version(CurrentVersion.version)
       out ! Protocol.ClientHeartbeatRate(periodInSeconds=clientHeartbeatPeriodInSeconds)
@@ -510,6 +523,7 @@ case class GameState (
       usernameOfSession = usernameOfSession - sessionId
       userSides = userSides - sessionId
       userOuts = userOuts - sessionId
+      userBoardViewed = userBoardViewed - sessionId
       terminateWebsocket(out)
       Log.log("UserLeft: " + username + " Side: " + side)
       broadcastAll(Protocol.UserLeft(username,side))

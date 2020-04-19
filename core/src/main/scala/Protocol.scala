@@ -11,7 +11,7 @@ object Protocol {
   case class Version(version: String) extends Response
   case class QueryError(err: String) extends Response
   case class Messages(all: List[String], team: List[String]) extends Response
-  case class Players(players: SideArray[List[String]], spectators: List[String]) extends Response
+  case class Players(playersAndViewedBoards: SideArray[List[(String,Int)]], spectators: List[String]) extends Response
   case class ClientHeartbeatRate(periodInSeconds: Double) extends Response
   case class OkHeartbeat(i: Int) extends Response
   case class Initialize(game: Game, summaries: Array[BoardSummary], boardNames: Array[String], boardSequences: Array[Int]) extends Response
@@ -35,6 +35,7 @@ object Protocol {
   case class DoGameAction(gameAction: GameAction) extends Query
   case class Chat(username: String, side: Option[Side], allChat: Boolean, message: String) extends Query
   case class RequestPause(isPaused:Boolean) extends Query
+  case class ReportViewedBoard(boardIdx: Int) extends Query
 
   //Conversions----------------------------------------------------
   def readsFromString[T](typeName: String)(f: String => T): Reads[T] = {
@@ -541,6 +542,7 @@ object Protocol {
   implicit val doGameActionFormat = Json.format[DoGameAction]
   implicit val chatFormat = Json.format[Chat]
   implicit val requestPauseFormat = Json.format[RequestPause]
+  implicit val reportViewedBoardFormat = Json.format[ReportViewedBoard]
   implicit val queryFormat = {
     val reads: Reads[Query] = readsFromPair[Query]("Query",Map(
       "Heartbeat" -> ((json:JsValue) => heartbeatFormat.reads(json)),
@@ -548,7 +550,8 @@ object Protocol {
       "DoBoardAction" -> ((json:JsValue) => doBoardActionFormat.reads(json)),
       "DoGameAction" -> ((json:JsValue) => doGameActionFormat.reads(json)),
       "Chat" -> ((json:JsValue) => chatFormat.reads(json)),
-      "RequestPause" -> ((json:JsValue) => requestPauseFormat.reads(json))
+      "RequestPause" -> ((json:JsValue) => requestPauseFormat.reads(json)),
+      "ReportViewedBoard" -> ((json:JsValue) => reportViewedBoardFormat.reads(json))
     ))
     val writes: Writes[Query] = new Writes[Query] {
       def writes(t: Query): JsValue = t match {
@@ -558,6 +561,7 @@ object Protocol {
         case (t:DoGameAction) => jsPair("DoGameAction",doGameActionFormat.writes(t))
         case (t:Chat) => jsPair("Chat", chatFormat.writes(t))
         case (t:RequestPause) => jsPair("RequestPause", requestPauseFormat.writes(t))
+        case (t:ReportViewedBoard) => jsPair("ReportViewedBoard", reportViewedBoardFormat.writes(t))
       }
     }
     Format(reads,writes)
