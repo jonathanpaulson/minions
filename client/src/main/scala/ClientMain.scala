@@ -379,8 +379,8 @@ class Client() {
         serverActionSequence(boardIdx) = Vector()
         resetLocalBoards(boardIdx)
 
-      case Protocol.ReportResetBoard(boardIdx,necroNames, canMove, reinforcements) =>
-        serverBoards(boardIdx).resetBoard(necroNames, canMove, reinforcements)
+      case Protocol.ReportResetBoard(boardIdx,necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements) =>
+        serverBoards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements)
         resetLocalBoards(boardIdx)
 
       case Protocol.ReportNewTurn(newSide) =>
