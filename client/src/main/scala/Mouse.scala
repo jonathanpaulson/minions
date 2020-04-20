@@ -478,6 +478,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           if(client.curBoardIdx < client.numBoards - 1) {
             mouseState.clear()
             client.curBoardIdx += 1
+            client.reportCurBoard()
             client.draw()
           }
         }
@@ -490,6 +491,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
           if(client.curBoardIdx > 0) {
             mouseState.clear()
             client.curBoardIdx -= 1
+            client.reportCurBoard()
             client.draw()
           }
         }
@@ -509,21 +511,48 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                     mouseState.client.doGameAction(UnsellTech(game.curSide))
                 }
               case _ =>
-                mouseState.client.doGameAction(UndoTech(game.curSide,techIdx))
+                if(techState.level(game.curSide) != techState.startingLevelThisTurn(game.curSide)) {
+                  mouseState.client.doGameAction(UndoTech(game.curSide,techIdx))
+                }
+                else {
+                  //Possibly attempt to undo any free-bought piece, just in case somehow we free-bought a piece
+                  //that we don't have tech for
+                  techState.tech match {
+                    case PieceTech(pieceName) =>
+                      if(board.couldFreeBuyPieceThisTurn(game.curSide,pieceName))
+                        mouseState.client.doActionOnCurBoard(BuyReinforcementUndo(pieceName,makeActionId()))
+                    case _ => ()
+                  }
+                }
             }
           }
           else {
-            techState.level(game.curSide) match {
-              case TechLocked | TechUnlocked =>
-                mouseState.client.doGameAction(PerformTech(game.curSide,techIdx))
-              case TechAcquired =>
-                techState.tech match {
-                  case PieceTech(pieceName) =>
-                    mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(BuyReinforcement(pieceName),makeActionId()))
-                  case Copycat | Metamagic => ()
-                  case TechSeller =>
-                    mouseState.client.doGameAction(SellTech(game.curSide))
+            val freeBuyingPiece: Option[PieceName] = {
+              techState.tech match {
+                case PieceTech(pieceName) =>
+                  if(board.canFreeBuyPiece(game.curSide,pieceName))
+                    Some(pieceName)
+                  else
+                    None
+                case _ => None
+              }
+            }
+            freeBuyingPiece match {
+              case Some(pieceName) =>
+                mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(BuyReinforcement(pieceName,free=true),makeActionId()))
+              case None =>
+                techState.level(game.curSide) match {
+                  case TechLocked | TechUnlocked =>
+                    mouseState.client.doGameAction(PerformTech(game.curSide,techIdx))
+                  case TechAcquired =>
+                    techState.tech match {
+                      case PieceTech(pieceName) =>
+                        mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(BuyReinforcement(pieceName,free=false),makeActionId()))
+                      case Copycat | Metamagic => ()
+                      case TechSeller =>
+                        mouseState.client.doGameAction(SellTech(game.curSide))
 
+                    }
                 }
             }
           }

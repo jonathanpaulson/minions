@@ -28,6 +28,7 @@ object Units {
     extraSouls : Int = 0,
     extraMana : Int = 0,
     deathSpawn : Option[PieceName] = None,
+    perTurnReinforcement : Option[PieceName] = None,
     abilities : List[PieceAbility] = List.empty,
   ) : PieceStats = {
     PieceStats(
@@ -56,6 +57,7 @@ object Units {
       extraSouls = extraSouls,
       extraMana = extraMana,
       deathSpawn = deathSpawn,
+      perTurnReinforcement = perTurnReinforcement,
       abilities = abilities.map { ability => (ability.name -> ability) }.toMap
     )
   }
@@ -224,6 +226,23 @@ object Units {
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(2),
+  )
+
+  val zombie_necromancer = createPieceStats(
+    name = "zombie_necromancer",
+    shortDisplayName = "ZomNec",
+    displayName = "Zombie Necromancer",
+    cost = 0,
+    rebate = 0,
+    moveRange = 1,
+    attackRange = 1,
+    attackEffect = Some(Unsummon),
+    defense = Some(10),
+    spawnRange = Some(1),
+    isPersistent = true,
+    isNecromancer = true,
+    extraSouls = 3,
+    perTurnReinforcement = Some(zombie.name)
   )
 
   val acolyte = createPieceStats(
@@ -539,6 +558,7 @@ object Units {
     deadly_necromancer,
     battle_necromancer,
     mana_necromancer,
+    zombie_necromancer,
     //swarm_necromancer,
     //summoner_necromancer,
     zombie, acolyte, spire,
@@ -556,6 +576,7 @@ object Units {
     deadly_necromancer,
     battle_necromancer,
     mana_necromancer,
+    zombie_necromancer,
     //swarm_necromancer,
     //summoner_necromancer,
   )
@@ -593,6 +614,13 @@ object Units {
     fallen_angel,
     shadowlord
   )
+
+  //Given a piece, get its index within the pieces array
+  val allPiecesIdx: Map[PieceName,Int] =
+    pieces.zipWithIndex.groupBy { case (piece,_) => piece.name }.mapValues { grouped =>
+      assert(grouped.length == 1)
+      grouped.head._2
+    }
 
   //Generally, we store and send the PieceName everywhere in the protocol, since unlike a PieceStats it's easily serialized.
   //This is the global map that everything uses to look up the stats again from the name.

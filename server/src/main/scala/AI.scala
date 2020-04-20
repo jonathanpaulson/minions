@@ -69,8 +69,13 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
         var keepBuying = true
         while(keepBuying && !unlockedUnits.isEmpty) {
           val chosenUnit = unlockedUnits(aiRand.nextInt(unlockedUnits.length))
-          if(game.game.souls(S1) >= chosenUnit.cost) {
-            out ! Protocol.DoBoardAction(0, DoGeneralBoardAction(BuyReinforcement(chosenUnit.name), makeActionId()))
+          if(game.boards(0).curState.canFreeBuyPiece(S1,chosenUnit.name)) {
+            out ! Protocol.DoBoardAction(0, DoGeneralBoardAction(BuyReinforcement(chosenUnit.name,free=true), makeActionId()))
+            Thread.sleep(100)
+            keepBuying = true
+          }
+          else if(game.game.souls(S1) >= chosenUnit.cost) {
+            out ! Protocol.DoBoardAction(0, DoGeneralBoardAction(BuyReinforcement(chosenUnit.name,free=false), makeActionId()))
             Thread.sleep(100)
             keepBuying = true
           } else {

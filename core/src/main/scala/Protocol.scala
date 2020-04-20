@@ -11,7 +11,7 @@ object Protocol {
   case class Version(version: String) extends Response
   case class QueryError(err: String) extends Response
   case class Messages(all: List[String], team: List[String]) extends Response
-  case class Players(players: SideArray[List[String]], spectators: List[String]) extends Response
+  case class Players(playersAndViewedBoards: SideArray[List[(String,Int)]], spectators: List[String]) extends Response
   case class ClientHeartbeatRate(periodInSeconds: Double) extends Response
   case class OkHeartbeat(i: Int) extends Response
   case class Initialize(game: Game, summaries: Array[BoardSummary], boardNames: Array[String], boardSequences: Array[Int]) extends Response
@@ -23,7 +23,7 @@ object Protocol {
   case class ReportBoardAction(boardIdx: Int, boardAction: BoardAction, newBoardSequence: Int) extends Response
   case class ReportGameAction(gameAction: GameAction, newGameSequence: Int) extends Response
   case class ReportNewTurn(newSide: Side) extends Response
-  case class ReportResetBoard(boardIdx: Int, necroNames:SideArray[PieceName], canMove: Boolean, reinforcements: SideArray[Map[PieceName, Int]]) extends Response
+  case class ReportResetBoard(boardIdx: Int, necroNames:SideArray[PieceName], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, reinforcements: SideArray[Map[PieceName, Int]]) extends Response
   case class ReportRevealSpells(spellsIdsAndNames: Array[(Int,SpellName)]) extends Response
   case class ReportTimeLeft(timeLeft: Double) extends Response
   case class ReportPause(isPaused:Boolean) extends Response
@@ -35,6 +35,7 @@ object Protocol {
   case class DoGameAction(gameAction: GameAction) extends Query
   case class Chat(username: String, side: Option[Side], allChat: Boolean, message: String) extends Query
   case class RequestPause(isPaused:Boolean) extends Query
+  case class ReportViewedBoard(boardIdx: Int) extends Query
 
   //Conversions----------------------------------------------------
   def readsFromString[T](typeName: String)(f: String => T): Reads[T] = {
@@ -74,6 +75,23 @@ object Protocol {
   }
   def jsPair(variantName: String, jsValue: JsValue): JsValue = {
     JsArray(Array(JsString(variantName),jsValue))
+  }
+
+  def readsFromTuple2[T](typeName: String, f:((JsValue,JsValue) => JsResult[T])): Reads[T] = {
+    new Reads[T]{
+      def fail(): JsResult[T] =
+        JsError("JSON pair expected when parsing " + typeName)
+      def reads(json: JsValue): JsResult[T] = json match {
+        case JsArray(arr) => {
+          if(arr.length != 2) fail()
+          else f(arr(0),arr(1))
+        }
+        case _ => fail()
+      }
+    }
+  }
+  def jsTuple2(jsValue0: JsValue, jsValue1: JsValue): JsValue = {
+    JsArray(Array(jsValue0,jsValue1))
   }
 
   //CommonTypes.scala--------------------------------------------------------------------------------
@@ -345,7 +363,29 @@ object Protocol {
   implicit val pieceFormat = Json.format[Piece]
 
   implicit val tileFormat = Json.format[Tile]
-  implicit val boardStateFormat = Json.format[BoardState]
+
+  implicit val boardStateFragment0Format = Json.format[BoardStateFragment0]
+  implicit val boardStateFragment1Format = Json.format[BoardStateFragment1]
+
+  implicit val boardStateFormat = {
+    val reads: Reads[BoardState] = readsFromTuple2[BoardState]("BoardState",((json0:JsValue,json1:JsValue) => {
+      val fragment0 : JsResult[BoardStateFragment0] = boardStateFragment0Format.reads(json0)
+      val fragment1 : JsResult[BoardStateFragment1] = boardStateFragment1Format.reads(json1)
+        (fragment0,fragment1) match {
+        case (err: JsError,_) => err
+        case (_,err: JsError) => err
+        case (f0: JsSuccess[BoardStateFragment0],f1: JsSuccess[BoardStateFragment1]) =>
+          JsSuccess(BoardStateOfFragments.ofFragments(f0.get,f1.get))
+      }
+    }))
+    val writes: Writes[BoardState] = new Writes[BoardState] {
+      def writes(t:BoardState): JsValue = {
+        val (fragment0,fragment1) = t.toFragments()
+        jsTuple2(boardStateFragment0Format.writes(fragment0),boardStateFragment1Format.writes(fragment1))
+      }
+    }
+    Format(reads,writes)
+  }
 
   //Board.scala--------------------------------------------------------------------------------
   implicit val playerActionsFormat = Json.format[PlayerActions]
@@ -541,6 +581,7 @@ object Protocol {
   implicit val doGameActionFormat = Json.format[DoGameAction]
   implicit val chatFormat = Json.format[Chat]
   implicit val requestPauseFormat = Json.format[RequestPause]
+  implicit val reportViewedBoardFormat = Json.format[ReportViewedBoard]
   implicit val queryFormat = {
     val reads: Reads[Query] = readsFromPair[Query]("Query",Map(
       "Heartbeat" -> ((json:JsValue) => heartbeatFormat.reads(json)),
@@ -548,7 +589,8 @@ object Protocol {
       "DoBoardAction" -> ((json:JsValue) => doBoardActionFormat.reads(json)),
       "DoGameAction" -> ((json:JsValue) => doGameActionFormat.reads(json)),
       "Chat" -> ((json:JsValue) => chatFormat.reads(json)),
-      "RequestPause" -> ((json:JsValue) => requestPauseFormat.reads(json))
+      "RequestPause" -> ((json:JsValue) => requestPauseFormat.reads(json)),
+      "ReportViewedBoard" -> ((json:JsValue) => reportViewedBoardFormat.reads(json))
     ))
     val writes: Writes[Query] = new Writes[Query] {
       def writes(t: Query): JsValue = t match {
@@ -558,6 +600,7 @@ object Protocol {
         case (t:DoGameAction) => jsPair("DoGameAction",doGameActionFormat.writes(t))
         case (t:Chat) => jsPair("Chat", chatFormat.writes(t))
         case (t:RequestPause) => jsPair("RequestPause", requestPauseFormat.writes(t))
+        case (t:ReportViewedBoard) => jsPair("ReportViewedBoard", reportViewedBoardFormat.writes(t))
       }
     }
     Format(reads,writes)

@@ -65,6 +65,7 @@ case class GameState (
   var usernameOfSession: Map[Int,String] = Map()
   var userSides: Map[Int,Option[Side]] = Map()
   var userOuts: Map[Int,ActorRef] = Map()
+  var userBoardViewed: Map[Int,Int] = Map()
 
   val spellRands = SideArray.createTwo(
     Rand(RandUtils.sha256Long(randSeed + "#spell0")),
@@ -91,18 +92,18 @@ case class GameState (
   }
   def broadcastPlayers(): Unit = {
     var spectators = List[String]()
-    val players = SideArray.create(List[String]())
+    val playersAndViewedBoards = SideArray.create(List[(String,Int)]())
 
     userSides.foreach { case (sid, side) =>
       val username = usernameOfSession(sid)
       side match {
         case None => spectators = spectators :+ username
-        case Some(side) => players(side) = players(side) :+ username
+        case Some(side) => playersAndViewedBoards(side) = playersAndViewedBoards(side) :+ ((username,userBoardViewed(sid)))
       }
     }
-    broadcastToSide(Protocol.Players(players,spectators),S0)
-    broadcastToSide(Protocol.Players(players,spectators),S1)
-    broadcastToSpectators(Protocol.Players(players,spectators))
+    broadcastToSide(Protocol.Players(playersAndViewedBoards,spectators),S0)
+    broadcastToSide(Protocol.Players(playersAndViewedBoards,spectators),S1)
+    broadcastToSpectators(Protocol.Players(playersAndViewedBoards,spectators))
   }
   def broadcastMessages(): Unit = {
     broadcastToSide(Protocol.Messages(allMessages, teamMessages(S0)), S0)
@@ -140,7 +141,7 @@ case class GameState (
     }
   }
 
-  private def doResetBoard(boardIdx: Int, canMove: Boolean): Unit = {
+  private def doResetBoard(boardIdx: Int, canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean): Unit = {
     // TODO: Another matter is how exactly you get your advanced Necromancer. The draw 3 choose 1 system is what we're using now, but large numbers of boards + Swarm being active can cause weird edge cases here (in 4 boards with a Swarm active, you only have your old Captain left to choose, rather degenerately)
     // TODO: Pick a unit to keep on reset
     Side.foreach { side =>
@@ -151,20 +152,9 @@ case class GameState (
     Side.foreach { side =>
       specialNecrosRemaining(side) = specialNecrosRemaining(side).tail
     }
-    val reinforcements = SideArray.createFn({ side =>
-        val unlocked_initiate =
-          game.piecesAcquired(side).get(Units.initiate.name) match {
-            case None => false
-            case Some(techState) => techState.level(side) == TechAcquired
-          }
-        if(unlocked_initiate) {
-          Map(Units.initiate.name -> 1)
-        } else {
-          Map(Units.acolyte.name -> 1)
-        }
-    })
-    boards(boardIdx).resetBoard(necroNames, canMove, reinforcements)
-    broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMove, reinforcements))
+    val reinforcements = SideArray.create(Map[PieceName,Int]())
+    boards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements)
+    broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements))
   }
 
   private def maybeDoEndOfTurn(scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
@@ -243,12 +233,13 @@ case class GameState (
     }
 
     //Check win condition and reset boards as needed
+    //This happens BEFORE ending the turn so that the winner doesn't get all the souls on the won board.
     for(boardIdx <- 0 until boards.length) {
       val board = boards(boardIdx)
       if(board.curState.hasWon) {
         doAddWin(oldSide,boardIdx)
         if(game.winner.isEmpty) {
-          doResetBoard(boardIdx, true)
+          doResetBoard(boardIdx, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = true)
         }
       }
     }
@@ -292,21 +283,22 @@ case class GameState (
 
     game.endTurn()
     boards.foreach { board => board.endTurn() }
+    broadcastAll(Protocol.ReportNewTurn(newSide))
 
     refillUpcomingSpells()
 
+    //Win at start of turn due to graveyards
     for(boardIdx <- 0 until boards.length) {
       val board = boards(boardIdx)
       if(board.curState.hasWon) {
         if(game.winner.isEmpty) {
           doAddWin(newSide,boardIdx)
           if(game.winner.isEmpty) {
-            doResetBoard(boardIdx, false)
+            doResetBoard(boardIdx, canMoveFirstTurn = false, turnEndingImmediatelyAfterReset = false)
           }
         }
       }
     }
-    broadcastAll(Protocol.ReportNewTurn(newSide))
 
     //Schedule the next end of turn
     game.winner match {
@@ -323,12 +315,22 @@ case class GameState (
     broadcastMessages()
   }
 
-  def handleQuery(query: Protocol.Query, out: ActorRef, side: Option[Side], scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
+  private def changeUserBoardViewed(sessionId: Int, boardIdx: Int): Unit = {
+    if(userBoardViewed(sessionId) != boardIdx) {
+      userBoardViewed = userBoardViewed.updated(sessionId,boardIdx)
+      broadcastPlayers()
+    }
+  }
+
+  def handleQuery(query: Protocol.Query, out: ActorRef, sessionId: Int, scheduleEndOfTurn: ScheduleReason => Unit): Unit = {
+    val side = userSides(sessionId)
     query match {
       case Protocol.Heartbeat(i) =>
         out ! Protocol.OkHeartbeat(i)
       case Protocol.RequestPause(newIsPaused) =>
         scheduleEndOfTurn(Pause(newIsPaused))
+      case Protocol.ReportViewedBoard(boardIdx) =>
+        changeUserBoardViewed(sessionId,boardIdx)
       case Protocol.RequestBoardHistory(boardIdx) =>
         if(boardIdx < 0 || boardIdx >= numBoards)
           out ! Protocol.QueryError("Invalid boardIdx")
@@ -353,6 +355,7 @@ case class GameState (
             else if(boards(boardIdx).curState().side != side)
               out ! Protocol.QueryError("Currently the other team's turn")
             else {
+              changeUserBoardViewed(sessionId,boardIdx)
               //Some board actions are special and are meant to be server -> client only, or need extra checks
               val specialResult: Try[Unit] = boardAction match {
                 case (_: PlayerActions) => Success(())
@@ -362,9 +365,18 @@ case class GameState (
                 case BuyReinforcementUndo(pieceName,_) =>
                   //Check ahead of time if it's legal
                   boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
-                    //And if so, go ahead and recover the cost of the unit
-                    val gameAction: GameAction = UnpayForReinforcement(side,pieceName)
-                    performAndBroadcastGameActionIfLegal(gameAction)
+                    boards(boardIdx).findBuyReinforcementUndoAction(pieceName) match {
+                      case None => Failure(new Exception("BUG? Could not find buy reinforcement action that would be undone"))
+                      case Some(BuyReinforcement(_,free)) =>
+                        if(free) Success(())
+                        else {
+                          //And if so, go ahead and recover the cost of the unit
+                          val gameAction: GameAction = UnpayForReinforcement(side,pieceName)
+                          performAndBroadcastGameActionIfLegal(gameAction)
+                        }
+                      case Some(_)=>
+                        Failure(new Exception("BUG? Buy reinforcement action that would be undone is wrong type"))
+                    }
                   }
                 case GainSpellUndo(spellId,_) =>
                   //Check ahead of time if it's legal
@@ -375,10 +387,16 @@ case class GameState (
                   }
                 case DoGeneralBoardAction(generalBoardAction,_) =>
                   generalBoardAction match {
-                    case BuyReinforcement(pieceName) =>
-                      //Pay for the cost of the unit
-                      val gameAction: GameAction = PayForReinforcement(side,pieceName)
-                      performAndBroadcastGameActionIfLegal(gameAction)
+                    case BuyReinforcement(pieceName,free) =>
+                      //Check ahead of time if it's legal
+                      boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
+                        if(free) Success(())
+                        else {
+                          //Pay for the cost of the unit
+                          val gameAction: GameAction = PayForReinforcement(side,pieceName)
+                          performAndBroadcastGameActionIfLegal(gameAction)
+                        }
+                      }
                     case GainSpell(spellId) =>
                       //Check ahead of time if it's legal
                       boards(boardIdx).tryLegality(boardAction,externalInfo).flatMap { case () =>
@@ -436,7 +454,7 @@ case class GameState (
                   //Check ahead of time if it's legal
                   game.tryIsLegal(gameAction).map { case () =>
                     //And if so, reset the board
-                    doResetBoard(boardIdx, true)
+                    doResetBoard(boardIdx, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false)
                     allMessages = allMessages :+ ("GAME: Team " + game.curSide.toColorName + " resigned board " + (boardIdx+1) + "!")
                     broadcastMessages()
                   }
@@ -482,6 +500,7 @@ case class GameState (
       usernameOfSession = usernameOfSession + (sessionId -> username)
       userSides = userSides + (sessionId -> side)
       userOuts = userOuts + (sessionId -> out)
+      userBoardViewed = userBoardViewed + (sessionId -> 0)
 
       out ! Protocol.Version(CurrentVersion.version)
       out ! Protocol.ClientHeartbeatRate(periodInSeconds=clientHeartbeatPeriodInSeconds)
@@ -510,6 +529,7 @@ case class GameState (
       usernameOfSession = usernameOfSession - sessionId
       userSides = userSides - sessionId
       userOuts = userOuts - sessionId
+      userBoardViewed = userBoardViewed - sessionId
       terminateWebsocket(out)
       Log.log("UserLeft: " + username + " Side: " + side)
       broadcastAll(Protocol.UserLeft(username,side))
@@ -621,7 +641,7 @@ object GameState {
       val boardsAndNames = chosenMaps.toArray.map { case (boardName, map) =>
         val state = map()
         val necroNames = SideArray.create(Units.necromancer.name)
-        state.resetBoard(necroNames, true, SideArray.create(Map()))
+        state.resetBoard(necroNames, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false, SideArray.create(Map()))
 
         //Testing
         {
