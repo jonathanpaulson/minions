@@ -522,7 +522,7 @@ object Drawing {
               show("Produces free " + Units.pieceMap(pieceName).displayName + " per turn.")
           }
 
-          stats.abilities.foreach { case (_,ability) =>
+          stats.abilities.foreach { ability =>
             show("")
             show("Ability (sorcery): " + ability.displayName)
             ability.desc.foreach { line =>
