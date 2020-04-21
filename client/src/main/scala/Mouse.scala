@@ -631,7 +631,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                       val ability = pieceStats.abilities(abilityName)
                       val spec = piece.spec
                       ability match {
-                        case Suicide | SpawnZombies | KillAdjacent | (_:SelfEnchantAbility) =>
+                        case Suicide | SpawnZombies | KillAdjacent | NecroPickAbility | (_:SelfEnchantAbility) =>
                           val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.none))
                           mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions,makeActionId()))
                         case MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm =>

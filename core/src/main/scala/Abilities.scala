@@ -1,6 +1,18 @@
 package minionsgame.core
 import scala.util.{Try,Success,Failure}
 
+case object NecroPickAbility extends PieceAbility {
+  val name = "NecroPick"
+  val displayName = "Cycle"
+  val desc = List("Cycle through advanced necromancer options")
+  val isSorcery = false
+  val spawnPhaseOnly = false
+  val tryIsUsableNow = { (piece:Piece) =>
+    if(piece.hasMoved || piece.hasAttacked) Failure(new Exception("Undo move before picking necromancer"))
+    else Success(())
+  }
+}
+
 //For wailing units
 case object Suicide extends PieceAbility {
   val name = "suicide"
@@ -127,7 +139,7 @@ case object Abilities {
   val abilities = Array(
     Suicide,KillAdjacent,SpawnZombies,
     MoveEarthquake,MoveFlood,MoveWhirlwind,MoveFirestorm,MoveTerrain,
-    double_attack,range_two,move_three,airstrike
+    NecroPickAbility,double_attack,range_two,move_three,airstrike
   )
   val abilityMap: Map[String,PieceAbility] = abilities.map { ability => (ability.name -> ability) }.toMap
 }

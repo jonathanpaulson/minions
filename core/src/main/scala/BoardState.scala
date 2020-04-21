@@ -298,6 +298,7 @@ object BoardState {
       numPiecesSpawnedThisTurnAt = Map(),
       killedThisTurn = Nil,
       unsummonedThisTurn = Nil,
+      allowedNecros = SideArray.create(List[PieceName]()),
       allowedFreeBuyPieces = SideArray.create(Set[PieceName]()),
       numFreeBuysAllowed = SideArray.create(0),
       turnNumber = 0,
@@ -344,6 +345,7 @@ case class BoardStateFragment0 (
   var numPiecesSpawnedThisTurnAt: Map[Loc,Int],
   var killedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
   var unsummonedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
+  var allowedNecros: SideArray[List[PieceName]],
   var allowedFreeBuyPieces: SideArray[Set[PieceName]],
   var numFreeBuysAllowed: SideArray[Int],
   var turnNumber: Int
@@ -375,6 +377,7 @@ object BoardStateOfFragments {
       numPiecesSpawnedThisTurnAt = f0.numPiecesSpawnedThisTurnAt,
       killedThisTurn = f0.killedThisTurn,
       unsummonedThisTurn = f0.unsummonedThisTurn,
+      allowedNecros = f0.allowedNecros,
       allowedFreeBuyPieces = f0.allowedFreeBuyPieces,
       numFreeBuysAllowed = f0.numFreeBuysAllowed,
       turnNumber = f0.turnNumber,
@@ -416,6 +419,8 @@ case class BoardState private (
   var killedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
   var unsummonedThisTurn: List[(PieceSpec,PieceName,Side,Loc)],
 
+  // This turn, a player can choose from these necromancers
+  var allowedNecros: SideArray[List[PieceName]],
   //This turn, a player is allowed to freely buy any of these pieces
   var allowedFreeBuyPieces: SideArray[Set[PieceName]],
   var numFreeBuysAllowed: SideArray[Int],
@@ -471,6 +476,7 @@ case class BoardState private (
         numPiecesSpawnedThisTurnAt = numPiecesSpawnedThisTurnAt,
         killedThisTurn = killedThisTurn,
         unsummonedThisTurn = unsummonedThisTurn,
+        allowedNecros = allowedNecros,
         allowedFreeBuyPieces = allowedFreeBuyPieces,
         numFreeBuysAllowed = numFreeBuysAllowed,
         turnNumber = turnNumber,
@@ -503,6 +509,7 @@ case class BoardState private (
       numPiecesSpawnedThisTurnAt = numPiecesSpawnedThisTurnAt,
       killedThisTurn = killedThisTurn,
       unsummonedThisTurn = unsummonedThisTurn,
+      allowedNecros = allowedNecros.copy(),
       allowedFreeBuyPieces = allowedFreeBuyPieces.copy(),
       numFreeBuysAllowed = numFreeBuysAllowed.copy(),
       turnNumber = turnNumber,
@@ -731,6 +738,16 @@ case class BoardState private (
       }
       allowedFreeBuyPieces(side) = Set()
       numFreeBuysAllowed(side) = 0
+
+      // Can no longer rotate necromancers
+      if(canMove) {
+        allowedNecros(side) = List()
+        pieceById.values.foreach { piece =>
+          if(piece.side == side) {
+            piece.modsWithDuration = piece.modsWithDuration.filter(x => x.mod != PieceMods.NecroPick)
+          }
+        }
+      }
     }
 
     soulsThisRound(side) += newSouls
@@ -746,7 +763,7 @@ case class BoardState private (
   }
 
   //Reset the board to the starting position
-  def resetBoard(necroNames: SideArray[PieceName], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
+  def resetBoard(necroNames: SideArray[List[PieceName]], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
     //Keep a piece around though as a free buy
     Side.foreach { side =>
       numFreeBuysAllowed(side) = 1
@@ -761,6 +778,7 @@ case class BoardState private (
           allowedFreeBuyPieces(side) = allowedFreeBuyPieces(side) + name
         }
       }
+      allowedNecros(side) = necroNames(side)
     }
 
     // Reset terrain and remove tile modifiers
@@ -786,13 +804,21 @@ case class BoardState private (
     //Set up initial pieces
     Side.foreach { side =>
       val startLoc = startLocs(side)
-      val necroSwarmMax = Units.pieceMap(necroNames(side)).swarmMax
+      val necroName = necroNames(side)(0)
+      val necroSwarmMax = Units.pieceMap(necroName).swarmMax
       for(i <- 0 until necroSwarmMax) {
-        val (_: Try[Unit]) = spawnPieceInitial(side,necroNames(side),startLoc)
+        spawnPieceInitial(side,necroName,startLoc) match {
+          case Failure(_) => assertUnreachable()
+          case Success(piece) =>
+            if(allowedNecros(side).size > 1) {
+              val necroPick = PieceModWithDuration(PieceMods.NecroPick, turnsLeft=None)
+              piece.modsWithDuration = piece.modsWithDuration :+ necroPick
+            }
+        }
       }
 
       tiles.topology.forEachAdj(startLoc) { loc =>
-        val (_: Try[Unit]) = spawnPieceInitial(side,Units.zombie.name,loc)
+        val (_: Try[Piece]) = spawnPieceInitial(side,Units.zombie.name,loc)
       }
     }
 
@@ -844,13 +870,13 @@ case class BoardState private (
   }
 
   //Directly spawn a piece if it possible to do so. Exposed for use to set up initial boards.
-  def spawnPieceInitial(side: Side, pieceName: String, loc: Loc): Try[Unit] = {
+  def spawnPieceInitial(side: Side, pieceName: String, loc: Loc): Try[Piece] = {
     trySpawnIsLegal(side, pieceName, loc) match {
       case Failure(err) => Failure(err)
       case Success(()) =>
         val piece = spawnPieceInternal(side,pieceName,loc).get
         refreshPieceForStartOfTurn(piece)
-        Success(())
+        Success(piece)
     }
   }
 
@@ -1492,7 +1518,7 @@ case class BoardState private (
                 requireSuccess(ability.tryIsUsableNow(piece))
                 failIf(ability.isSorcery && mana + manaInHand(side,externalInfo) <= 0, "No mana (must first play cantrip or discard spell)")
                 ability match {
-                  case Suicide | SpawnZombies | (_:SelfEnchantAbility) => ()
+                  case Suicide | SpawnZombies | NecroPickAbility | (_:SelfEnchantAbility) => ()
                   case KillAdjacent =>
                     failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
                   case MoveTerrain | MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm  =>
@@ -1652,6 +1678,18 @@ case class BoardState private (
                 case Some(_: Piece) => ()
                 case None => ()
               }
+            }
+          case NecroPickAbility =>
+            assert(allowedNecros(piece.side).size > 1)
+            // FIXME remove all necromancers from board? from hex? would currently break with spawn necros.
+            removeFromBoard(piece)
+            val necroIdx = allowedNecros(piece.side).indexOf(piece.baseStats.name)
+            val newNecroName = allowedNecros(piece.side)((necroIdx+1)%allowedNecros(piece.side).size)
+            spawnPieceInitial(piece.side,newNecroName,piece.loc) match {
+              case Success(newNecro: Piece) =>
+                val necroPick = PieceModWithDuration(PieceMods.NecroPick, turnsLeft=None)
+                newNecro.modsWithDuration = newNecro.modsWithDuration :+ necroPick
+              case Failure(_) => assertUnreachable()
             }
           case KillAdjacent =>
             pieces.topology.forEachAdj(piece.loc) { loc =>

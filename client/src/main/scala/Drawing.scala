@@ -524,7 +524,7 @@ object Drawing {
 
           stats.abilities.foreach { case (_,ability) =>
             show("")
-            show("Ability (sorcery): " + ability.displayName)
+            show("Ability " + (if(ability.isSorcery) "(sorcery)" else "") + ": " + ability.displayName)
             ability.desc.foreach { line =>
               show(line)
             }
