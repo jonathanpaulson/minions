@@ -165,7 +165,7 @@ object PieceMods {
     def apply(pieceStats : PieceStats): PieceStats = {
       pieceStats.copy(
         isBaseStats = false,
-        abilities = pieceStats.abilities + (NecroPickAbility.name -> NecroPickAbility)
+        abilities = pieceStats.abilities :+ NecroPickAbility
       )
     }
   }
