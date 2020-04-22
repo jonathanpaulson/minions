@@ -171,8 +171,8 @@ class Client() {
         p._1
     }
 
-    val blueMessage = "BLUE TEAM: " + playersAndViewedBoards(S0).map(formatPlayerAndViewedBoard).mkString(",")
-    val redMessage = "RED TEAM: " + playersAndViewedBoards(S1).map(formatPlayerAndViewedBoard).mkString(",")
+    val blueMessage = "BLUE TEAM: " + playersAndViewedBoards(S0).map(formatPlayerAndViewedBoard).mkString(", ")
+    val redMessage = "RED TEAM: " + playersAndViewedBoards(S1).map(formatPlayerAndViewedBoard).mkString(", ")
     val spectatorMessage = "SPECTATORS: " + spectators.mkString(",")
 
     playersBox.value = ""
