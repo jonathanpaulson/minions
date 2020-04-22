@@ -1050,6 +1050,44 @@ case class BoardState private (
     ans
   }
 
+  def attackableHexes(piece: Piece) : Set[Loc] = {
+    val stats = piece.curStats(this)
+    val moveLocs = withinTerrainRange(piece, stats.moveRange)
+    val moveLocsPieceCouldAttackFrom = { if(stats.isLumbering) Set(piece.loc) else moveLocs }
+    var attackLocs = Set[Loc]()
+    moveLocsPieceCouldAttackFrom.foreach { fromLoc =>
+      tiles.topology.forEachReachable(fromLoc) { (loc,dist) =>
+        if(dist<=stats.attackRange && inBounds(loc)) {
+          attackLocs += loc
+          dist < stats.attackRange
+        } else {
+          false
+        }
+      }
+    }
+    attackLocs
+  }
+
+  def potentiallyThreatened(piece: Piece) : Boolean = {
+    assert(piece.baseStats.isNecromancer)
+    var potentialDamage = 0
+    pieceById.values.foreach { enemy =>
+      if(enemy.side != piece.side) {
+        if(attackableHexes(enemy).contains(piece.loc)) {
+          enemy.curStats(this).attackEffect match {
+            case Some(Damage(n)) =>
+              potentialDamage += n*enemy.curStats(this).numAttacks
+            case _ => ()
+          }
+        }
+      }
+    }
+    piece.curStats(this).defense match {
+      case Some(hp) => hp <= potentialDamage
+      case None => false
+    }
+  }
+
   //Similar to legalMoves but finds a path whose destination satisfies the desired predicate,
   //along with list of pieces and paths to move (usually one, but multiple in the case of swaps or rotations)
   //May return a nonminimal path in the case that the path is traversing friendly units such that the user could
