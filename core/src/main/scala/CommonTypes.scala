@@ -119,7 +119,7 @@ case class PieceStats(
   val perTurnReinforcement: Option[PieceName], //Automatic gain to reinforcements every turn
 
   //Abilities that a piece can use by discarding a spell
-  val abilities: Map[AbilityName,PieceAbility]
+  val abilities: List[PieceAbility]
 )
 
 /**

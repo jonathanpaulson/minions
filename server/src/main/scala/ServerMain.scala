@@ -376,7 +376,7 @@ if(!username || username.length == 0) {
         val maps_opt = None
         val seed_opt = None
 
-        val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None)
+        val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
         val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
         val gameid = "ai" + games.size.toString
         games = games + (gameid -> ((gameActor, gameState)))
@@ -496,7 +496,7 @@ if(!username || username.length == 0) {
                     val startingSouls = SideArray.createTwo(blueSouls, redSouls)
                     val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
                     val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
-                    val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt)
+                    val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
                     val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
                     gameActor ! StartGame()
                     games = games + (gameid -> ((gameActor, gameState)))
@@ -540,6 +540,48 @@ redSoulsPerTurn=$redSoulsPerTurn
   //HERE WE GO!
 
   val binding = Http().bindAndHandle(route, interface, port)
+
+  // Create test game
+  val secondsPerTurn = SideArray.create(120.0)
+  val startingSouls = SideArray.createTwo(0, 5)
+  val extraSoulsPerTurn = SideArray.createTwo(0, 10)
+  val targetWins = 2
+  val techSouls = 4
+  val maps_opt = Some(List("MegaPuddles"))
+  val seed_opt = None
+
+  val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
+  val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
+  val gameid = "ai" + games.size.toString
+  games = games + (gameid -> ((gameActor, gameState)))
+  gameActor ! StartGame()
+
+  val (actorRef, pub) = Source.actorRef[Protocol.Query](128, OverflowStrategy.fail).toMat(Sink.asPublisher(false))(Keep.both).run()
+  val source = Source.fromPublisher(pub)
+  val ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState, false))
+
+  val sink: Sink[Message,_] = {
+    Flow[Message].collect { message: Message =>
+      message match {
+        case TextMessage.Strict(text) =>
+          Future.successful(text)
+        case TextMessage.Streamed(textStream) =>
+          textStream.runFold("")(_ + _)
+      }
+    } .mapAsync(1)((str:Future[String]) => str)
+      .map { (str: String) =>
+        val json = Json.parse(str)
+        json.validate[Protocol.Response] match {
+          case (s: JsSuccess[Protocol.Response]) => s.get
+          case (e: JsError) => Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
+        }
+      }
+        .to(Sink.actorRef[Protocol.Response](ai, onCompleteMessage = Protocol.UserLeft("igor", Some(S1))))
+  }
+
+
+  val flow = websocketMessageFlow(gameid,"igor",Some("1"))
+  source.map { query => TextMessage(Json.stringify(Json.toJson(query))) }.via(flow).to(sink).run()
 
   binding.onComplete {
     case Failure(e) =>

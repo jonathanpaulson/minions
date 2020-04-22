@@ -58,7 +58,7 @@ object Units {
       extraMana = extraMana,
       deathSpawn = deathSpawn,
       perTurnReinforcement = perTurnReinforcement,
-      abilities = abilities.map { ability => (ability.name -> ability) }.toMap
+      abilities = abilities
     )
   }
 
