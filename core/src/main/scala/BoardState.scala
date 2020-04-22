@@ -1068,13 +1068,15 @@ case class BoardState private (
     attackLocs
   }
 
-  def inCheck(piece: Piece) : Boolean = {
+  def potentiallyThreatened(piece: Piece) : Boolean = {
+    assert(piece.baseStats.isNecromancer)
     var potentialDamage = 0
     pieceById.values.foreach { enemy =>
       if(enemy.side != piece.side) {
         if(attackableHexes(enemy).contains(piece.loc)) {
           enemy.curStats(this).attackEffect match {
-            case Some(Damage(n)) => potentialDamage += n
+            case Some(Damage(n)) =>
+              potentialDamage += n*enemy.curStats(this).numAttacks
             case _ => ()
           }
         }

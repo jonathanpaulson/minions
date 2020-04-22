@@ -352,16 +352,21 @@ object Drawing {
           show(stats.displayName)
           if(stats.isNecromancer && stats.defense.isEmpty) {
             // Immortal necromancer cannot be killed
-          } else if(stats.isNecromancer && stats.swarmMax > 1) {
-            if(side.map(_.opp) == client.ourSide)
-              show("If ANY of them die, you win the board!")
-            else
-              show("If ANY of them die, you lose the board!")
           } else if(stats.isNecromancer) {
-            if(side.map(_.opp) == client.ourSide)
-              show("If it dies, you win the board!")
-            else
-              show("If it dies, you lose the board!")
+            val introText =
+              if(stats.swarmMax > 1) "If ANY of them die"
+              else "If it dies"
+            val winLose =
+              if(side.map(_.opp) == client.ourSide) "win"
+              else "lose"
+            show(introText + ", you " + winLose + " the board!")
+            piece match {
+              case None => ()
+              case Some(p) =>
+                if(board.potentiallyThreatened(p)) {
+                  show("(threatened)")
+                }
+            }
           } else {
             val costStr = "Cost: " + stats.cost + " souls"
             stats.deathSpawn match {
@@ -1140,7 +1145,7 @@ object Drawing {
         }
       }
       else if(piece.modsWithDuration.exists { mod => !mod.mod.isGood } ||
-        (baseStats.isNecromancer && board.inCheck(piece))) {
+        (baseStats.isNecromancer && board.potentiallyThreatened(piece))) {
         fillHex(loc, "#bb00bb", scale, alpha=0.15 * alpha)
         strokeHex(loc, "magenta", scale, lineWidth=0.4, alpha = alpha)
       }
