@@ -148,9 +148,10 @@ case class GameState (
       if(specialNecrosRemaining(side).isEmpty)
         specialNecrosRemaining(side) = necroRands(side).shuffle(Units.specialNecromancers.toList).map(_.name)
     }
-    val necroNames = SideArray.createFn(side => specialNecrosRemaining(side).head)
+    val nNecros = 3
+    val necroNames = SideArray.createFn(side => specialNecrosRemaining(side).take(nNecros))
     Side.foreach { side =>
-      specialNecrosRemaining(side) = specialNecrosRemaining(side).tail
+      specialNecrosRemaining(side) = specialNecrosRemaining(side).drop(nNecros)
     }
     val reinforcements = SideArray.create(Map[PieceName,Int]())
     boards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements)
@@ -641,7 +642,7 @@ object GameState {
     val (boards,boardNames): (Array[Board],Array[String]) = {
       val boardsAndNames = chosenMaps.toArray.map { case (boardName, map) =>
         val state = map()
-        val necroNames = SideArray.create(Units.necromancer.name)
+        val necroNames = SideArray.create(List(Units.necromancer.name))
         state.resetBoard(necroNames, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false, SideArray.create(Map()))
 
         if(testingSetup) {

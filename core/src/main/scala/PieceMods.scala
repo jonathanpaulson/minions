@@ -22,6 +22,7 @@ sealed trait PieceMod {
     case PieceMods.Shackled => "Shackled"
     case PieceMods.Frozen => "Frozen"
     case PieceMods.Weakened => "Weakened"
+    case PieceMods.NecroPick => "NecroPick"
   }
 
   def isGood: Boolean = this match {
@@ -33,6 +34,7 @@ sealed trait PieceMod {
     case PieceMods.MoveThree => true
     case PieceMods.AirStrike => true
     case PieceMods.Spawner => true
+    case PieceMods.NecroPick => true
     case PieceMods.Lumbering => false
     case PieceMods.Shackled => false
     case PieceMods.Frozen => false
@@ -50,6 +52,7 @@ object PieceMod {
       case "RangeTwo" => PieceMods.RangeTwo
       case "AirStrike" => PieceMods.AirStrike
       case "Spawner" => PieceMods.Spawner
+      case "NecroPick" => PieceMods.NecroPick
       case "Lumbering" => PieceMods.Lumbering
       case "Shackled" => PieceMods.Shackled
       case "Frozen" => PieceMods.Frozen
@@ -155,6 +158,18 @@ object PieceMods {
       )
     }
   }
+
+  case object NecroPick extends PieceMod {
+    val displayName = "PickingNecromancer"
+    val desc = ""
+    def apply(pieceStats : PieceStats): PieceStats = {
+      pieceStats.copy(
+        isBaseStats = false,
+        abilities = pieceStats.abilities :+ NecroPickAbility
+      )
+    }
+  }
+
 
   case object Lumbering extends PieceMod {
     val displayName = "Lumbering"
