@@ -1139,7 +1139,8 @@ object Drawing {
             strokeHex(loc, "#ffaa44", scale, lineWidth=1.0, alpha = alpha)
         }
       }
-      else if(piece.modsWithDuration.exists { mod => !mod.mod.isGood }) {
+      else if(piece.modsWithDuration.exists { mod => !mod.mod.isGood } ||
+        (baseStats.isNecromancer && board.inCheck(piece))) {
         fillHex(loc, "#bb00bb", scale, alpha=0.15 * alpha)
         strokeHex(loc, "magenta", scale, lineWidth=0.4, alpha = alpha)
       }
@@ -1736,18 +1737,7 @@ object Drawing {
                   } else {
                     val stats = piece.curStats(board)
                     val moveLocs = board.withinTerrainRange(piece, stats.moveRange)
-                    val moveLocsPieceCouldAttackFrom = { if(stats.isLumbering) Set(piece.loc) else moveLocs }
-                    var attackLocs = Set[Loc]()
-                    moveLocsPieceCouldAttackFrom.foreach { fromLoc =>
-                      board.tiles.topology.forEachReachable(fromLoc) { (loc,dist) =>
-                        if(dist<=stats.attackRange && board.inBounds(loc)) {
-                          attackLocs += loc
-                          dist < stats.attackRange
-                        } else {
-                          false
-                        }
-                      }
-                    }
+                    val attackLocs = board.attackableHexes(piece)
                     (attackLocs ++ moveLocs).foreach { loc =>
                       val hexLoc = ui.MainBoard.hexLoc(loc)
                       if(moveLocs.contains(loc))
