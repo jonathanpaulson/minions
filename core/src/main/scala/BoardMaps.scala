@@ -55,12 +55,12 @@ object BoardMaps {
   val apocalypse = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
  . . g . . . . . g .
   w . . . . . . . . .
-   w . . . g . . . . .
-    w . . . . . . z . .
+   w . . . g . . . z .
+    w . . . . . . . . .
      . . w w . . g w . g
       g . w g . . w w . .
-       . . z . . . . . . w
-        . . . . . g . . . w
+       . . . . . . . . . w
+        . z . . . g . . . w
          . . . . . . . . . w
           . g . . . . . g . .
 """)

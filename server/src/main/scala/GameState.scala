@@ -556,7 +556,8 @@ object GameState {
     techSouls: Int,
     maps_opt: Option[List[String]],
     seed_opt: Option[Long],
-    password: Option[String]
+    password: Option[String],
+    testingSetup: Boolean
   ): GameState = {
     val config = ConfigFactory.parseFile(new java.io.File(Paths.applicationConf))
 
@@ -644,56 +645,13 @@ object GameState {
         val necroNames = SideArray.create(List(Units.necromancer.name))
         state.resetBoard(necroNames, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false, SideArray.create(Map()))
 
-        //Testing
-        {
-          /*state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
-          state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
-          state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,3))
-          state.spawnPieceInitial(S0, Units.serpent.name, Loc(3,4))
-          state.spawnPieceInitial(S0, Units.void.name, Loc(2,4))
-          state.spawnPieceInitial(S0, Units.haunt.name, Loc(4,3))
-          state.spawnPieceInitial(S0, Units.elemental.name, Loc(4,4))
-          state.mana = 5*/
-
-         /*
-         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
-         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(3,4))
-         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
-         state.spawnPieceInitial(S0, Units.hell_hound.name, Loc(2,4))
-         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
-         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
-         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,3))
-         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
-         state.spawnPieceInitial(S0, Units.bone_rat.name, Loc(4,4))
-          */
-         /*state.tiles.foreachi { (loc, tile) =>
+        if(testingSetup) {
+         state.tiles.foreachi { (loc, tile) =>
            if (tile.terrain == Graveyard) {
              val _ = state.spawnPieceInitial(S0, Units.fiend.name, loc)
            }
-         }*/
-        /*
-        state.spawnPieceInitial(S0, Units.shrieker.name, Loc(5,4))
-        state.spawnPieceInitial(S0, Units.witch.name, Loc(6,4))
-        state.spawnPieceInitial(S0, Units.fallen_angel.name, Loc(7,4))
-        state.spawnPieceInitial(S0, Units.dark_tower.name, Loc(5,5))
-        state.spawnPieceInitial(S0, Units.lich.name, Loc(6,5))
-
-        state.spawnPieceInitial(S0, Units.haunt.name, Loc(5,6))
-
-        state.spawnPieceInitial(S1, Units.wight.name, Loc(6,6))
-
-        state.addReinforcementInitial(S0,"zombie")
-        state.addReinforcementInitial(S0,"bat")
-        state.addReinforcementInitial(S0,"bat")
-        state.addReinforcementInitial(S0,"bat")
-
-        state.addReinforcementInitial(S1,"zombie")
-        state.addReinforcementInitial(S1,"zombie")
-        state.addReinforcementInitial(S1,"bat")
-        state.addReinforcementInitial(S1,"bat")
-         */
+         }
         }
-
       (Board.create(state), boardName)
     }
 

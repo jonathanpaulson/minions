@@ -395,8 +395,7 @@ case class Board private (
                       case Failure(_) => delayedToSpawnRev = playerAction :: delayedToSpawnRev
                     }
                   }
-                case ActivateAbility(_,abilityName,_) =>
-                  val ability = Abilities.abilityMap(abilityName)
+                case ActivateAbility(_,ability,_) =>
                   if(ability.spawnPhaseOnly) {
                     delayedToSpawnRev = playerAction :: delayedToSpawnRev
                   } else {

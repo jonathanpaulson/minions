@@ -141,6 +141,16 @@ object Protocol {
     Format(reads,writes)
   }
 
+  implicit val pieceAbilityFormat = {
+    val reads: Reads[PieceAbility] = readsFromPair[PieceAbility]("PieceAbility",
+      (Abilities.abilities.map (t => (t.name -> ((_:JsValue) => JsSuccess(t: PieceAbility))))).toMap
+    )
+    val writes: Writes[PieceAbility] = new Writes[PieceAbility] {
+      def writes(t: PieceAbility): JsValue = jsPair(t.name, JsString(""))
+    }
+    Format(reads,writes)
+  }
+
   def mapJsResults[T,U:ClassTag](arr:IndexedSeq[T])(f: T => JsResult[U]): JsResult[Array[U]] = {
     val len = arr.length
     def loop(acc: List[U], idx: Int): JsResult[Array[U]] = {

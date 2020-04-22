@@ -624,19 +624,18 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                   //Double-clicking on a piece activates its ability
                   if(didDoubleClick) {
                     val pieceStats = piece.curStats(board)
-                    val abilityNames = pieceStats.abilities.keys.toArray
-                    if(abilityNames.length > 0) {
+                    val abilities = pieceStats.abilities
+                    if(abilities.length > 0) {
                       //TODO disambiguate which action if there's more than one?
-                      val abilityName = abilityNames(0)
-                      val ability = pieceStats.abilities(abilityName)
+                      val ability = abilities(0)
                       val spec = piece.spec
                       ability match {
                         case Suicide | SpawnZombies | KillAdjacent | NecroPickAbility | (_:SelfEnchantAbility) =>
-                          val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.none))
+                          val abilityActions = List(ActivateAbility(spec,ability,SpellOrAbilityTargets.none))
                           mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions,makeActionId()))
                         case MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm =>
                           def makeAction(loc:Loc) = {
-                            ActivateAbility(spec, abilityName, SpellOrAbilityTargets.singleLoc(loc))
+                            ActivateAbility(spec, ability, SpellOrAbilityTargets.singleLoc(loc))
                           }
                           val locTargets = board.tiles.filterLocs { loc =>
                             board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
@@ -657,7 +656,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                           }
                         case MoveTerrain =>
                           def makeAction(terrain:Terrain, loc:Loc) = {
-                            ActivateAbility(spec, abilityName, SpellOrAbilityTargets.terrainAndLoc(terrain,loc))
+                            ActivateAbility(spec, ability, SpellOrAbilityTargets.terrainAndLoc(terrain,loc))
                           }
                           val arbitraryTerrain = Whirlwind(true)
                           def isLegal(loc:Loc) = {
@@ -698,7 +697,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                             target.findPiece(board) match {
                               case None => ()
                               case Some(targetPiece) =>
-                                val abilityActions = List(ActivateAbility(spec,abilityName,SpellOrAbilityTargets.singlePiece(targetPiece.spec)))
+                                val abilityActions = List(ActivateAbility(spec,ability,SpellOrAbilityTargets.singlePiece(targetPiece.spec)))
                                 mouseState.client.doActionOnCurBoard(PlayerActions(abilityActions,makeActionId()))
                             }
                           }

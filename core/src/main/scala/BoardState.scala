@@ -129,7 +129,7 @@ case class Movements(movements: List[Movement]) extends PlayerAction
 case class Attack(attackerSpec: PieceSpec, targetSpec: PieceSpec) extends PlayerAction
 case class Spawn(spawnLoc: Loc, pieceName: PieceName) extends PlayerAction
 case class ActivateTile(loc: Loc) extends PlayerAction
-case class ActivateAbility(spec: PieceSpec, abilityName: AbilityName, targets: SpellOrAbilityTargets) extends PlayerAction
+case class ActivateAbility(spec: PieceSpec, ability: PieceAbility, targets: SpellOrAbilityTargets) extends PlayerAction
 case class Blink(pieceSpec: PieceSpec, src:Loc) extends PlayerAction
 case class Teleport(pieceSpec: PieceSpec, src: Loc, dest: Loc) extends PlayerAction
 case class PlaySpell(spellId: SpellId, targets: SpellOrAbilityTargets) extends PlayerAction
@@ -1076,6 +1076,44 @@ case class BoardState private (
     ans
   }
 
+  def attackableHexes(piece: Piece) : Set[Loc] = {
+    val stats = piece.curStats(this)
+    val moveLocs = withinTerrainRange(piece, stats.moveRange)
+    val moveLocsPieceCouldAttackFrom = { if(stats.isLumbering) Set(piece.loc) else moveLocs }
+    var attackLocs = Set[Loc]()
+    moveLocsPieceCouldAttackFrom.foreach { fromLoc =>
+      tiles.topology.forEachReachable(fromLoc) { (loc,dist) =>
+        if(dist<=stats.attackRange && inBounds(loc)) {
+          attackLocs += loc
+          dist < stats.attackRange
+        } else {
+          false
+        }
+      }
+    }
+    attackLocs
+  }
+
+  def potentiallyThreatened(piece: Piece) : Boolean = {
+    assert(piece.baseStats.isNecromancer)
+    var potentialDamage = 0
+    pieceById.values.foreach { enemy =>
+      if(enemy.side != piece.side) {
+        if(attackableHexes(enemy).contains(piece.loc)) {
+          enemy.curStats(this).attackEffect match {
+            case Some(Damage(n)) =>
+              potentialDamage += n*enemy.curStats(this).numAttacks
+            case _ => ()
+          }
+        }
+      }
+    }
+    piece.curStats(this).defense match {
+      case Some(hp) => hp <= potentialDamage
+      case None => false
+    }
+  }
+
   //Similar to legalMoves but finds a path whose destination satisfies the desired predicate,
   //along with list of pieces and paths to move (usually one, but multiple in the case of swaps or rotations)
   //May return a nonminimal path in the case that the path is traversing friendly units such that the user could
@@ -1505,30 +1543,25 @@ case class BoardState private (
             trySpawnIsLegal(side, spawnName, loc).get
         }
 
-      case ActivateAbility(pieceSpec,abilityName,targets) =>
+      case ActivateAbility(pieceSpec,ability,targets) =>
         findPiece(pieceSpec) match {
           case None => fail("Using ability of a nonexistent or dead piece")
           case Some(piece) =>
             failUnless(piece.side == side, "Piece controlled by other side")
             failIf(piece.actState >= DoneActing, "Piece has already acted or cannot act this turn")
-            val pieceStats = piece.curStats(this)
-            pieceStats.abilities.get(abilityName) match {
-              case None => fail("Piece does not have this ability")
-              case Some(ability) =>
-                requireSuccess(ability.tryIsUsableNow(piece))
-                failIf(ability.isSorcery && mana + manaInHand(side,externalInfo) <= 0, "No mana (must first play cantrip or discard spell)")
-                ability match {
-                  case Suicide | SpawnZombies | NecroPickAbility | (_:SelfEnchantAbility) => ()
-                  case KillAdjacent =>
-                    failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
-                  case MoveTerrain | MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm  =>
-                    failUnless(topology.distance(piece.loc,targets.loc0) <= 1, "Must place terrain in an adjacent hex")
-                    requireSuccess(canMoveTerrain(targets.loc0))
-                  case (ability:TargetedAbility) =>
-                    findPiece(targets.target0) match {
-                      case None => fail("No target specified for ability")
-                      case Some(target) => requireSuccess(ability.tryCanTarget(piece,target))
-                    }
+            requireSuccess(ability.tryIsUsableNow(piece))
+            failIf(ability.isSorcery && mana + manaInHand(side,externalInfo) <= 0, "No mana (must first play cantrip or discard spell)")
+            ability match {
+              case Suicide | SpawnZombies | NecroPickAbility | (_:SelfEnchantAbility) => ()
+              case KillAdjacent =>
+                failIf(piece.actState >= Spawning, "Piece has already acted or cannot act this turn")
+              case MoveTerrain | MoveEarthquake | MoveFlood | MoveWhirlwind | MoveFirestorm  =>
+                failUnless(topology.distance(piece.loc,targets.loc0) <= 1, "Must place terrain in an adjacent hex")
+                requireSuccess(canMoveTerrain(targets.loc0))
+              case (ability:TargetedAbility) =>
+                findPiece(targets.target0) match {
+                  case None => fail("No target specified for ability")
+                  case Some(target) => requireSuccess(ability.tryCanTarget(piece,target))
                 }
             }
         }
@@ -1662,10 +1695,8 @@ case class BoardState private (
             }
         }
 
-      case ActivateAbility(pieceSpec,abilityName,targets) =>
+      case ActivateAbility(pieceSpec,ability,targets) =>
         val piece = findPiece(pieceSpec).get
-        val pieceStats = piece.curStats(this)
-        val ability = pieceStats.abilities(abilityName)
         if(ability.isSorcery)
           mana -= 1
 
