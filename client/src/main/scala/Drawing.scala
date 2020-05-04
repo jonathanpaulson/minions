@@ -364,7 +364,10 @@ object Drawing {
               case None => ()
               case Some(p) =>
                 if(board.potentiallyThreatened(p)) {
-                  show("(threatened)")
+                  show("(potentially killable)")
+                }
+                if(board.countGraveyards(p.side.opp)>=8) {
+                  show("(losing on graveyards")
                 }
             }
           } else {
@@ -1144,9 +1147,13 @@ object Drawing {
             strokeHex(loc, "#ffaa44", scale, lineWidth=1.0, alpha = alpha)
         }
       }
-      else if(piece.modsWithDuration.exists { mod => !mod.mod.isGood } ||
-        (baseStats.isNecromancer && board.potentiallyThreatened(piece))) {
+      else if(piece.modsWithDuration.exists { mod => !mod.mod.isGood }) {
         fillHex(loc, "#bb00bb", scale, alpha=0.15 * alpha)
+        strokeHex(loc, "magenta", scale, lineWidth=0.4, alpha = alpha)
+      }
+
+      if(baseStats.isNecromancer && (board.potentiallyThreatened(piece) || board.countGraveyards(piece.side.opp)>=8)) {
+        fillHex(loc, "#000000", scale, alpha=0.3 * alpha)
         strokeHex(loc, "magenta", scale, lineWidth=0.4, alpha = alpha)
       }
 

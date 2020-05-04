@@ -606,12 +606,7 @@ case class BoardState private (
   }
 
   def endOfTurnSouls(side : Side) : Int = {
-    var newSouls = 0
-    tiles.foreachi { case (loc,tile) =>
-      val occupied = pieceById.values.exists { piece => piece.side == side && piece.loc == loc }
-      if(tile.terrain == Graveyard && occupied)
-        newSouls += 1
-    }
+    var newSouls = countGraveyards(side)
     pieceById.values.foreach { piece =>
       if(piece.side == side) {
         val stats = piece.curStats(this)
@@ -674,12 +669,7 @@ case class BoardState private (
       gainStartOfTurnReinforcements()
 
     //Check for win conditions - start of turn at least 8 graveyards
-    var startNumGraveyards = 0
-    tiles.foreachi { case (loc,tile) =>
-      if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc })
-        startNumGraveyards += 1
-    }
-    if(startNumGraveyards >= 8) {
+    if(countGraveyards(side) >= 8) {
       hasWon = true
     }
   }
@@ -1092,6 +1082,16 @@ case class BoardState private (
       }
     }
     attackLocs
+  }
+
+  def countGraveyards(side: Side) : Int = {
+    var ans = 0
+    tiles.foreachi { case (loc,tile) =>
+      if(tile.terrain == Graveyard && pieceById.values.exists { piece => piece.side == side && piece.loc == loc }) {
+        ans += 1
+      }
+    }
+    return ans
   }
 
   def potentiallyThreatened(piece: Piece) : Boolean = {
