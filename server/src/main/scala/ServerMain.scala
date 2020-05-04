@@ -268,6 +268,10 @@ th {
 }
 </style>
       """
+      html ++= "Minions is a multiplayer team tactics hex grid open source game<p>"
+      html ++= "<a href=\"https://discord.gg/BsQVky\">Discord</a><p>"
+      html ++= "<a href=\"https://github.com/jonathanpaulson/minions/\">Github</a><p>"
+      html ++= "<p><p>"
       html ++= "<a href=\"/newGame\" class=\"button\">New Game</a><p>"
       html ++= "<a href=\"/ai?difficulty=10\" class=\"button\">Vs AI (1v1)</a><p>"
       html ++= "<a href=\"/ai?difficulty=0&tutorial=true\" class=\"button\">Tutorial</a><p>"
