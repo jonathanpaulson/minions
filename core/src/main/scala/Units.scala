@@ -392,6 +392,7 @@ object Units {
     attackRange = 2,
     attackEffect = Some(Unsummon),
     defense = Some(3),
+    isPersistent = true,
     swarmMax = 3,
   )
 
