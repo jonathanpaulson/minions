@@ -425,7 +425,7 @@ case object Spells {
     name = "doubleCantrip",
     displayName = "Double Cantrip",
     shortDisplayName = "DCant",
-   desc = List("Gain 2 mana when played or discarded."),
+    desc = List("Gain 2 mana when played or discarded."),
     spellType = DoubleCantrip,
     spawnPhaseOnly = false,
   )
