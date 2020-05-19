@@ -367,7 +367,7 @@ object Drawing {
                   show("(potentially killable)")
                 }
                 if(board.countGraveyards(p.side.opp)>=8) {
-                  show("(losing on graveyards")
+                  show("(losing on graveyards)")
                 }
             }
           } else {
