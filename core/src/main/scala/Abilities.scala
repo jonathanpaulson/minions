@@ -104,7 +104,9 @@ case object Abilities {
     tryIsUsableNow = { (piece: Piece) =>
       piece.actState match {
         case DoneActing | Spawning => Failure(new Exception("Piece has already finished its turn"))
-        case Moving(_) | Attacking(_) => Success(())
+        case Moving(_) | Attacking(_) =>
+          if(piece.modsWithDuration.exists(m => m.mod == PieceMods.Shackled)) Failure(new Exception("Piece is shackled"))
+          else Success(())
       }
     },
     mod = PieceModWithDuration(PieceMods.RangeTwo, turnsLeft = Some(1))
@@ -118,7 +120,9 @@ case object Abilities {
     tryIsUsableNow = { (piece: Piece) =>
       piece.actState match {
         case DoneActing | Spawning | Attacking(_) => Failure(new Exception("Piece has already acted or attacked this turn"))
-        case Moving(_) => Success(())
+        case Moving(_) =>
+          if(piece.modsWithDuration.exists(m => m.mod == PieceMods.Shackled)) Failure(new Exception("Piece is shackled"))
+          else Success(())
       }
     },
     mod = PieceModWithDuration(PieceMods.MoveThree, turnsLeft = Some(1))
