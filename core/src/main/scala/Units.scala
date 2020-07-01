@@ -398,8 +398,8 @@ object Units {
 
   val witch = createPieceStats(
     name = "witch",
-    cost = 3,
-    rebate = 0,
+    cost = 4,
+    rebate = 2,
     moveRange = 1,
     attackRange = 3,
     attackEffect = Some(Damage(1)),
@@ -423,11 +423,12 @@ object Units {
 
   val mummy = createPieceStats(
     name = "mummy",
-    cost = 5,
-    rebate = 1,
+    cost = 6,
+    rebate = 2,
     moveRange = 1,
     attackRange = 1,
-    attackEffect = Some(Damage(5)),
+    numAttacks = 5,
+    attackEffect = Some(Damage(1)),
     defense = Some(8),
     spawnRange = Some(1),
   )
