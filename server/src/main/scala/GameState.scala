@@ -626,11 +626,19 @@ object GameState {
       }
       val extraTechCost = techSouls * numBoards
 
+      val finalStartingSouls = {
+        if(testingSetup) {
+          SideArray.createTwo(startingSouls(S0)+1000, startingSouls(S1))
+        } else {
+          startingSouls
+        }
+      }
+
       val game = Game(
         numBoards = numBoards,
         targetNumWins = targetNumWins,
         startingSide = S0,
-        startingSouls = startingSouls,
+        startingSouls = finalStartingSouls,
         extraTechCost = extraTechCost,
         extraSoulsPerTurn = extraSoulsPerTurn,
         techsAlwaysAcquired = techsAlwaysAcquired,
@@ -646,39 +654,38 @@ object GameState {
         state.resetBoard(necroNames, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false, SideArray.create(Map()))
 
         if(testingSetup) {
-         state.tiles.foreachi { (loc, tile) =>
-           if (tile.terrain == Graveyard) {
-             val _ = state.spawnPieceInitial(S0, Units.fiend.name, loc)
-           }
-         }
+          state.tiles.foreachi { (loc, tile) =>
+            if (tile.terrain == Graveyard) {
+              val _ = state.spawnPieceInitial(S0, Units.fiend.name, loc)
+            }
+          }
         }
-      (Board.create(state), boardName)
+        (Board.create(state), boardName)
+      }
+      (boardsAndNames.map(_._1),boardsAndNames.map(_._2))
     }
+    val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
 
-    (boardsAndNames.map(_._1),boardsAndNames.map(_._2))
-  }
-  val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
-
-  new GameState(
-    password = password,
-    secondsPerTurn = secondsPerTurn,
-    allMessages = List(),
-    teamMessages = SideArray.create(List()),
-    spectatorMessages = List(),
-    isPaused = true,
-    randSeed = randSeed,
-    numBoards = numBoards,
-    game = game,
-    gameSequence = 0,
-    specialNecrosRemaining = SideArray.create(List()),
-    spellsRemaining = SideArray.create(List()),
-    nextSpellId = 0,
-    spellMap = Map(),
-    revealedSpellIds = SideArray.create(Set()),
-    externalInfo = ExternalInfo.create(),
-    boards = boards,
-    boardNames = boardNames,
-    boardSequences = boardSequences,
-  )
+    new GameState(
+      password = password,
+      secondsPerTurn = secondsPerTurn,
+      allMessages = List(),
+      teamMessages = SideArray.create(List()),
+      spectatorMessages = List(),
+      isPaused = true,
+      randSeed = randSeed,
+      numBoards = numBoards,
+      game = game,
+      gameSequence = 0,
+      specialNecrosRemaining = SideArray.create(List()),
+      spellsRemaining = SideArray.create(List()),
+      nextSpellId = 0,
+      spellMap = Map(),
+      revealedSpellIds = SideArray.create(Set()),
+      externalInfo = ExternalInfo.create(),
+      boards = boards,
+      boardNames = boardNames,
+      boardSequences = boardSequences,
+      )
   }
 }
