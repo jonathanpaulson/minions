@@ -269,12 +269,12 @@ object Units {
 
   val initiate = createPieceStats(
     name = "initiate",
-    cost = 2,
-    rebate = 0,
+    cost = 3,
+    rebate = 1,
     moveRange = 2,
     isLumbering = true,
     attackRange = 1,
-    attackEffect = Some(Damage(1)),
+    attackEffect = Some(Damage(3)),
     defense = Some(3),
     spawnRange = Some(1),
   )

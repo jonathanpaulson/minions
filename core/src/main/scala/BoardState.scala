@@ -1604,8 +1604,7 @@ case class BoardState private (
                 Spells.spellMap.get(spellName) match {
                   case None => fail("Unknown spell name")
                   case Some(spell) =>
-                    failIf(
-                      spell.spellType == Sorcery && mana + manaInHand(side,externalInfo,excludingSpell=Some(spellId)) <= 0,
+                    failIf(mana + manaInHand(side,externalInfo,excludingSpell=Some(spellId)) <= 0,
                       "No mana (must first play cantrip or discard spell)")
                     trySpellTargetLegality(spell,targets).get
                 }
