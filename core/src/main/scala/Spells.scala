@@ -208,7 +208,7 @@ case object Spells {
     name = "reposition",
     displayName = "Reposition",
     shortDisplayName = "Repos",
-    desc = List("Move target friendly minion to an adjacent location and exhaust it."),
+    desc = List("Move target friendly minion to an adjacent location", "and exhaust it."),
     spellType = NormalSpell,
     spawnPhaseOnly = true,
     tryCanTargetPiece = ((side: Side, piece:Piece) =>
