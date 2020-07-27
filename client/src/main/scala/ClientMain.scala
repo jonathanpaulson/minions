@@ -212,7 +212,7 @@ class Client() {
   //TODO Ctrl-click should perform BuyReinforcementUndo and LocalPieceUndo?
   //TODO Shift-click should allow performing swaps and triangle rotations of pieces?
   //Keyboard controls
-  var showCoords: Boolean = false
+  var showCoords: Boolean = true
 
   val flipDisplay: Boolean = ourSide == Some(S1) //Flip so that 0,0 is in the lower right
 

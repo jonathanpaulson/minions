@@ -1412,8 +1412,6 @@ case class BoardState private (
         spell.tryCanTarget(side,targets.terrain.get,targets.loc0,this)
       case (_: NoTargetSpell) =>
         Success(())
-      case (_: NoEffectSpell) =>
-        Success(())
     }
   }
 
@@ -1421,6 +1419,15 @@ case class BoardState private (
     spellType match {
       case NormalSpell => 1
       case Sorcery => 1
+      case Cantrip => 1
+      case DoubleCantrip => 2
+    }
+  }
+
+  private def manaOfPlay(spellType: SpellType): Int = {
+    spellType match {
+      case NormalSpell => 0
+      case Sorcery => -1
       case Cantrip => 1
       case DoubleCantrip => 2
     }
@@ -1603,9 +1610,9 @@ case class BoardState private (
               case Some(spellName) =>
                 Spells.spellMap.get(spellName) match {
                   case None => fail("Unknown spell name")
-                  case Some(spell) =>
-                    failIf(mana + manaInHand(side,externalInfo,excludingSpell=Some(spellId)) <= 0,
-                      "No mana (must first play cantrip or discard spell)")
+                  case Some(spell)  =>
+                    val manaAfter = mana + manaInHand(side, externalInfo, excludingSpell=Some(spellId)) + manaOfPlay(spell.spellType)
+                    failIf(manaAfter < 0, "Not enough mana")
                     trySpellTargetLegality(spell,targets).get
                 }
             }
@@ -1767,7 +1774,6 @@ case class BoardState private (
         }
 
         spell match {
-          case (_: NoEffectSpell) => ()
           case (spell: TargetedSpell) =>
             val target = findPiece(targets.target0).get
             applyEffect(spell.effect,target)

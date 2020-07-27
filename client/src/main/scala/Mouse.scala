@@ -421,9 +421,6 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                       if(curTarget == dragTarget && didDoubleClick) {
                         mouseState.client.doActionOnCurBoard(PlayerActions(List(PlaySpell(spellId, SpellOrAbilityTargets.none)),makeActionId()))
                       }
-
-                    case (_: NoEffectSpell) =>
-                      ()
                   }
                 }
             }

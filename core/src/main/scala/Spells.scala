@@ -419,13 +419,14 @@ case object Spells {
     }
   )
 
-  val doubleCantrip = NoEffectSpell(
+  val doubleCantrip = NoTargetSpell(
     name = "doubleCantrip",
     displayName = "Double Cantrip",
     shortDisplayName = "DCant",
     desc = List("Gain 2 mana when played or discarded."),
     spellType = DoubleCantrip,
     spawnPhaseOnly = false,
+    effect = {(_board: BoardState, _side: Side) => ()}
   )
 
   val spells = Array(

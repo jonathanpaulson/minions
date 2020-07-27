@@ -1571,8 +1571,6 @@ object Drawing {
                       }
                     case (_: NoTargetSpell) =>
                       ()
-                    case (_: NoEffectSpell) =>
-                      ()
                   }
                 }
               }

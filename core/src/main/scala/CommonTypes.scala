@@ -224,22 +224,6 @@ sealed trait Spell {
 }
 
 /**
- * NoEffectSpell:
- * A spell that has no effect (exists only to be discarded)
- */
-case class NoEffectSpell(
-  val name: SpellName,
-  val displayName: String,
-  val shortDisplayName: String,
-  val desc: List[String],
-  val spellType: SpellType,
-  val spawnPhaseOnly: Boolean
-) extends Spell {
-  override def equals(o: Any): Boolean = super.equals(o)
-  override def hashCode: Int = super.hashCode
-}
-
-/**
  * TargetedSpell:
  * Targets a single piece and applies an effect.
  */
