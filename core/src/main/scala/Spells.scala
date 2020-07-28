@@ -263,7 +263,7 @@ case object Spells {
       if(piece.side == side || piece.baseStats.isNecromancer) Failure(new Exception("Can only target enemy minions"))
       else if(piece.damage <= 0) Failure(new Exception("Can only target damaged pieces"))
       else if(board.topology.distance(loc,piece.loc) != 1) Failure(new Exception("Location is not adjacent"))
-      else board.tryCanEndOnLoc(side, piece.spec, piece.baseStats, piece.curStats(board), loc, List())
+      else board.tryCanEndOnLoc(piece.side, piece.spec, piece.baseStats, piece.curStats(board), loc, List())
     ),
     effect = { (board: BoardState, piece: Piece, loc: Loc) =>
       board.doMovePieceToLoc(piece,loc)
