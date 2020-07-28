@@ -765,9 +765,9 @@ case class DragPieceToLocMouseMode(val mouseState: MouseState, val pieceTargets:
   def handleMouseUp(dragTarget: MouseTarget, curTarget: MouseTarget, game: Game, board: BoardState, boardIdx: Int, undo: Boolean, ourSide: Option[Side]): Unit = {
     val _ = (game,board,boardIdx,undo, ourSide)
 
-    val piece = dragTarget.findPiece(board).orElse {
+    val piece = {
       if(pieceTargets.length == 1) board.findPiece(pieceTargets.head)
-      else None
+      else dragTarget.findPiece(board)
     }
 
     val loc = curTarget match {
