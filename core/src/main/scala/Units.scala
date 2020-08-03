@@ -274,7 +274,7 @@ object Units {
     moveRange = 2,
     isLumbering = true,
     attackRange = 1,
-    attackEffect = Some(Damage(3)),
+    attackEffect = Some(Damage(2)),
     defense = Some(3),
     spawnRange = Some(1),
   )
