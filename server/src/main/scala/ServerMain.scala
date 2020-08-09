@@ -7,6 +7,9 @@ import com.typesafe.config.ConfigFactory
 import java.util.Calendar
 import java.text.SimpleDateFormat
 import java.security.SecureRandom
+import java.nio.file.{Paths, Files}
+import java.nio.charset.StandardCharsets
+import scala.collection.JavaConverters._
 
 import akka.actor.{ActorSystem, Actor, ActorRef, Cancellable, Terminated, Props, Status}
 import akka.stream.{ActorMaterializer,OverflowStrategy}
@@ -26,7 +29,7 @@ import akka.http.scaladsl.Http
 import play.api.libs.json._
 import akka.stream.scaladsl.Keep
 
-object Paths {
+object AppPaths {
   val applicationConf = "./application.conf"
   val mainPage = "./web/index.html"
   val favicon = "./web/img/favicon.jpg"
@@ -38,7 +41,7 @@ object ServerMain extends App {
   //----------------------------------------------------------------------------------
   //LOAD STUFF
 
-  val config = ConfigFactory.parseFile(new java.io.File(Paths.applicationConf))
+  val config = ConfigFactory.parseFile(new java.io.File(AppPaths.applicationConf))
 
   implicit val actorSystem = ActorSystem("gameSystem",config)
   implicit val materializer = ActorMaterializer()
@@ -49,6 +52,7 @@ object ServerMain extends App {
 
   val interface = config.getString("app.interface")
   val port = config.getInt("app.port")
+  val rundir = config.getString("app.rundir")
 
   //GAME ACTOR - singleton actor that maintains the state of the game being played
 
@@ -60,9 +64,7 @@ object ServerMain extends App {
   case class ShouldReportTimeLeft() extends GameActorEvent
   case class StartGame() extends GameActorEvent
 
-
-
-  private class GameActor(state: GameState) extends Actor {
+  private class GameActor(state: GameState, gameid: String) extends Actor {
     //TIME LIMITS
     def getNow(): Double = {
       System.currentTimeMillis.toDouble / 1000.0
@@ -79,6 +81,10 @@ object ServerMain extends App {
         turnTimeLeft -= (newNow - now)
       }
       now = newNow
+
+      val path = Paths.get(rundir, gameid)
+      val state_str = Json.stringify(Json.toJson(state))
+      val _ = Files.write(path, state_str.getBytes(StandardCharsets.UTF_8))
     }
 
     private def getTimeLeftEvent(): Option[Protocol.Response] = {
@@ -349,9 +355,9 @@ if(!username || username.length == 0) {
                       case Some((_,state)) =>
                         (password, state.password) match {
                           case (None, Some(_)) => complete(gameid + " is password-protected; please provide 'password=' in URL")
-                          case (_, None) => getFromFile(Paths.mainPage)
+                          case (_, None) => getFromFile(AppPaths.mainPage)
                           case (Some(x), Some(y)) =>
-                            if(x==y) getFromFile(Paths.mainPage)
+                            if(x==y) getFromFile(AppPaths.mainPage)
                             else complete(s"Wrong password for $gameid")
                         }
                     }
@@ -363,10 +369,10 @@ if(!username || username.length == 0) {
       }
     } ~
     pathPrefix("js") {
-      getFromDirectory(Paths.webjs)
+      getFromDirectory(AppPaths.webjs)
     } ~
     pathPrefix("img") {
-      getFromDirectory(Paths.webimg)
+      getFromDirectory(AppPaths.webimg)
     }
   } ~
   path("ai") {
@@ -380,9 +386,9 @@ if(!username || username.length == 0) {
         val maps_opt = None
         val seed_opt = None
 
-        val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
-        val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
         val gameid = "ai" + games.size.toString
+        val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
+        val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
         games = games + (gameid -> ((gameActor, gameState)))
         gameActor ! StartGame()
 
@@ -501,7 +507,7 @@ if(!username || username.length == 0) {
                     val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
                     val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
                     val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
-                    val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
+                    val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
                     gameActor ! StartGame()
                     games = games + (gameid -> ((gameActor, gameState)))
                     println("Created game " + gameid)
@@ -545,6 +551,20 @@ redSoulsPerTurn=$redSoulsPerTurn
 
   val binding = Http().bindAndHandle(route, interface, port)
 
+
+  val javaStream = Files.walk(Paths.get("."))
+  // javaStream: java.util.stream.Stream[java.nio.file.Path] = java.util.stream.ReferencePipeline$3@51b1d486
+  // javaStream.toScala(LazyList)
+
+  val old_games = Files.list(Paths.get(rundir)).iterator().asScala
+  old_games.foreach { filename =>
+    val oldGameStr = Files.readAllLines(filename).get(0)
+    val oldGameid = filename.getFileName().toString
+    val oldGameState = Json.parse(oldGameStr).as[GameState]
+    val oldActor = actorSystem.actorOf(Props(classOf[GameActor], oldGameState, oldGameid))
+    games = games + (oldGameid -> ((oldActor, oldGameState)))
+  }
+
   // Create test game
   val secondsPerTurn = SideArray.create(120.0)
   val startingSouls = SideArray.createTwo(0, 5)
@@ -554,9 +574,9 @@ redSoulsPerTurn=$redSoulsPerTurn
   val maps_opt = Some(List("MegaPuddles"))
   val seed_opt = None
 
-  val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
-  val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState))
   val gameid = "ai" + games.size.toString
+  val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
+  val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
   games = games + (gameid -> ((gameActor, gameState)))
   gameActor ! StartGame()
 

@@ -58,9 +58,9 @@ case class GameState (
   val externalInfo: ExternalInfo,
   val boards: Array[Board],
   val boardNames: Array[String],
-  val boardSequences: Array[Int]
+  val boardSequences: Array[Int],
 ) {
-  val config = ConfigFactory.parseFile(new java.io.File(Paths.applicationConf))
+  val config = ConfigFactory.parseFile(new java.io.File(AppPaths.applicationConf))
   val clientHeartbeatPeriodInSeconds = config.getDouble("akka.http.server.clientHeartbeatRate")
   var usernameOfSession: Map[Int,String] = Map()
   var userSides: Map[Int,Option[Side]] = Map()
@@ -557,9 +557,9 @@ object GameState {
     maps_opt: Option[List[String]],
     seed_opt: Option[Long],
     password: Option[String],
-    testingSetup: Boolean
+    testingSetup: Boolean,
   ): GameState = {
-    val config = ConfigFactory.parseFile(new java.io.File(Paths.applicationConf))
+    val config = ConfigFactory.parseFile(new java.io.File(AppPaths.applicationConf))
 
     // Random seeds
     val randSeed:Long = {
