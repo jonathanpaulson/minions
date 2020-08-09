@@ -1,5 +1,4 @@
 package minionsgame.core
-import java.nio.file.{Path,Paths}
 import scala.reflect.ClassTag
 import play.api.libs.json._
 
@@ -93,12 +92,6 @@ object Protocol {
   }
   def jsTuple2(jsValue0: JsValue, jsValue1: JsValue): JsValue = {
     JsArray(Array(jsValue0,jsValue1))
-  }
-
-  implicit val pathFormat = {
-    val reads: Reads[Path] = readsFromString[Path]("Path")(path => Paths.get(path))
-    val writes: Writes[Path] = writesToString[Path](path => path.toString)
-    Format(reads,writes)
   }
 
   //CommonTypes.scala--------------------------------------------------------------------------------
