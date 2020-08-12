@@ -63,6 +63,7 @@ object ServerMain extends App {
   case class ShouldEndTurn(val turnNumberToEnd: Int) extends GameActorEvent
   case class ShouldReportTimeLeft() extends GameActorEvent
   case class StartGame() extends GameActorEvent
+  case class ResetTime() extends GameActorEvent
 
   private class GameActor(state: GameState, gameid: String) extends Actor {
     //TIME LIMITS
@@ -115,7 +116,7 @@ object ServerMain extends App {
       }
       updateTime()
       reason match {
-        case NewTurn =>
+        case NewTurn | NewLimits =>
           turnTimeLeft = state.currentSideSecondsPerTurn()
         case Pause(isPaused) =>
           state.isPaused = isPaused
@@ -177,6 +178,10 @@ object ServerMain extends App {
       case StartGame() =>
         state.refillUpcomingSpells()
         state.game.startGame()
+
+      case ResetTime() =>
+        scheduleEndOfTurn(NewLimits)
+
     }
   }
 
@@ -330,7 +335,7 @@ th {
           val spectators = teamString(None)
 
           html ++= s"""<tr>
-  <td>$game</td>
+  <td>$game <a href='/edit?game=$game'>Edit</a></td>
   <td>$hasPassword</td>
   <td>$nBoards</td>
   <td><a href='/play?game=$game&side=0'>Join</a> $blue</td>
@@ -549,6 +554,65 @@ redSoulsPerTurn=$redSoulsPerTurn
           }
         }
       }
+  } ~
+  path("edit") {
+    get {
+    parameter("game".?) { gameid_opt =>
+      gameid_opt match {
+        case None => complete("Please provide 'game=' in URL")
+        case Some(gameid) =>
+          games.get(gameid) match {
+            case None => complete(s"Cannot edit nonexistent game $gameid")
+            case Some((actor@_, game)) =>
+              val blueSecondsPerTurn = game.secondsPerTurn(S0)
+              val redSecondsPerTurn = game.secondsPerTurn(S1)
+              complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
+                s"""
+                <head>
+                  <link rel="icon" href="/img/favicon.png?v=4" />
+                  <style type="text/css">
+                    form  { display: table;      }
+                    p     { display: table-row;  }
+                    label { display: table-cell; }
+                    input { display: table-cell; }
+                  </style>
+                </head>
+                <body>
+                  <form method=post>
+                    <p><label>Game name </label><input type="text" name="gameid" value=$gameid readonly></input>
+                    <p><label>Blue seconds per turn </label><input type="text" name=blueSeconds value=$blueSecondsPerTurn></input><br>
+                    <p><label>Red seconds per turn </label><input type="text" name=redSeconds value=$redSecondsPerTurn></input><br>
+                    <p><input type="submit" value="Edit Game"></input>
+                  </form>
+                </body>
+                """
+                ))
+          }
+
+      }
+    }
+  } ~ post {
+      formFields(('gameid, 'blueSeconds.as[Double], 'redSeconds.as[Double])) { (gameid, blueSeconds, redSeconds) =>
+        val (actor, game) = games(gameid)
+        game.secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
+        actor ! ResetTime()
+        complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
+          s"""
+          <link rel="icon" href="/img/favicon.png?v=4" />
+          <pre>
+            Edited game $gameid
+            blueSeconds=$blueSeconds
+            redSeconds=$redSeconds
+          </pre>
+
+          <a href="/play?game=$gameid&side=0">Join blue</a><br>
+          <a href="/play?game=$gameid&side=1">Join red</a><br>
+          <a href="/play?game=$gameid">Spectate</a><br>
+          <a href="/">Back</a>
+          """
+          ))
+      }
+    }
   }
 
   //----------------------------------------------------------------------------------
@@ -582,7 +646,7 @@ redSoulsPerTurn=$redSoulsPerTurn
   val maps_opt = Some(List("MegaPuddles"))
   val seed_opt = None
 
-  val gameid = "ai" + games.size.toString
+  val gameid = "ai_test" + games.size.toString
   val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
   val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
   games = games + (gameid -> ((gameActor, gameState)))

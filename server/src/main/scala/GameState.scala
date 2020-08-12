@@ -27,6 +27,7 @@ import akka.stream.scaladsl.Keep
 
 sealed trait ScheduleReason
 case object NewTurn extends ScheduleReason
+case object NewLimits extends ScheduleReason
 case class Pause(isPaused:Boolean) extends ScheduleReason
 
 object Log {
