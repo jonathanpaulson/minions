@@ -50,8 +50,6 @@ case class GameState (
   val game: Game,
   var gameSequence: Int,
   //These get repopulated when empty when we need to draw one
-  val specialNecrosRemaining: SideArray[List[String]],
-  //These get repopulated when empty when we need to draw one
   val spellsRemaining: SideArray[List[String]],
   var nextSpellId: Int,
   var spellMap: Map[Int,SpellName],
@@ -145,15 +143,7 @@ case class GameState (
   private def doResetBoard(boardIdx: Int, canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean): Unit = {
     // TODO: Another matter is how exactly you get your advanced Necromancer. The draw 3 choose 1 system is what we're using now, but large numbers of boards + Swarm being active can cause weird edge cases here (in 4 boards with a Swarm active, you only have your old Captain left to choose, rather degenerately)
     val nNecros = 3
-    Side.foreach { side =>
-      if(specialNecrosRemaining(side).length < nNecros) {
-        specialNecrosRemaining(side) = specialNecrosRemaining(side) ++ necroRands(side).shuffle(Units.specialNecromancers.toList).map(_.name)
-      }
-    }
-    val necroNames = SideArray.createFn(side => specialNecrosRemaining(side).take(nNecros))
-    Side.foreach { side =>
-      specialNecrosRemaining(side) = specialNecrosRemaining(side).drop(nNecros)
-    }
+    val necroNames = SideArray.createFn(side => necroRands(side).shuffle(Units.specialNecromancers.toList).map(_.name).take(nNecros))
     val reinforcements = SideArray.create(Map[PieceName,Int]())
     boards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements)
     broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements))
@@ -678,7 +668,6 @@ object GameState {
       numBoards = numBoards,
       game = game,
       gameSequence = 0,
-      specialNecrosRemaining = SideArray.create(List()),
       spellsRemaining = SideArray.create(List()),
       nextSpellId = 0,
       spellMap = Map(),
