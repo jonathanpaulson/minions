@@ -49,6 +49,7 @@ object PieceMod {
       case "Protected" => PieceMods.Protected
       case "DoubleAttack" => PieceMods.DoubleAttack
       case "UnsummonAttack" => PieceMods.UnsummonAttack
+      case "MoveThree" => PieceMods.MoveThree
       case "RangeTwo" => PieceMods.RangeTwo
       case "AirStrike" => PieceMods.AirStrike
       case "Spawner" => PieceMods.Spawner
