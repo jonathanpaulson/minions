@@ -85,7 +85,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Unsummon),
-    defense = Some(7),
+    defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
@@ -146,12 +146,13 @@ object Units {
     cost = 0,
     rebate = 0,
     moveRange = 2,
-    attackRange = 1,
+    attackRange = 2,
     attackEffect = Some(Unsummon),
     defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
+    isLumbering = true,
     extraSouls = 3,
   )
   val ranged_necromancer = createPieceStats(
@@ -360,7 +361,7 @@ object Units {
   val fog = createPieceStats(
     name = "fog",
     cost = 5,
-    rebate = 2,
+    rebate = 1,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
