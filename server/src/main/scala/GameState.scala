@@ -657,6 +657,21 @@ object GameState {
     }
     val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
 
+    Units.pieceMap(Units.necromancer.name) = createPieceStats(
+    name = "necromancer",
+    shortDisplayName = "Necro",
+    cost = 0,
+    rebate = 0,
+    moveRange = 1,
+    attackRange = 1,
+    attackEffect = Some(Unsummon),
+    defense = Some(10),
+    spawnRange = Some(1),
+    isPersistent = true,
+    isNecromancer = true,
+    extraSouls = 3
+  )
+
     new GameState(
       password = password,
       secondsPerTurn = secondsPerTurn,
@@ -678,4 +693,38 @@ object GameState {
       boardSequences = boardSequences,
       )
   }
+
+  /*val createVacuumTest(
+    secondsPerTurn: SideArray[Double],
+    startingSoulsPerBoard: SideArray[Int],
+    extraSoulsPerTurn: SideArray[Int],
+    targetWins: Int,
+    techSouls: Int,
+    maps_opt: Option[List[String]],
+    seed_opt: Option[Long],
+    password: Option[String],
+    testingSetup: Boolean,
+  ): GameState = {
+    val numBoards = chosenMaps.length
+    new GameState(
+      password = password,
+      secondsPerTurn = secondsPerTurn,
+      allMessages = List(),
+      teamMessages = SideArray.create(List()),
+      spectatorMessages = List(),
+      isPaused = true,
+      randSeed = randSeed,
+      numBoards = numBoards,
+      game = game,
+      gameSequence = 0,
+      spellsRemaining = SideArray.create(List()),
+      nextSpellId = 0,
+      spellMap = Map(),
+      revealedSpellIds = SideArray.create(Set()),
+      externalInfo = ExternalInfo.create(),
+      boards = boards,
+      boardNames = boardNames,
+      boardSequences = boardSequences,
+      )
+  }*/
 }
