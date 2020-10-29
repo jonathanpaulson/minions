@@ -146,13 +146,12 @@ object Units {
     cost = 0,
     rebate = 0,
     moveRange = 2,
-    attackRange = 2,
-    attackEffect = Some(Unsummon),
+    attackRange = 0,
+    attackEffect = None,
     defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    isLumbering = true,
     extraSouls = 3,
   )
   val ranged_necromancer = createPieceStats(
