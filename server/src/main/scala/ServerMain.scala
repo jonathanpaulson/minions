@@ -422,7 +422,7 @@ if(!username || username.length == 0) {
         val seed_opt = None
 
         val gameid = "ai" + games.size.toString
-        val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
+        val gameState = GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
         val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
         games = games + (gameid -> ((gameActor, gameState)))
         gameActor ! StartGame()
@@ -489,6 +489,7 @@ if(!username || username.length == 0) {
 
             <p>&nbsp
             <p><h3>Advanced Options</h3>
+            <p><label>Vacuum Test</label><input type=checkbox name="vacuum" value="true"></input><br>
             <p><label>Random seed (optional) </label><input type="text" name="seed"></input><br>
             <p><label>Blue starting souls per board&nbsp&nbsp </label><input type="text" name=blueSouls value=$blueStartingSouls></input><br>
             <p><label>Red starting souls per board </label><input type="text" name=redSouls value=$redStartingSouls></input><br>
@@ -505,7 +506,7 @@ if(!username || username.length == 0) {
         formFields(('game, 'password, 'seed)) { (gameid, password, seed) =>
           formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
             formFields(('blueSouls.as[Int], 'redSouls.as[Int], 'techSouls.as[Int], 'map.*)) { (blueSouls, redSouls, techSouls, maps) =>
-              formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int])) { (blueSoulsPerTurn, redSoulsPerTurn) =>
+              formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int], 'vacuum ? false)) { (blueSoulsPerTurn, redSoulsPerTurn, vacuum) =>
                 games.get(gameid) match {
                   case Some(_) =>
                     complete(s"""A game named "$gameid" already exists; pick a different name""")
@@ -516,7 +517,11 @@ if(!username || username.length == 0) {
                     val startingSouls = SideArray.createTwo(blueSouls, redSouls)
                     val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
                     val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
-                    val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
+                    val gameState =
+                      if(vacuum)
+                        GameState.createVacuum(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
+                      else
+                        GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
                     val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
                     gameActor ! StartGame()
                     games = games + (gameid -> ((gameActor, gameState)))
@@ -647,7 +652,7 @@ redSoulsPerTurn=$redSoulsPerTurn
   val seed_opt = None
 
   val gameid = "ai_test" + games.size.toString
-  val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
+  val gameState = GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
   val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
   games = games + (gameid -> ((gameActor, gameState)))
   gameActor ! StartGame()

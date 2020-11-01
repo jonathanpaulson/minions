@@ -103,7 +103,7 @@ case object Game {
     extraTechCost: Int,
     extraSoulsPerTurn: SideArray[Int],
     techsAlwaysAcquired: Array[Tech],
-    lockedTechs: Array[(Tech,Int)],
+    otherTechs: Array[TechState],
     pieceMap: Map[PieceName, PieceStats]
   ) = {
     val techStatesAlwaysAcquired = techsAlwaysAcquired.map { tech =>
@@ -116,16 +116,7 @@ case object Game {
         startingLevelThisTurn = SideArray.create(TechAcquired),
       )
     }
-    val techStatesLocked = lockedTechs.map { case (tech,techNumber) =>
-      TechState(
-        shortDisplayName = tech.shortDisplayName(pieceMap),
-        displayName = tech.displayName(pieceMap),
-        tech = tech,
-        techNumber = Some(techNumber),
-        level = SideArray.create(TechLocked),
-        startingLevelThisTurn = SideArray.create(TechLocked),
-      )
-    }
+    val techStatesLocked = otherTechs
     val piecesAlwaysAcquired: Map[PieceName,TechState] =
       techStatesAlwaysAcquired.flatMap { techState =>
         techState.tech match {

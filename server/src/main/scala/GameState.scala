@@ -502,9 +502,9 @@ case class GameState (
         case Some(side) => revealedSpellIds(side)
       }
       val spellIdsAndNames = spellIds.toArray.map { spellId => (spellId,spellMap(spellId)) }
+      out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
       out ! Protocol.ReportRevealSpells(spellIdsAndNames)
 
-      out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
       out ! Protocol.ReportPause(isPaused)
       Log.log("UserJoined: " + username + " Side: " + side)
       broadcastAll(Protocol.UserJoined(username,side))
@@ -539,6 +539,70 @@ object GameState {
   import minionsgame.core.Protocol._
   implicit val gameStateFormat = Json.format[GameState]
 
+  def createNormal(
+    secondsPerTurn: SideArray[Double],
+    startingSoulsPerBoard: SideArray[Int],
+    extraSoulsPerTurn: SideArray[Int],
+    targetWins: Int,
+    techSouls: Int,
+    maps_opt: Option[List[String]],
+    seed_opt: Option[Long],
+    password: Option[String],
+    testingSetup: Boolean,
+  ): GameState = {
+    val config = ConfigFactory.parseFile(new java.io.File(AppPaths.applicationConf))
+    val randSeed:Long = {
+      seed_opt match {
+        case None =>
+          val secureRandom = new SecureRandom()
+          secureRandom.nextLong()
+        case Some(seed) => seed
+      }
+    }
+    val setupRand = Rand(randSeed)
+    val techsAlwaysAcquired: Array[Tech] =
+      Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
+    val otherTechs: Array[TechState] = {
+      val pieceTechs = Units.techPieces.map { piece => PieceTech(piece.name) }
+      val allTechs = pieceTechs :+ Copycat :+ TechSeller :+ Metamagic
+      val techsWithIdx = allTechs.zipWithIndex.map { case (tech, idx) => (tech, idx) }
+      val orderedTechs =
+        if(!config.getBoolean("app.randomizeTechLine"))
+          techsWithIdx.toArray
+        else {
+          //First few techs are always the same
+          val numFixedTechs = config.getInt("app.numFixedTechs")
+          val fixedTechs = techsWithIdx.take(numFixedTechs).toArray
+          //Partition remaining ones randomly into two sets of the appropriate size, the first one getting the rounding up
+          val randomized = setupRand.shuffle(techsWithIdx.drop(numFixedTechs).toList)
+          var set1 = randomized.take((randomized.length+1) / 2)
+          var set2 = randomized.drop((randomized.length+1) / 2)
+          //Sort each set independently
+          set1 = set1.sortBy { case (_,origIdx) => origIdx }
+          set2 = set2.sortBy { case (_,origIdx) => origIdx }
+          //Interleave them
+          val set1Opt = set1.map { case (tech,origIdx) => Some((tech,origIdx)) }
+          val set2Opt = set2.map { case (tech,origIdx) => Some((tech,origIdx)) }
+          val interleaved = set1Opt.zipAll(set2Opt,None,None).flatMap { case (s1,s2) => List(s1,s2) }.flatten.toArray
+          (fixedTechs ++ interleaved).map { case (tech,origIdx) =>
+          (tech,origIdx+1) }
+        }
+      val techStates: Array[TechState] =
+        orderedTechs.map { case (tech, idx) =>
+          TechState(
+            shortDisplayName = tech.shortDisplayName(Units.pieceMap),
+            displayName = tech.displayName(Units.pieceMap),
+            tech = tech,
+            techNumber = Some(idx),
+            level = SideArray.create(TechLocked),
+            startingLevelThisTurn = SideArray.create(TechLocked),
+            )
+        }
+      techStates
+    }
+    create(secondsPerTurn, startingSoulsPerBoard, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, password, testingSetup, techsAlwaysAcquired, otherTechs)
+  }
+
   def create(
     secondsPerTurn: SideArray[Double],
     startingSoulsPerBoard: SideArray[Int],
@@ -549,6 +613,8 @@ object GameState {
     seed_opt: Option[Long],
     password: Option[String],
     testingSetup: Boolean,
+    techsAlwaysAcquired: Array[Tech],
+    otherTechs: Array[TechState],
   ): GameState = {
     val config = ConfigFactory.parseFile(new java.io.File(AppPaths.applicationConf))
 
@@ -586,46 +652,11 @@ object GameState {
       }
 
     val numBoards = chosenMaps.length
-    val testUnit = Units.createPieceStats(
-      name = "test",
-      cost = 5,
-      rebate = 5,
-      moveRange = 1,
-      attackRange = 1,
-      attackEffect = Some(Damage(5)),
-      numAttacks = 5,
-      defense = Some(5))
-    val pieceMap = Map(testUnit.name -> testUnit) ++ Units.pieceMap
+    val pieceMap = Units.pieceMap
     val externalInfo = ExternalInfo.create(pieceMap)
     val game = {
       val targetNumWins = targetWins
       val startingSouls = startingSoulsPerBoard.map(x => x*numBoards)
-      val techsAlwaysAcquired: Array[Tech] =
-        Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) }
-      val lockedTechs: Array[(Tech,Int)] = {
-        val pieceTechs = Units.techPieces.map { piece => PieceTech(piece.name) }
-        val allTechs = pieceTechs :+ Copycat :+ TechSeller :+ Metamagic
-        val techsWithIdx = allTechs.zipWithIndex.map { case (tech, idx) => (tech, idx) }
-        if(!config.getBoolean("app.randomizeTechLine"))
-          techsWithIdx.toArray
-        else {
-          //First few techs are always the same
-          val numFixedTechs = config.getInt("app.numFixedTechs")
-          val fixedTechs = techsWithIdx.take(numFixedTechs).toArray
-          //Partition remaining ones randomly into two sets of the appropriate size, the first one getting the rounding up
-          val randomized = setupRand.shuffle(techsWithIdx.drop(numFixedTechs).toList)
-          var set1 = randomized.take((randomized.length+1) / 2)
-          var set2 = randomized.drop((randomized.length+1) / 2)
-          //Sort each set independently
-          set1 = set1.sortBy { case (_,origIdx) => origIdx }
-          set2 = set2.sortBy { case (_,origIdx) => origIdx }
-          //Interleave them
-          val set1Opt = set1.map { case (tech,origIdx) => Some((tech,origIdx)) }
-          val set2Opt = set2.map { case (tech,origIdx) => Some((tech,origIdx)) }
-          val interleaved = set1Opt.zipAll(set2Opt,None,None).flatMap { case (s1,s2) => List(s1,s2) }.flatten.toArray
-          (fixedTechs ++ interleaved).map { case (tech,origIdx) => (tech,origIdx+1) }
-        }
-      }
       val extraTechCost = techSouls * numBoards
 
       val finalStartingSouls = {
@@ -644,7 +675,7 @@ object GameState {
         extraTechCost = extraTechCost,
         extraSoulsPerTurn = extraSoulsPerTurn,
         techsAlwaysAcquired = techsAlwaysAcquired,
-        lockedTechs = lockedTechs,
+        otherTechs = otherTechs,
         pieceMap = pieceMap
       )
       game
@@ -659,7 +690,7 @@ object GameState {
         if(testingSetup) {
           state.tiles.foreachi { (loc, tile) =>
             if (tile.terrain == Graveyard) {
-              val _ = state.spawnPieceInitial(S0, testUnit, loc)
+              val _ = state.spawnPieceInitial(S0, Units.fiend, loc)
             }
           }
         }
@@ -668,21 +699,6 @@ object GameState {
       (boardsAndNames.map(_._1),boardsAndNames.map(_._2))
     }
     val boardSequences: Array[Int] = (0 until numBoards).toArray.map { _ => 0}
-
-    Units.pieceMap(Units.necromancer.name) = createPieceStats(
-    name = "necromancer",
-    shortDisplayName = "Necro",
-    cost = 0,
-    rebate = 0,
-    moveRange = 1,
-    attackRange = 1,
-    attackEffect = Some(Unsummon),
-    defense = Some(10),
-    spawnRange = Some(1),
-    isPersistent = true,
-    isNecromancer = true,
-    extraSouls = 3
-  )
 
     new GameState(
       password = password,
@@ -706,7 +722,7 @@ object GameState {
       )
   }
 
-  /*val createVacuumTest(
+  def createVacuum(
     secondsPerTurn: SideArray[Double],
     startingSoulsPerBoard: SideArray[Int],
     extraSoulsPerTurn: SideArray[Int],
@@ -717,26 +733,26 @@ object GameState {
     password: Option[String],
     testingSetup: Boolean,
   ): GameState = {
-    val numBoards = chosenMaps.length
-    new GameState(
-      password = password,
-      secondsPerTurn = secondsPerTurn,
-      allMessages = List(),
-      teamMessages = SideArray.create(List()),
-      spectatorMessages = List(),
-      isPaused = true,
-      randSeed = randSeed,
-      numBoards = numBoards,
-      game = game,
-      gameSequence = 0,
-      spellsRemaining = SideArray.create(List()),
-      nextSpellId = 0,
-      spellMap = Map(),
-      revealedSpellIds = SideArray.create(Set()),
-      externalInfo = ExternalInfo.create(),
-      boards = boards,
-      boardNames = boardNames,
-      boardSequences = boardSequences,
+    val techsAlwaysAcquired: Array[Tech] =
+      (Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) })
+    val otherTechs: Array[TechState] = Array(
+      TechState(
+        shortDisplayName = Units.ghost.shortDisplayName,
+        displayName = Units.ghost.displayName,
+        tech = PieceTech(Units.ghost.name),
+        techNumber = Some(1),
+        level = SideArray.createTwo(TechLocked, TechAcquired),
+        startingLevelThisTurn = SideArray.createTwo(TechLocked, TechAcquired),
+        ),
+      TechState(
+        shortDisplayName = Units.skeleton.shortDisplayName,
+        displayName = Units.skeleton.displayName,
+        tech = PieceTech(Units.skeleton.name),
+        techNumber = Some(2),
+        level = SideArray.createTwo(TechAcquired, TechLocked),
+        startingLevelThisTurn = SideArray.createTwo(TechAcquired, TechLocked),
+        ),
       )
-  }*/
+    create(secondsPerTurn, startingSoulsPerBoard, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, password, testingSetup, techsAlwaysAcquired, otherTechs)
+  }
 }
