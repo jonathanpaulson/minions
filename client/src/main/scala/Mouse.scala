@@ -371,7 +371,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
               case MouseSpellPlayed(_,_) =>
                 mouseState.client.doActionOnCurBoard(PlayerActions(List(DiscardSpell(spellId)),makeActionId()))
               case _ =>
-                mouseState.client.externalInfo.spellsRevealed.get(spellId).foreach { spellName =>
+                mouseState.client.externalInfo.get.spellsRevealed.get(spellId).foreach { spellName =>
                   val spell = Spells.spellMap(spellName)
                   spell match {
                     case (_: TargetedSpell) =>
@@ -405,7 +405,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                         def makeAction(terrain: Terrain) = {
                           PlaySpell(spellId, SpellOrAbilityTargets.terrainAndLoc(terrain, loc))
                         }
-                        if(board.tryLegality(makeAction(arbitraryTerrain), mouseState.client.externalInfo).isSuccess) {
+                        if(board.tryLegality(makeAction(arbitraryTerrain), mouseState.client.externalInfo.get).isSuccess) {
                           mouseState.mode = SelectTerrainMouseMode(mouseState) { (terrainOpt: Option[Terrain]) =>
                             terrainOpt match {
                               case None => ()
@@ -635,7 +635,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                             ActivateAbility(spec, ability, SpellOrAbilityTargets.singleLoc(loc))
                           }
                           val locTargets = board.tiles.filterLocs { loc =>
-                            board.tryLegality(makeAction(loc), mouseState.client.externalInfo).isSuccess
+                            board.tryLegality(makeAction(loc), mouseState.client.externalInfo.get).isSuccess
                           }
                           // TODO: It would be nice to distinguish:
                           // 1) "This is illegal regardless of the target" (e.g. no mana)
@@ -657,7 +657,7 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
                           }
                           val arbitraryTerrain = Whirlwind(true)
                           def isLegal(loc:Loc) = {
-                            board.tryLegality(makeAction(arbitraryTerrain, loc), mouseState.client.externalInfo).isSuccess
+                            board.tryLegality(makeAction(arbitraryTerrain, loc), mouseState.client.externalInfo.get).isSuccess
                           }
                           def doIllegalAction(loc: Loc) = {
                             assert(!isLegal(loc))

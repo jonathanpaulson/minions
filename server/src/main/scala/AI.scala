@@ -54,7 +54,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
         val unlockedUnits = unlockedTechs.flatMap { i =>
           techs(i).tech match {
             case PieceTech(pieceName) =>
-              val stats = Units.pieceMap(pieceName)
+              val stats = game.externalInfo.pieceMap(pieceName)
               if(stats.name!="zombie" && stats.moveRange > 0 && stats.cost <= game.game.souls(S1) && !stats.attackEffect.isEmpty) {
                 Some(stats)
               } else {
@@ -173,8 +173,8 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
 
           reinforcements.foreach { piecename =>
             val board = game.boards(0).curState
-            val locs = board.legalSpawnLocs(piecename).map { x => (x -> 0) }.toMap
-            val stats = Units.pieceMap(piecename)
+            val stats = game.externalInfo.pieceMap(piecename)
+            val locs = board.legalSpawnLocs(stats).map { x => (x -> 0) }.toMap
             bestMove(stats, stats, locs) match {
               case None => ()
               case Some(bestLoc) =>

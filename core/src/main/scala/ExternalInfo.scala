@@ -9,10 +9,10 @@ import RichImplicits._
 //to perform legality checking. Putting it in this separate class makes it easy to keep the handling of this
 //information clean and control when and how it gets updated.
 case class ExternalInfo(
+  val pieceMap: Map[PieceName, PieceStats],
+  //Map of all spells that have been revealed
   var spellsRevealed: Map[SpellId,SpellName]
 ) {
-  //Map of all spells that have been revealed
-
   def revealSpells(spellIdsAndNames: Array[(SpellId,SpellName)]) = {
     spellIdsAndNames.foreach { case (spellId,spellName) =>
       spellsRevealed = spellsRevealed + (spellId -> spellName)
@@ -20,7 +20,7 @@ case class ExternalInfo(
   }
 }
 object ExternalInfo {
-  def create(): ExternalInfo = {
-    new ExternalInfo(spellsRevealed = Map())
+  def create(pieceMap : Map[PieceName, PieceStats]): ExternalInfo = {
+    new ExternalInfo(pieceMap, spellsRevealed = Map())
   }
 }

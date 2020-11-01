@@ -3,7 +3,7 @@ package minionsgame.jsclient
 import scala.concurrent.Future
 import scala.util.{Try, Success, Failure}
 
-import scala.scalajs.js.{JSApp, Dictionary}
+import scala.scalajs.js.JSApp
 import org.scalajs.jquery.{JQuery,jQuery,JQueryEventObject}
 import org.scalajs.dom.CanvasRenderingContext2D
 import org.scalajs.dom.{MouseEvent, KeyboardEvent}
@@ -202,7 +202,7 @@ class Client() {
   var serverSequence: Array[Int] = Array()
   var serverActionSequence: Array[Vector[BoardAction]] = Array()
   var serverBoardNames: Array[String] = Array()
-  var externalInfo: ExternalInfo = ExternalInfo.create()
+  var externalInfo: Option[ExternalInfo] = None
 
   var numBoards: Int = 0 //Length of the boards arrays
   var curBoardIdx: Int = 0 //Currently selected board
@@ -289,7 +289,7 @@ class Client() {
 
       localActionsToReplay.foreach { action =>
         val result = action match {
-          case (a: BoardAction) => localBoards(boardIdx).doAction(a,externalInfo)
+          case (a: BoardAction) => localBoards(boardIdx).doAction(a,externalInfo.get)
         }
         result match {
           case Failure(err) => reportError(err.getLocalizedMessage)
@@ -343,7 +343,8 @@ class Client() {
         numBoards = summaries.length
         curBoardIdx = 0
         game = Some(startGame)
-        serverBoards = summaries.map { summary => Board.ofSummary(summary,externalInfo) }
+        externalInfo = Some(ExternalInfo.create(startGame.pieceMap))
+        serverBoards = summaries.map { summary => Board.ofSummary(summary,externalInfo.get) }
         serverSequence = boardSequences.clone()
         serverActionSequence = Array.fill(summaries.length)(Vector())
         serverBoardNames = boardNames.clone()
@@ -365,7 +366,7 @@ class Client() {
 
       case Protocol.ReportBoardAction(boardIdx,boardAction,newBoardSequence) =>
         println("Received board " + boardIdx + " action " + boardAction)
-        serverBoards(boardIdx).doAction(boardAction,externalInfo) match {
+        serverBoards(boardIdx).doAction(boardAction,externalInfo.get) match {
           case Failure(exn) => reportFatalError("Server sent illegal action: " + boardAction + " error: " + exn)
           case Success(()) => ()
         }
@@ -374,13 +375,13 @@ class Client() {
         syncLocalAndServerBoards(boardIdx)
 
       case Protocol.ReportBoardHistory(boardIdx,boardSummary,newBoardSequence) =>
-        serverBoards(boardIdx) = Board.ofSummary(boardSummary,externalInfo)
+        serverBoards(boardIdx) = Board.ofSummary(boardSummary,externalInfo.get)
         serverSequence(boardIdx) = newBoardSequence
         serverActionSequence(boardIdx) = Vector()
         resetLocalBoards(boardIdx)
 
       case Protocol.ReportResetBoard(boardIdx,necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements) =>
-        serverBoards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements)
+        serverBoards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements, externalInfo.get)
         resetLocalBoards(boardIdx)
 
       case Protocol.ReportNewTurn(newSide) =>
@@ -390,7 +391,7 @@ class Client() {
         game.get.addSouls(newSide,souls)
         game.get.endTurn()
 
-        serverBoards.foreach { board => board.endTurn() }
+        serverBoards.foreach { board => board.endTurn(externalInfo.get) }
         for(i <- 0 until numBoards)
           resetLocalBoards(i)
 
@@ -408,7 +409,7 @@ class Client() {
         currentBeep = 0
 
       case Protocol.ReportRevealSpells(spellIdsAndNames) =>
-        externalInfo.revealSpells(spellIdsAndNames)
+        externalInfo.get.revealSpells(spellIdsAndNames)
 
       case Protocol.ReportTimeLeft(serverTurnTimeLeft) =>
         turnTimeLeft = Some(serverTurnTimeLeft)
@@ -456,7 +457,7 @@ class Client() {
           if(game.exists { game => game.winner.nonEmpty }) {
             reportError("Game is over")
           } else {
-            localBoards(curBoardIdx).doAction(action,externalInfo) match {
+            localBoards(curBoardIdx).doAction(action,externalInfo.get) match {
               case Failure(error) => reportError(error.getLocalizedMessage)
               case Success(()) =>
                 localSequence(curBoardIdx) = localSequence(curBoardIdx) + 1
@@ -506,7 +507,7 @@ class Client() {
           canvas.width = jQuery("#main").get(0).clientWidth
         if(canvas.height != jQuery("#main").get(0).clientHeight)
           canvas.height = jQuery("#main").get(0).clientHeight
-        Drawing.drawEverything(canvas, ctx, game.get, externalInfo, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
+        Drawing.drawEverything(canvas, ctx, game.get, externalInfo.get, localBoards, serverBoardNames, curBoardIdx, ui, mouseState,
           mouseState.undoing, turnTimeLeft, this)
       }
     }

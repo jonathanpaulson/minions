@@ -214,10 +214,10 @@ case class Tile(
 object Piece {
   //This function is used internally by the board implementation.
   //Users should never need to call this function. For setting up initial pieces, see functions like spawnPieceInitial.
-  def createInternal(side: Side, pieceName: String, id: Int, loc: Loc, nthAtLoc: Int): Piece = {
+  def createInternal(side: Side, pieceStats: PieceStats, id: Int, loc: Loc, nthAtLoc: Int): Piece = {
     new Piece(
       side = side,
-      baseStats = Units.pieceMap(pieceName),
+      baseStats = pieceStats,
       id = id,
       loc = loc,
       modsWithDuration = List(),
@@ -226,7 +226,7 @@ object Piece {
       hasMoved = false,
       hasAttacked = false,
       attackedPiecesThisTurn = List(),
-      spawnedThisTurn = Some(SpawnedThisTurn(pieceName,loc,nthAtLoc))
+      spawnedThisTurn = Some(SpawnedThisTurn(pieceStats.name,loc,nthAtLoc))
     )
   }
 }
@@ -675,9 +675,9 @@ case class BoardState private (
   }
 
   //End the current turn and begin the next turn
-  def endTurn(): Unit = {
+  def endTurn(externalInfo: ExternalInfo): Unit = {
     //Wailing units that attacked and have not been finished yet die
-    killAttackingWailingUnits()
+    killAttackingWailingUnits(externalInfo)
 
     val newSouls = endOfTurnSouls(side)
     // Mist
@@ -713,7 +713,7 @@ case class BoardState private (
         var bestPieceCost: Int = -1
         var bestPieceIdx: Int = -1
         allowedFreeBuyPieces(side).foreach { pieceName =>
-          val cost = Units.pieceMap(pieceName).cost
+          val cost = externalInfo.pieceMap(pieceName).cost
           val idx = Units.allPiecesIdx(pieceName)
           if(cost > bestPieceCost || (cost == bestPieceCost && idx > bestPieceIdx)) {
             bestPieceName = Some(pieceName)
@@ -753,7 +753,7 @@ case class BoardState private (
   }
 
   //Reset the board to the starting position
-  def resetBoard(necroNames: SideArray[List[PieceName]], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
+  def resetBoard(necroNames: SideArray[List[PieceName]], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, new_reinforcements: SideArray[Map[PieceName, Int]], externalInfo: ExternalInfo): Unit = {
     //Keep a piece around though as a free buy
     Side.foreach { side =>
       numFreeBuysAllowed(side) = 1
@@ -764,7 +764,7 @@ case class BoardState private (
           allowedFreeBuyPieces(side) = allowedFreeBuyPieces(side) + piece.baseStats.name
       }
       reinforcements(side).foreach { case (name,count) =>
-        if(count > 0 && !Units.pieceMap(name).isNecromancer) {
+        if(count > 0 && !externalInfo.pieceMap(name).isNecromancer) {
           allowedFreeBuyPieces(side) = allowedFreeBuyPieces(side) + name
         }
       }
@@ -795,9 +795,10 @@ case class BoardState private (
     Side.foreach { side =>
       val startLoc = startLocs(side)
       val necroName = necroNames(side)(0)
-      val necroSwarmMax = Units.pieceMap(necroName).swarmMax
+      val necroStats = externalInfo.pieceMap(necroName)
+      val necroSwarmMax = necroStats.swarmMax
       for(i <- 0 until necroSwarmMax) {
-        spawnPieceInitial(side,necroName,startLoc) match {
+        spawnPieceInitial(side,necroStats,startLoc) match {
           case Failure(_) => assertUnreachable()
           case Success(piece) =>
             if(allowedNecros(side).size > 1) {
@@ -808,17 +809,17 @@ case class BoardState private (
       }
 
       tiles.topology.forEachAdj(startLoc) { loc =>
-        val (_: Try[Piece]) = spawnPieceInitial(side,Units.zombie.name,loc)
+        val (_: Try[Piece]) = spawnPieceInitial(side,Units.zombie,loc)
       }
     }
 
     handleStartOfTurn()
   }
 
-  def tryGeneralLegality(action: GeneralBoardAction): Try[Unit] = {
+  def tryGeneralLegality(action: GeneralBoardAction, externalInfo: ExternalInfo): Try[Unit] = {
     action match {
       case BuyReinforcement(pieceName,free) =>
-        if(!Units.pieceMap.contains(pieceName))
+        if(!externalInfo.pieceMap.contains(pieceName))
           Failure(new Exception("Bought reinforcement piece with unknown name: " + pieceName))
         else if(free && !canFreeBuyPiece(side,pieceName))
           Failure(new Exception("Cannot buy/carry-over this piece for free: " + pieceName))
@@ -837,10 +838,10 @@ case class BoardState private (
   }
 
   //Perform a GeneralBoardAction.
-  def doGeneralBoardAction(action: GeneralBoardAction): Unit = {
+  def doGeneralBoardAction(action: GeneralBoardAction, externalInfo: ExternalInfo): Unit = {
     action match {
       case BuyReinforcement(pieceName,free) =>
-        if(!Units.pieceMap.contains(pieceName))
+        if(!externalInfo.pieceMap.contains(pieceName))
           throw new Exception("Bought reinforcement piece with unknown name: " + pieceName)
         if(free && !canFreeBuyPiece(side,pieceName))
           throw new Exception("Cannot buy/carry-over this piece for free: " + pieceName)
@@ -850,7 +851,7 @@ case class BoardState private (
         }
         else {
           addReinforcementInternal(side,pieceName)
-          val pieceStats = Units.pieceMap(pieceName)
+          val pieceStats = externalInfo.pieceMap(pieceName)
           totalCosts(side) = totalCosts(side) + pieceStats.cost
         }
 
@@ -860,11 +861,11 @@ case class BoardState private (
   }
 
   //Directly spawn a piece if it possible to do so. Exposed for use to set up initial boards.
-  def spawnPieceInitial(side: Side, pieceName: String, loc: Loc): Try[Piece] = {
-    trySpawnIsLegal(side, pieceName, loc) match {
+  def spawnPieceInitial(side: Side, pieceStats: PieceStats, loc: Loc): Try[Piece] = {
+    trySpawnIsLegal(side, pieceStats, loc) match {
       case Failure(err) => Failure(err)
       case Success(()) =>
-        val piece = spawnPieceInternal(side,pieceName,loc).get
+        val piece = spawnPieceInternal(side,pieceStats,loc).get
         refreshPieceForStartOfTurn(piece)
         Success(piece)
     }
@@ -1133,17 +1134,13 @@ case class BoardState private (
   }
 
   //Find all locations that a piece can legally spawn
-  def legalSpawnLocs(pieceName: PieceName): List[Loc] = {
-    Units.pieceMap.get(pieceName) match {
-      case None => Nil
-      case Some(spawnStats) =>
-        //Not the most efficient algorithm to just iterate and test every loc, but it should work
-        tiles.filterLocs { loc =>
-          //Make up a fake spec that won't match anything else
-          val pieceSpec = SpawnedThisTurn(pieceName, loc, nthAtLoc = -1)
-          tryCanEndOnLoc(side, pieceSpec, spawnStats, spawnStats, loc, Nil).isSuccess &&
-          isSpawnerInRange(loc,spawnStats)
-        }
+  def legalSpawnLocs(spawnStats: PieceStats): List[Loc] = {
+    //Not the most efficient algorithm to just iterate and test every loc, but it should work
+    tiles.filterLocs { loc =>
+      //Make up a fake spec that won't match anything else
+      val pieceSpec = SpawnedThisTurn(spawnStats.name, loc, nthAtLoc = -1)
+      tryCanEndOnLoc(side, pieceSpec, spawnStats, spawnStats, loc, Nil).isSuccess &&
+      isSpawnerInRange(loc,spawnStats)
     }
   }
 
@@ -1382,11 +1379,11 @@ case class BoardState private (
     tiles(loc) = Tile(terrain, tiles(loc).startingTerrain, modsWithDuration = tiles(loc).modsWithDuration)
   }
 
-  private def killAttackingWailingUnits(otherThan: Option[PieceSpec] = None): Unit = {
+  private def killAttackingWailingUnits(externalInfo: ExternalInfo, otherThan: Option[PieceSpec] = None): Unit = {
     val attackedWailings = pieceById.iterator.filter { case (_,piece) =>
       piece.curStats(this).isWailing && piece.hasAttacked && otherThan.forall { spec => piece.spec != spec }
     }
-    attackedWailings.toList.foreach { case (_,piece) => killPiece(piece) }
+    attackedWailings.toList.foreach { case (_,piece) => killPiece(piece, externalInfo) }
   }
 
   private def trySpellTargetLegality(spell: Spell, targets: SpellOrAbilityTargets): Try[Unit] = {
@@ -1452,23 +1449,15 @@ case class BoardState private (
 
   //Tests if a spawn is possible. Doesn't test reinforcements (since other things can
   //cause spawns, such as death spawns, this functions handles the most general tests).
-  private def spawnIsLegal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Boolean = {
-    Units.pieceMap.get(spawnName) match {
-      case None => false
-      case Some(spawnStats) =>
-        //Make up a fake spec that won't match anything else
-        val pieceSpec = SpawnedThisTurn(spawnName, spawnLoc, nthAtLoc = -1)
-        canEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnStats, spawnLoc, Nil)
-    }
+  private def spawnIsLegal(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Boolean = {
+    //Make up a fake spec that won't match anything else
+    val pieceSpec = SpawnedThisTurn(spawnStats.name, spawnLoc, nthAtLoc = -1)
+    canEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnStats, spawnLoc, Nil)
   }
-  def trySpawnIsLegal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Try[Unit] = {
-    Units.pieceMap.get(spawnName) match {
-      case None => failed("Unknown spawned piece name")
-      case Some(spawnStats) =>
-        //Make up a fake spec that won't match anything else
-        val pieceSpec = SpawnedThisTurn(spawnName, spawnLoc, nthAtLoc = -1)
-        tryCanEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnStats, spawnLoc, Nil)
-    }
+  def trySpawnIsLegal(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Try[Unit] = {
+    //Make up a fake spec that won't match anything else
+    val pieceSpec = SpawnedThisTurn(spawnStats.name, spawnLoc, nthAtLoc = -1)
+    tryCanEndOnLoc(spawnSide, pieceSpec, spawnStats, spawnStats, spawnLoc, Nil)
   }
 
   //Check if a single action is legal
@@ -1533,8 +1522,8 @@ case class BoardState private (
 
       case Spawn(spawnLoc, spawnName) =>
         //A bunch of tests that don't depend on the spawner or on reinforcements state
-        trySpawnIsLegal(side, spawnName, spawnLoc).get
-        val spawnStats = Units.pieceMap(spawnName)
+        val spawnStats = externalInfo.pieceMap(spawnName)
+        trySpawnIsLegal(side, spawnStats, spawnLoc).get
         failUnless(isSpawnerInRange(spawnLoc,spawnStats), "No non-newly-spawned piece with spawn in range")
         failUnless(reinforcements(side).contains(spawnName), "No such piece in reinforcements")
 
@@ -1547,7 +1536,7 @@ case class BoardState private (
           case Spawner(spawnName) =>
             failIf(pieces(loc).nonEmpty, "Spawner tile must be unoccupied")
             failIf(hasUsedSpawnerTile, "Already used a spawner tile this turn")
-            trySpawnIsLegal(side, spawnName, loc).get
+            trySpawnIsLegal(side, externalInfo.pieceMap(spawnName), loc).get
         }
 
       case ActivateAbility(pieceSpec,ability,targets) =>
@@ -1656,7 +1645,7 @@ case class BoardState private (
         val target = findPiece(targetSpec).get
         val attackerStats = attacker.curStats(this)
         val attackEffect = attackerStats.attackEffect.get
-        applyEffect(attackEffect,target)
+        applyEffect(attackEffect,target,externalInfo)
         attacker.attackedPiecesThisTurn = attacker.attackedPiecesThisTurn :+ target
         attacker.hasAttacked = true
         attacker.actState = attacker.actState match {
@@ -1670,12 +1659,13 @@ case class BoardState private (
             case Moving(_) | Spawning | DoneActing => assertUnreachable()
             case Attacking(numAttacks) =>
               if(numAttacks >= attackerStats.numAttacks)
-                killPiece(attacker)
+                killPiece(attacker,externalInfo)
           }
         }
 
       case Spawn(spawnLoc, spawnName) =>
-        spawnPieceInternal(side,spawnName,spawnLoc) match {
+        val spawnStats = externalInfo.pieceMap(spawnName)
+        spawnPieceInternal(side,spawnStats,spawnLoc) match {
           case Some(_: Piece) => ()
           case None => assertUnreachable()
         }
@@ -1695,7 +1685,7 @@ case class BoardState private (
             assertUnreachable()
           case Spawner(spawnName) =>
             hasUsedSpawnerTile = true
-            spawnPieceInternal(side,spawnName,loc) match {
+            spawnPieceInternal(side,externalInfo.pieceMap(spawnName),loc) match {
               case Some(_: Piece) => ()
               case None => assertUnreachable()
             }
@@ -1708,10 +1698,10 @@ case class BoardState private (
 
         ability match {
           case Suicide =>
-            killPiece(piece)
+            killPiece(piece,externalInfo)
           case SpawnZombies =>
             pieces.topology.forEachAdj(piece.loc) { loc =>
-              spawnPieceInternal(piece.side,Units.zombie.name,loc) match {
+              spawnPieceInternal(piece.side,Units.zombie,loc) match {
                 case Some(_: Piece) => ()
                 case None => ()
               }
@@ -1722,7 +1712,8 @@ case class BoardState private (
             removeFromBoard(piece)
             val necroIdx = allowedNecros(piece.side).indexOf(piece.baseStats.name)
             val newNecroName = allowedNecros(piece.side)((necroIdx+1)%allowedNecros(piece.side).size)
-            spawnPieceInitial(piece.side,newNecroName,piece.loc) match {
+            val newNecroStats = externalInfo.pieceMap(newNecroName)
+            spawnPieceInitial(piece.side,newNecroStats,piece.loc) match {
               case Success(newNecro: Piece) =>
                 val necroPick = PieceModWithDuration(PieceMods.NecroPick, turnsLeft=None)
                 newNecro.modsWithDuration = newNecro.modsWithDuration :+ necroPick
@@ -1732,7 +1723,7 @@ case class BoardState private (
             pieces.topology.forEachAdj(piece.loc) { loc =>
               pieces(loc).foreach { p =>
                 if(p.side != piece.side && !p.baseStats.isNecromancer) {
-                  killPiece(p)
+                  killPiece(p,externalInfo)
                 }
               }
             }
@@ -1750,7 +1741,7 @@ case class BoardState private (
             piece.modsWithDuration = piece.modsWithDuration :+ ability.mod
           case (ability:TargetedAbility) =>
             val target = findPiece(targets.target0).get
-            applyEffect(ability.effect,target)
+            applyEffect(ability.effect,target,externalInfo)
         }
 
       case Blink(pieceSpec,_) =>
@@ -1776,11 +1767,11 @@ case class BoardState private (
         spell match {
           case (spell: TargetedSpell) =>
             val target = findPiece(targets.target0).get
-            applyEffect(spell.effect,target)
+            applyEffect(spell.effect,target,externalInfo)
           case (spell: TileSpell) =>
             spell.effect(this,targets.loc0)
             val piecesOnTile = pieces(targets.loc0)
-            piecesOnTile.foreach { piece => killIfEnoughDamage(piece) }
+            piecesOnTile.foreach { piece => killIfEnoughDamage(piece, externalInfo)}
           case (spell: PieceAndLocSpell) =>
             val target = findPiece(targets.target0).get
             spell.effect(this,target,targets.loc0)
@@ -1799,53 +1790,55 @@ case class BoardState private (
     }
   }
 
-  private def applyEffect(effect: TargetEffect, piece: Piece): Unit = {
+  private def applyEffect(effect: TargetEffect, piece: Piece, externalInfo: ExternalInfo): Unit = {
     effect match {
       case Damage(n) =>
         piece.damage += n
-        killIfEnoughDamage(piece)
+        killIfEnoughDamage(piece,externalInfo)
       case Unsummon =>
         unsummonPiece(piece)
       case Kill =>
-        killPiece(piece)
+        killPiece(piece,externalInfo)
       case Enchant(modWithDuration) =>
         piece.modsWithDuration = piece.modsWithDuration :+ modWithDuration
-        killIfEnoughDamage(piece)
-      case TransformInto(newName) =>
+        killIfEnoughDamage(piece,externalInfo)
+      case TransformInto(name) =>
+        val stats = externalInfo.pieceMap(name)
         removeFromBoard(piece)
-        spawnPieceInternal(piece.side,newName,piece.loc) match {
+        spawnPieceInternal(piece.side,stats,piece.loc) match {
           case Some(_: Piece) => ()
           case None => ()
             //Piece was unable to legally belong on that square, so treat it as if killed
-            updateAfterPieceKill(piece.side,Units.pieceMap(newName),piece.loc)
+            updateAfterPieceKill(piece.side,stats,piece.loc,externalInfo)
         }
     }
   }
 
   //Kill a piece if it has enough accumulated damage
-  private def killIfEnoughDamage(piece: Piece): Unit = {
+  private def killIfEnoughDamage(piece: Piece, externalInfo: ExternalInfo): Unit = {
     val stats = piece.curStats(this)
     stats.defense match {
       case None => ()
       case Some(defense) =>
         if(piece.damage >= defense)
-          killPiece(piece)
+          killPiece(piece,externalInfo)
     }
   }
 
   //Perform the rebase and death spawn updates happening after a piece kill
-  private def updateAfterPieceKill(pieceSide: Side, pieceStats: PieceStats, loc: Loc): Unit = {
+  private def updateAfterPieceKill(pieceSide: Side, pieceStats: PieceStats, loc: Loc, externalInfo: ExternalInfo): Unit = {
     //Rebate souls
     soulsThisRound(pieceSide) += pieceStats.rebate
     totalCosts(pieceSide) -= pieceStats.rebate
 
     //Death spawn
-    pieceStats.deathSpawn.foreach { deathSpawn =>
-      spawnPieceInternal(pieceSide,deathSpawn,loc) match {
+    pieceStats.deathSpawn.foreach { spawnName =>
+      val spawnStats = externalInfo.pieceMap(spawnName)
+      spawnPieceInternal(pieceSide,spawnStats,loc) match {
         case Some(_: Piece) => ()
         case None =>
           //Piece was unable to legally belong on that square, so treat it as if killed
-          updateAfterPieceKill(pieceSide,Units.pieceMap(deathSpawn),loc)
+          updateAfterPieceKill(pieceSide,spawnStats,loc,externalInfo)
       }
     }
 
@@ -1857,10 +1850,10 @@ case class BoardState private (
   }
 
   //Kill a piece, for any reason
-  private def killPiece(piece: Piece): Unit = {
+  private def killPiece(piece: Piece, externalInfo: ExternalInfo): Unit = {
     removeFromBoard(piece)
     killedThisTurn = killedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side, piece.loc))
-    updateAfterPieceKill(piece.side,piece.curStats(this),piece.loc)
+    updateAfterPieceKill(piece.side,piece.curStats(this),piece.loc,externalInfo)
   }
 
   private def unsummonPiece(piece: Piece): Unit = {
@@ -1879,12 +1872,12 @@ case class BoardState private (
   }
 
   //Does check for legality of spawn, returning the piece on success
-  def spawnPieceInternal(spawnSide: Side, spawnName: PieceName, spawnLoc: Loc): Option[Piece] = {
-    if(!spawnIsLegal(spawnSide, spawnName, spawnLoc))
+  def spawnPieceInternal(spawnSide: Side, spawnStats: PieceStats, spawnLoc: Loc): Option[Piece] = {
+    if(!spawnIsLegal(spawnSide, spawnStats, spawnLoc))
       None
     else {
       val nthAtLoc = numPiecesSpawnedThisTurnAt.get(spawnLoc).getOrElse(0)
-      val piece = Piece.createInternal(spawnSide, spawnName, nextPieceId, spawnLoc, nthAtLoc)
+      val piece = Piece.createInternal(spawnSide, spawnStats, nextPieceId, spawnLoc, nthAtLoc)
       pieces(spawnLoc) = pieces(spawnLoc) :+ piece
       pieceById += (piece.id -> piece)
       nextPieceId += 1

@@ -120,7 +120,111 @@ case class PieceStats(
 
   //Abilities that a piece can use by discarding a spell
   val abilities: List[PieceAbility]
+) {
+  def toFragments() : (PieceStatsFragment0,PieceStatsFragment1) = {
+    (
+      PieceStatsFragment0(
+        name = name,
+        shortDisplayName = shortDisplayName,
+        displayName = displayName,
+        isBaseStats = isBaseStats,
+        attackEffect = attackEffect,
+        defense = defense,
+        moveRange = moveRange,
+        attackRange = attackRange,
+        attackRangeVsFlying = attackRangeVsFlying,
+        numAttacks = numAttacks,
+        cost = cost,
+        rebate = rebate,
+        isNecromancer = isNecromancer,
+        isFlying = isFlying,
+        isLumbering = isLumbering,
+        isPersistent = isPersistent,
+        isEldritch = isEldritch,
+        isWailing = isWailing,
+        canBlink = canBlink,
+        canHurtNecromancer = canHurtNecromancer
+      ),
+      PieceStatsFragment1(
+        swarmMax = swarmMax,
+        spawnRange = spawnRange,
+        extraSouls = extraSouls,
+        extraMana = extraMana,
+        deathSpawn = deathSpawn,
+        perTurnReinforcement = perTurnReinforcement,
+        abilities = abilities
+      )
+    )
+  }
+}
+
+//Stupid hack because the JSON library we use doesn't support case classes with more than 22 fields
+case class PieceStatsFragment0 (
+  val name: PieceName,
+  val shortDisplayName: String,
+  val displayName: String,
+  val isBaseStats: Boolean,
+  val attackEffect: Option[TargetEffect],
+  val defense: Option[Int],
+  val moveRange: Int,
+  val attackRange: Int,
+  val attackRangeVsFlying: Int,
+  val numAttacks: Int,
+  val cost: Int,
+  val rebate: Int,
+  val isNecromancer: Boolean,
+  val isFlying: Boolean,
+  val isLumbering: Boolean,
+  val isPersistent: Boolean,
+  val isEldritch: Boolean,
+  val isWailing: Boolean,
+  val canBlink: Boolean,
+  val canHurtNecromancer: Boolean
 )
+case class PieceStatsFragment1 (
+  val swarmMax: Int,
+  val spawnRange: Option[Int],
+  val extraSouls: Int,
+  val extraMana: Int,
+  val deathSpawn: Option[PieceName],
+  val perTurnReinforcement: Option[PieceName],
+  val abilities: List[PieceAbility]
+)
+
+object PieceStatsOfFragments {
+  def ofFragments(f0: PieceStatsFragment0, f1: PieceStatsFragment1) : PieceStats = {
+    PieceStats(
+      name = f0.name,
+      shortDisplayName = f0.shortDisplayName,
+      displayName = f0.displayName,
+      isBaseStats = f0.isBaseStats,
+      attackEffect = f0.attackEffect,
+      defense = f0.defense,
+      moveRange = f0.moveRange,
+      attackRange = f0.attackRange,
+      attackRangeVsFlying = f0.attackRangeVsFlying,
+      numAttacks = f0.numAttacks,
+      cost = f0.cost,
+      rebate = f0.rebate,
+      isNecromancer = f0.isNecromancer,
+      isFlying = f0.isFlying,
+      isLumbering = f0.isLumbering,
+      isPersistent = f0.isPersistent,
+      isEldritch = f0.isEldritch,
+      isWailing = f0.isWailing,
+      canBlink = f0.canBlink,
+      canHurtNecromancer = f0.canHurtNecromancer,
+      swarmMax = f1.swarmMax,
+      spawnRange = f1.spawnRange,
+      extraSouls = f1.extraSouls,
+      extraMana = f1.extraMana,
+      deathSpawn = f1.deathSpawn,
+      perTurnReinforcement = f1.perTurnReinforcement,
+      abilities = f1.abilities
+    )
+  }
+}
+
 
 /**
  * PieceModWithDuration:

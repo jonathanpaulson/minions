@@ -174,7 +174,7 @@ case class Board private (
   def tryLegality(action: BoardAction, externalInfo: ExternalInfo): Try[Unit] = {
     action match {
       case PlayerActions(actions,_) => curState().tryLegality(actions,externalInfo)
-      case DoGeneralBoardAction(action,_) => curState().tryGeneralLegality(action)
+      case DoGeneralBoardAction(action,_) => curState().tryGeneralLegality(action,externalInfo)
       case Redo(_) =>
         if(history.redoStack.isEmpty)
           Failure(new Exception("Nothing to redo"))
@@ -201,7 +201,7 @@ case class Board private (
           Success(())
 
       case BuyReinforcementUndo(pieceName,_) =>
-        if(!Units.pieceMap.contains(pieceName))
+        if(!externalInfo.pieceMap.contains(pieceName))
           Failure(new Exception("Trying to undo buying reinforcement piece with unknown name: " + pieceName))
         else if(!history.generalBoardActionsThisTurn.exists { generalAction => generalAction.involvesBuyPiece(pieceName) })
           Failure(new Exception("Cannot undo buying a piece that was not bought this turn"))
@@ -296,7 +296,7 @@ case class Board private (
       if(moveAttackMatchIdx >= 0) {
         val newMoveAttackState = initialStateThisTurn.copy()
         val newGeneralBoardActionsThisTurn = history.generalBoardActionsThisTurn
-        newGeneralBoardActionsThisTurn.foreach { newMoveAttackState.doGeneralBoardAction(_) }
+        newGeneralBoardActionsThisTurn.foreach { newMoveAttackState.doGeneralBoardAction(_,externalInfo) }
         val preMoveAttackActionsThisTurn = history.moveAttackActionsThisTurn.take(moveAttackMatchIdx)
         preMoveAttackActionsThisTurn.foreach { playerActions => newMoveAttackState.doActions(playerActions,externalInfo) }
         var pieceSpecsToFilter: Set[PieceSpec] = Set()
@@ -327,7 +327,7 @@ case class Board private (
       else {
         val newMoveAttackState = initialStateThisTurn.copy()
         val newGeneralBoardActionsThisTurn = dropLastMatch(history.generalBoardActionsThisTurn)(matchesGeneral)
-        newGeneralBoardActionsThisTurn.foreach { newMoveAttackState.doGeneralBoardAction(_) }
+        newGeneralBoardActionsThisTurn.foreach { newMoveAttackState.doGeneralBoardAction(_,externalInfo) }
         var pieceSpecsToFilter: Set[PieceSpec] = Set()
         val newMoveAttackActionsThisTurn =
           reapplyLegal(history.moveAttackActionsThisTurn.drop(moveAttackMatchIdx+1),
@@ -439,8 +439,8 @@ case class Board private (
           case DoGeneralBoardAction(generalBoardAction,_) =>
             val newMoveAttackState = history.moveAttackState.copy()
             val newSpawnState = history.spawnState.copy()
-            newMoveAttackState.doGeneralBoardAction(generalBoardAction)
-            newSpawnState.doGeneralBoardAction(generalBoardAction)
+            newMoveAttackState.doGeneralBoardAction(generalBoardAction,externalInfo)
+            newSpawnState.doGeneralBoardAction(generalBoardAction,externalInfo)
             BoardHistory(
               moveAttackState = newMoveAttackState,
               spawnState = newSpawnState,
@@ -486,9 +486,9 @@ case class Board private (
   }
 
   //End the current turn and begin the next turn.
-  def endTurn(): Unit = {
+  def endTurn(externalInfo: ExternalInfo): Unit = {
     initialStateThisTurn = history.spawnState.copy()
-    initialStateThisTurn.endTurn()
+    initialStateThisTurn.endTurn(externalInfo)
     actionsPrevTurns = actionsPrevTurns :+ actionsThisTurn
     actionsThisTurn = Vector()
     history = BoardHistory.initial(initialStateThisTurn)
@@ -501,9 +501,9 @@ case class Board private (
   }
 
   //Reset the board to the starting position
-  def resetBoard(necroNames: SideArray[List[PieceName]], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, reinforcements: SideArray[Map[PieceName, Int]]): Unit = {
+  def resetBoard(necroNames: SideArray[List[PieceName]], canMoveFirstTurn: Boolean, turnEndingImmediatelyAfterReset: Boolean, reinforcements: SideArray[Map[PieceName, Int]], externalInfo: ExternalInfo): Unit = {
     initialStateThisTurn = history.spawnState.copy()
-    initialStateThisTurn.resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements)
+    initialStateThisTurn.resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements, externalInfo)
     actionsThisTurn = Vector()
     //TODO loses history information for recording purposes into playerGeneralBoardActionsPrevTurns
     //on endTurn()

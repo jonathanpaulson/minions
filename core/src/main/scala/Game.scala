@@ -40,17 +40,17 @@ case object TechAcquired extends TechLevel
   * Element in the tech sequence.
   */
 sealed trait Tech {
-  def shortDisplayName: String = {
+  def shortDisplayName(pieceMap: Map[PieceName, PieceStats]): String = {
     this match {
-      case PieceTech(pieceName) => Units.pieceMap(pieceName).shortDisplayName
+      case PieceTech(pieceName) => pieceMap(pieceName).shortDisplayName
       case Copycat => "Copycat"
       case Metamagic => "Metamagic"
       case TechSeller => "Thaum"
     }
   }
-  def displayName: String = {
+  def displayName(pieceMap: Map[PieceName, PieceStats]): String = {
     this match {
-      case PieceTech(pieceName) => Units.pieceMap(pieceName).displayName
+      case PieceTech(pieceName) => pieceMap(pieceName).displayName
       case Copycat => "Copycat"
       case Metamagic => "Metamagic"
       case TechSeller => "Thaumaturgy"
@@ -103,12 +103,13 @@ case object Game {
     extraTechCost: Int,
     extraSoulsPerTurn: SideArray[Int],
     techsAlwaysAcquired: Array[Tech],
-    lockedTechs: Array[(Tech,Int)]
+    lockedTechs: Array[(Tech,Int)],
+    pieceMap: Map[PieceName, PieceStats]
   ) = {
     val techStatesAlwaysAcquired = techsAlwaysAcquired.map { tech =>
       TechState(
-        shortDisplayName = tech.shortDisplayName,
-        displayName = tech.displayName,
+        shortDisplayName = tech.shortDisplayName(pieceMap),
+        displayName = tech.displayName(pieceMap),
         tech = tech,
         techNumber = None,
         level = SideArray.create(TechAcquired),
@@ -117,8 +118,8 @@ case object Game {
     }
     val techStatesLocked = lockedTechs.map { case (tech,techNumber) =>
       TechState(
-        shortDisplayName = tech.shortDisplayName,
-        displayName = tech.displayName,
+        shortDisplayName = tech.shortDisplayName(pieceMap),
+        displayName = tech.displayName(pieceMap),
         tech = tech,
         techNumber = Some(techNumber),
         level = SideArray.create(TechLocked),
@@ -154,6 +155,7 @@ case object Game {
       targetNumWins = targetNumWins,
       extraTechCost = extraTechCost,
       extraSoulsPerTurn = extraSoulsPerTurn,
+      pieceMap = pieceMap,
       isBoardDone = Array.fill(numBoards)(false),
       newTechsThisTurn = Vector()
     )
@@ -187,6 +189,7 @@ case class Game (
   val targetNumWins: Int,
   val extraTechCost: Int,
   val extraSoulsPerTurn: SideArray[Int],
+  val pieceMap: Map[PieceName,PieceStats],
 
   //Flags set when user indicates that the board is done. Server ends the turn when all boards have this set.
   val isBoardDone: Array[Boolean],
@@ -330,7 +333,7 @@ case class Game (
   private def tryCanPayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
-    else if(!Units.pieceMap.contains(pieceName))
+    else if(!pieceMap.contains(pieceName))
       Failure(new Exception("Trying to pay for reinforcement piece with unknown name: " + pieceName))
     else {
       piecesAcquired(side).get(pieceName) match {
@@ -339,7 +342,7 @@ case class Game (
           if(techState.startingLevelThisTurn(side) != TechAcquired)
             Failure(new Exception("Cannot buy pieces on the same turn as teching to them"))
           else {
-            val stats = Units.pieceMap(pieceName)
+            val stats = pieceMap(pieceName)
             if(souls(side) < stats.cost)
               Failure(new Exception("Not enough souls"))
             else
@@ -353,7 +356,7 @@ case class Game (
     tryCanPayForReinforcement(side,pieceName) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        val stats = Units.pieceMap(pieceName)
+        val stats = pieceMap(pieceName)
         addSouls(side, -stats.cost)
         suc
     }
@@ -362,7 +365,7 @@ case class Game (
   private def tryCanUnpayForReinforcement(side: Side, pieceName: PieceName): Try[Unit] = {
     if(side != curSide)
       Failure(new Exception("Currently the other team's turn"))
-    else if(!Units.pieceMap.contains(pieceName))
+    else if(!pieceMap.contains(pieceName))
       Failure(new Exception("Trying to unpay for reinforcement piece with unknown name: " + pieceName))
     else
       Success(())
@@ -372,7 +375,7 @@ case class Game (
     tryCanUnpayForReinforcement(side,pieceName) match {
       case (err : Failure[Unit]) => err
       case (suc : Success[Unit]) =>
-        val stats = Units.pieceMap(pieceName)
+        val stats = pieceMap(pieceName)
         addSouls(side, stats.cost)
         suc
     }
