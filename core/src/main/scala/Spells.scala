@@ -331,11 +331,11 @@ case object Spells {
           piece.side == side && board.topology.distance(loc,piece.loc) == 1 && piece.actState < DoneActing
         }
         if(!adjacentToFriendly) Failure(new Exception("Target location is not adjacent to a friendly unit"))
-        else board.trySpawnIsLegal(side, Units.zombie.name, loc)
+        else board.trySpawnIsLegal(side, Units.zombie, loc)
       }
     ),
     effect = { (board: BoardState, loc: Loc) =>
-      val (_: Option[Piece]) = board.spawnPieceInternal(board.side, Units.zombie.name, loc)
+      val (_: Option[Piece]) = board.spawnPieceInternal(board.side, Units.zombie, loc)
     }
   )
 

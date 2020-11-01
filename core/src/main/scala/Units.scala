@@ -3,7 +3,7 @@ import scala.collection.immutable.Map
 import scala.util.{Try,Success,Failure}
 
 object Units {
-  private def createPieceStats(
+  def createPieceStats(
     name : String,
     shortDisplayName: String = "",
     displayName: String = "",
@@ -146,13 +146,12 @@ object Units {
     cost = 0,
     rebate = 0,
     moveRange = 2,
-    attackRange = 2,
-    attackEffect = Some(Unsummon),
+    attackRange = 0,
+    attackEffect = None,
     defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    isLumbering = true,
     extraSouls = 3,
   )
   val ranged_necromancer = createPieceStats(
@@ -627,7 +626,8 @@ object Units {
 
   //Generally, we store and send the PieceName everywhere in the protocol, since unlike a PieceStats it's easily serialized.
   //This is the global map that everything uses to look up the stats again from the name.
-  val pieceMap: Map[PieceName,PieceStats] = pieces.groupBy(piece => piece.name).mapValues { pieces =>
+  val pieceMap: Map[PieceName,PieceStats] =
+  pieces.groupBy(piece => piece.name).mapValues { pieces =>
     assert(pieces.length == 1)
     pieces.head
   }

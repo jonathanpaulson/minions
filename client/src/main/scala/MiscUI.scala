@@ -266,9 +266,9 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
         (hexLoc(Loc(i,0)),spec,pieceName,side)
       }.toArray.take(maxSize)
     }
-    def getSelectedPiece(board: BoardState, pieceSpec: PieceSpec): Option[(PieceStats, Side)] = {
+    def getSelectedPiece(board: BoardState, pieceSpec: PieceSpec): Option[(PieceName, Side)] = {
       board.killedThisTurn.findMap { case (spec,pieceName,side,_) =>
-        if(pieceSpec == spec) Some((Units.pieceMap(pieceName), side)) else None
+        if(pieceSpec == spec) Some((pieceName, side)) else None
       }
     }
 

@@ -145,7 +145,7 @@ case class GameState (
     val nNecros = 3
     val necroNames = SideArray.createFn(side => necroRands(side).shuffle(Units.specialNecromancers.toList).map(_.name).take(nNecros))
     val reinforcements = SideArray.create(Map[PieceName,Int]())
-    boards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements)
+    boards(boardIdx).resetBoard(necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements, externalInfo)
     broadcastAll(Protocol.ReportResetBoard(boardIdx,necroNames, canMoveFirstTurn, turnEndingImmediatelyAfterReset, reinforcements))
   }
 
@@ -274,7 +274,7 @@ case class GameState (
     }
 
     game.endTurn()
-    boards.foreach { board => board.endTurn() }
+    boards.foreach { board => board.endTurn(externalInfo) }
     broadcastAll(Protocol.ReportNewTurn(newSide))
 
     refillUpcomingSpells()
@@ -299,7 +299,7 @@ case class GameState (
         scheduleEndOfTurn(Pause(true))
       case None =>
         game.newTechsThisTurn.foreach { case (side,tech) =>
-          allMessages = allMessages :+ ("GAME: Team " + side.toColorName + " acquired new tech: " + tech.displayName)
+          allMessages = allMessages :+ ("GAME: Team " + side.toColorName + " acquired new tech: " + tech.displayName(externalInfo.pieceMap))
         }
         allMessages = allMessages :+ ("GAME: Beginning " + newSide.toColorName + " team turn (turn #" + game.turnNumber + ")")
         scheduleEndOfTurn(NewTurn)
@@ -586,6 +586,17 @@ object GameState {
       }
 
     val numBoards = chosenMaps.length
+    val testUnit = Units.createPieceStats(
+      name = "test",
+      cost = 5,
+      rebate = 5,
+      moveRange = 1,
+      attackRange = 1,
+      attackEffect = Some(Damage(5)),
+      numAttacks = 5,
+      defense = Some(5))
+    val pieceMap = Map(testUnit.name -> testUnit) ++ Units.pieceMap
+    val externalInfo = ExternalInfo.create(pieceMap)
     val game = {
       val targetNumWins = targetWins
       val startingSouls = startingSoulsPerBoard.map(x => x*numBoards)
@@ -633,7 +644,8 @@ object GameState {
         extraTechCost = extraTechCost,
         extraSoulsPerTurn = extraSoulsPerTurn,
         techsAlwaysAcquired = techsAlwaysAcquired,
-        lockedTechs = lockedTechs
+        lockedTechs = lockedTechs,
+        pieceMap = pieceMap
       )
       game
     }
@@ -642,12 +654,12 @@ object GameState {
       val boardsAndNames = chosenMaps.toArray.map { case (boardName, map) =>
         val state = map()
         val necroNames = SideArray.create(List(Units.necromancer.name))
-        state.resetBoard(necroNames, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false, SideArray.create(Map()))
+        state.resetBoard(necroNames, canMoveFirstTurn = true, turnEndingImmediatelyAfterReset = false, SideArray.create(Map()), externalInfo)
 
         if(testingSetup) {
           state.tiles.foreachi { (loc, tile) =>
             if (tile.terrain == Graveyard) {
-              val _ = state.spawnPieceInitial(S0, Units.fiend.name, loc)
+              val _ = state.spawnPieceInitial(S0, testUnit, loc)
             }
           }
         }
@@ -687,7 +699,7 @@ object GameState {
       nextSpellId = 0,
       spellMap = Map(),
       revealedSpellIds = SideArray.create(Set()),
-      externalInfo = ExternalInfo.create(),
+      externalInfo = externalInfo,
       boards = boards,
       boardNames = boardNames,
       boardSequences = boardSequences,
