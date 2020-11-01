@@ -458,13 +458,23 @@ if(!username || username.length == 0) {
       val extraTechCost = config.getInt("app.extraTechCostPerBoard")
 
       val vacuum_html = {
-        val attrs = List("Name", "Attack", "Health", "Speed", "Range", "Cost")
-        attrs.map { attr =>
-          s"""<tr>
-          <th>$attr</th>
-          <td><input type="text" name="blue$attr" value=10></td>
-          <td><input type="text" name="red$attr" value=2></td>
-        </tr>"""}.mkString("\n")
+        val attrs = List("Name", "Cost", "Rebate", "Attack", "Health", "Speed", "Range")
+        val bools = List("Swarm", "Lumbering", "Spawn", "Persistent", "Flying", "Blink")
+        val text_html =
+          attrs.map { attr =>
+            s"""<tr>
+            <th>$attr</th>
+            <td><input type="text" name="blue$attr" value=10 autocomplete="off"></td>
+            <td><input type="text" name="red$attr" value=2 autocomplete="off"></td>
+          </tr>"""}
+        val bool_html =
+          bools.map { attr =>
+            s"""<tr>
+            <th>$attr</th>
+            <td><input type=checkbox name="blue$attr" value="true"></td>
+            <td><input type=checkbox name="red$attr" value="true"></td>
+          </tr>"""}
+        (text_html ++ bool_html).mkString("\n")
       }
       val map_html =
         (BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList).map { case (mapName, _) =>
@@ -561,62 +571,64 @@ if(!username || username.length == 0) {
         ))
       } ~ post {
         formFields(('game, 'password, 'seed)) { (gameid, password, seed) =>
-          formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
-            formFields(('blueSouls.as[Int], 'redSouls.as[Int], 'techSouls.as[Int], 'map.*)) { (blueSouls, redSouls, techSouls, maps) =>
-              formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int])) { (blueSoulsPerTurn, redSoulsPerTurn) =>
-                formFields(('blueName, 'redName, 'blueAttack, 'redAttack, 'blueHealth, 'redHealth, 'blueSpeed, 'redSpeed, 'blueRange, 'redRange, 'blueCost, 'redCost)) { (blueName, redName, blueAttack, redAttack, blueHealth, redHealth, blueSpeed, redSpeed, blueRange, redRange, blueCost, redCost) =>
-                games.get(gameid) match {
-                  case Some(_) =>
-                    complete(s"""A game named "$gameid" already exists; pick a different name""")
-                  case None =>
-                    val seed_opt = if(seed=="") None else Some(seed.toLong)
-                    val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
-                    val passwordOpt = if(password == "") None else Some(password)
-                    val startingSouls = SideArray.createTwo(blueSouls, redSouls)
-                    val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
-                    val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
+        formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
+        formFields(('blueSouls.as[Int], 'redSouls.as[Int], 'techSouls.as[Int], 'map.*)) { (blueSouls, redSouls, techSouls, maps) =>
+        formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int])) { (blueSoulsPerTurn, redSoulsPerTurn) =>
+        formFields(('blueName, 'redName, 'blueAttack, 'redAttack, 'blueHealth, 'redHealth, 'blueSpeed, 'redSpeed, 'blueRange, 'redRange, 'blueCost, 'redCost, 'blueRebate, 'redRebate)) { (blueName, redName, blueAttack, redAttack, blueHealth, redHealth, blueSpeed, redSpeed, blueRange, redRange, blueCost, redCost, blueRebate, redRebate) =>
+        formFields(('blueSwarm.?, 'redSwarm.?, 'blueLumbering.?, 'redLumbering.?, 'blueSpawn.?, 'redSpawn.?, 'bluePersistent.?, 'redPersistent.?, 'blueFlying.?, 'redFlying.?, 'blueBlink.?, 'redBlink.?)) { (blueSwarm, redSwarm, blueLumbering, redLumbering, blueSpawn, redSpawn, bluePersistent, redPersistent, blueFlying, redFlying, blueBlink, redBlink) =>
+          games.get(gameid) match {
+            case Some(_) =>
+              complete(s"""A game named "$gameid" already exists; pick a different name""")
+            case None =>
+              val seed_opt = if(seed=="") None else Some(seed.toLong)
+              val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
+              val passwordOpt = if(password == "") None else Some(password)
+              val startingSouls = SideArray.createTwo(blueSouls, redSouls)
+              val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
+              val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
 
-                    val blueUnit : Option[PieceStats] = Units.fromForm(blueName, blueAttack, blueHealth, blueSpeed, blueRange, blueCost)
-                    val redUnit : Option[PieceStats] = Units.fromForm(redName, redAttack, redHealth, redSpeed, redRange, redCost)
-                    val gameState =
-                      (blueUnit, redUnit) match {
-                        case (Some(u1), Some(u2)) =>
-                          GameState.createVacuum(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, u1, u2)
-                        case (_,_) =>
-                          GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
-                      }
-                    val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
-                    gameActor ! StartGame()
-                    games = games + (gameid -> ((gameActor, gameState)))
-                    println("Created game " + gameid)
-                    complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
-                      s"""
-<link rel="icon" href="/img/favicon.png?v=4" />
-<pre>
-Created game $gameid
+              val blueUnit : Option[PieceStats] = Units.fromForm(blueName, blueAttack, blueHealth, blueSpeed, blueRange, blueCost, blueRebate, blueSwarm, blueLumbering, blueSpawn, bluePersistent, blueFlying, blueBlink)
+              val redUnit : Option[PieceStats] = Units.fromForm(redName, redAttack, redHealth, redSpeed, redRange, redCost, redRebate, redSwarm, redLumbering, redSpawn, redPersistent, redFlying, redBlink)
+              val gameState =
+                (blueUnit, redUnit) match {
+                  case (Some(u1), Some(u2)) =>
+                    GameState.createVacuum(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, u1, u2)
+                  case (_,_) =>
+                    GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
+                }
+              val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
+              gameActor ! StartGame()
+              games = games + (gameid -> ((gameActor, gameState)))
+              println("Created game " + gameid)
+              complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
+                s"""
+                <link rel="icon" href="/img/favicon.png?v=4" />
+                <pre>
+                  Created game $gameid
 
-password=$password
-seed=$seed_opt
-blueSeconds=$blueSeconds
-redSeconds=$redSeconds
-targetWins=$targetWins
-techSouls=$techSouls
-maps=$maps_opt
-seed=$seed_opt
+                  password=$password
+                  seed=$seed_opt
+                  blueSeconds=$blueSeconds
+                  redSeconds=$redSeconds
+                  targetWins=$targetWins
+                  techSouls=$techSouls
+                  maps=$maps_opt
+                  seed=$seed_opt
 
-blueSouls=$blueSouls
-redSouls=$redSouls
-blueSoulsPerTurn=$blueSoulsPerTurn
-redSoulsPerTurn=$redSoulsPerTurn
-</pre>
+                  blueSouls=$blueSouls
+                  redSouls=$redSouls
+                  blueSoulsPerTurn=$blueSoulsPerTurn
+                  redSoulsPerTurn=$redSoulsPerTurn
+                </pre>
 
-<a href="/play?game=$gameid&side=0">Join blue</a><br>
-<a href="/play?game=$gameid&side=1">Join red</a><br>
-<a href="/play?game=$gameid">Spectate</a><br>
-<a href="/">Back</a>
-                      """
+                <a href="/play?game=$gameid&side=0">Join blue</a><br>
+                <a href="/play?game=$gameid&side=1">Join red</a><br>
+                <a href="/play?game=$gameid">Spectate</a><br>
+                <a href="/">Back</a>
+                """
                       ))
                 }
+                  }
                 }
               }
             }
