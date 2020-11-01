@@ -234,7 +234,7 @@ object Drawing {
     }
 
     def displayNameOfPieceName(pieceName: PieceName): String = {
-      Units.pieceMap(pieceName).shortDisplayName
+      externalInfo.pieceMap(pieceName).shortDisplayName
     }
 
     def drawPiece(hexLoc : HexLoc, scale : Double, side: Option[Side], pieceName:PieceName, alpha: Double = 1.0) : Unit = {
@@ -242,10 +242,10 @@ object Drawing {
         side match {
           case None => "#cccccc"
           case Some(S0) =>
-            if(Units.pieceMap(pieceName).isNecromancer) "#bbddff"
+            if(externalInfo.pieceMap(pieceName).isNecromancer) "#bbddff"
             else "#ccccff"
           case Some(S1) =>
-            if(Units.pieceMap(pieceName).isNecromancer) "#ffccaa"
+            if(externalInfo.pieceMap(pieceName).isNecromancer) "#ffccaa"
             else "#ffbbbb"
         }
       fillHex(hexLoc, pieceColor, scale, alpha = alpha)
@@ -380,7 +380,7 @@ object Drawing {
                   show(costStr)
                 }
               case Some(pieceName) =>
-                show(costStr + " (death: becomes " + Units.pieceMap(pieceName).displayName + ")")
+                show(costStr + " (death: becomes " + externalInfo.pieceMap(pieceName).displayName + ")")
             }
           }
 
@@ -527,7 +527,7 @@ object Drawing {
           stats.perTurnReinforcement match {
             case None => ()
             case Some(pieceName) =>
-              show("Produces free " + Units.pieceMap(pieceName).displayName + " per turn.")
+              show("Produces free " + externalInfo.pieceMap(pieceName).displayName + " per turn.")
           }
 
           stats.abilities.foreach { ability =>
@@ -583,7 +583,7 @@ object Drawing {
               show("A piece that begins the turn here may spend its")
               show("entire turn to move to any hex on the board.")
             case Spawner(spawnName) =>
-              val name = Units.pieceMap(spawnName).displayName
+              val name = externalInfo.pieceMap(spawnName).displayName
               show("Terrain: " + name + " Spawner")
               show("You may spawn a free " + name + " here.")
               show("Only one spawner can be used per turn.")
@@ -821,7 +821,7 @@ object Drawing {
 
     //Reinforcements
     Side.foreach { side =>
-      val locsAndContents = ui.Reinforcements.getHexLocsAndContents(side,board)
+      val locsAndContents = ui.Reinforcements.getHexLocsAndContents(side,board,externalInfo.pieceMap.keys.toArray)
       locsAndContents.foreach { case (hexLoc,pieceName,count) =>
         drawPiece(hexLoc, pieceScale, Some(side), pieceName)
         val label = displayNameOfPieceName(pieceName)
@@ -1320,7 +1320,7 @@ object Drawing {
     def highlightUndoneGeneralAction(action: GeneralBoardAction): Unit = {
       action match {
         case BuyReinforcement(pieceName,_) =>
-          ui.Reinforcements.getHexLocsAndContents(board.side,board).foreach { case (hexLoc,name,_) =>
+          ui.Reinforcements.getHexLocsAndContents(board.side,board,externalInfo.pieceMap.keys.toArray).foreach { case (hexLoc,name,_) =>
             if(name == pieceName)
               strokeHex(hexLoc, "black", tileScale, alpha=0.5)
           }
@@ -1457,7 +1457,7 @@ object Drawing {
             val tech = game.techLine(techIdx).tech
             tech match {
               case PieceTech(name) =>
-                val stats = Units.pieceMap(name)
+                val stats = externalInfo.pieceMap(name)
                 drawSidebar(stats=Some(stats))
               case Copycat =>
                 drawSidebar(freeform=Some(List(
@@ -1501,7 +1501,7 @@ object Drawing {
                       }
                   }
                 }
-                drawSidebar(stats=Some(Units.pieceMap(pieceName)), side=Some(side))
+                drawSidebar(stats=Some(externalInfo.pieceMap(pieceName)), side=Some(side))
             }
           case MouseDeadPiece(pieceSpec,loc) =>
             strokeHex(ui.DeadPieces.hexLoc(loc), "black", pieceScale, alpha=0.5)
@@ -1509,7 +1509,8 @@ object Drawing {
               highlightUndoneActionsForPieceSpec(pieceSpec)
             ui.DeadPieces.getSelectedPiece(board, pieceSpec) match {
               case None => ()
-              case Some((stats, side)) =>
+              case Some((name, side)) =>
+                val stats = externalInfo.pieceMap(name)
                 drawSidebar(stats=Some(stats), side=Some(side))
             }
           case MousePiece(spec,_) =>
@@ -1644,7 +1645,7 @@ object Drawing {
                 if(side==game.curSide && client.ourSide == Some(side)) {
                   highlightHex(ui.Reinforcements.hexLoc(loc),scale=pieceScale)
                   if(!undoing) {
-                    val locs = board.legalSpawnLocs(pieceName)
+                    val locs = board.legalSpawnLocs(externalInfo.pieceMap(pieceName))
                     for(loc <- locs) {
                       highlightHex(ui.MainBoard.hexLoc(loc))
                     }

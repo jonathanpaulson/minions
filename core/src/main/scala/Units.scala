@@ -3,7 +3,48 @@ import scala.collection.immutable.Map
 import scala.util.{Try,Success,Failure}
 
 object Units {
-  private def createPieceStats(
+  def fromForm(
+    name: String,
+    attack: String,
+    health: String,
+    speed: String,
+    range: String,
+    cost: String,
+    rebate: String,
+    swarm: Option[String],
+    lumbering: Option[String],
+    spawn: Option[String],
+    persistent: Option[String],
+    flying: Option[String],
+    blink: Option[String]
+  ): Option[PieceStats] = {
+    if(name=="") {
+      None
+    } else {
+      val attackEffect =
+        attack match {
+          case "*" => Some(Unsummon)
+          case "Deadly" => Some(Kill)
+          case "deadly" => Some(Kill)
+          case _ => Some(Damage(attack.toInt))
+        }
+      val rebateInt =
+        if(rebate forall Character.isDigit) rebate.toInt else 0
+      val deathSpawn =
+        if(rebate forall Character.isDigit) None else Some(rebate)
+      val swarmMax = if(swarm.isDefined) 3 else 1
+      val isLumbering = if(lumbering.isDefined) true else false
+      val spawnRange = if(spawn.isDefined) Some(1) else None
+      val isPersistent = if(persistent.isDefined) true else false
+      val isFlying = if(flying.isDefined) true else false
+      val canBlink = if(blink.isDefined) true else false
+      Some(createPieceStats(name=name, shortDisplayName=name, displayName=name, attackEffect=attackEffect,
+        defense=Some(health.toInt), moveRange=speed.toInt, attackRange=range.toInt,
+        cost=cost.toInt, rebate=rebateInt, deathSpawn=deathSpawn, swarmMax=swarmMax, isLumbering=isLumbering,
+        spawnRange=spawnRange, isPersistent=isPersistent, isFlying=isFlying, canBlink=canBlink))
+    }
+  }
+  def createPieceStats(
     name : String,
     shortDisplayName: String = "",
     displayName: String = "",
@@ -146,13 +187,12 @@ object Units {
     cost = 0,
     rebate = 0,
     moveRange = 2,
-    attackRange = 2,
-    attackEffect = Some(Unsummon),
+    attackRange = 0,
+    attackEffect = None,
     defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
     isNecromancer = true,
-    isLumbering = true,
     extraSouls = 3,
   )
   val ranged_necromancer = createPieceStats(
@@ -370,19 +410,20 @@ object Units {
     isFlying = true,
   )
 
-  val dark_tower = createPieceStats(
-    name = "dark_tower",
-    shortDisplayName = "DTower",
-    displayName = "Dark Tower",
-    cost = 6,
-    rebate = 0,
-    moveRange = 0,
-    attackRange = 2,
-    attackEffect = Some(Damage(5)),
-    defense = Some(4),
+  val ooze = createPieceStats(
+    name = "ooze",
+    shortDisplayName = "Ooze",
+    displayName = "Ooze",
+    cost = 3,
+    rebate = 3,
+    moveRange = 1,
+    attackRange = 1,
+    attackEffect = Some(Kill),
+    defense = Some(1),
     spawnRange = Some(1),
-    deathSpawn = Some(spire.name),
-    abilities = List(SpawnZombies),
+    swarmMax = 3,
+    isLumbering = true,
+    canHurtNecromancer = false,
   )
 
   val sorcerer = createPieceStats(
@@ -410,16 +451,13 @@ object Units {
 
   val vampire = createPieceStats(
     name = "vampire",
-    cost = 6,
-    rebate = 3,
+    cost = 5,
+    rebate = 2,
     moveRange = 1,
-    isFlying = true,
     attackRange = 1,
-    attackEffect = Some(Damage(1)),
-    numAttacks = 2,
-    defense = Some(5),
+    attackEffect = Some(Damage(3)),
+    defense = Some(10),
     isPersistent = true,
-    abilities = List(Abilities.move_three),
   )
 
   val mummy = createPieceStats(
@@ -430,20 +468,19 @@ object Units {
     attackRange = 1,
     numAttacks = 5,
     attackEffect = Some(Damage(1)),
-    defense = Some(8),
+    defense = Some(13),
     spawnRange = Some(1),
   )
 
   val lich = createPieceStats(
     name = "lich",
-    cost = 8,
-    rebate = 0,
+    cost = 7,
+    rebate = 3,
     moveRange = 1,
     isLumbering = true,
     attackRange = 3,
     attackEffect = Some(Kill),
     defense = Some(3),
-    deathSpawn = Some(skeleton.name),
     canHurtNecromancer = false,
   )
 
@@ -560,13 +597,10 @@ object Units {
     immortal_necromancer,
     deadly_necromancer,
     battle_necromancer,
-    mana_necromancer,
     zombie_necromancer,
-    //swarm_necromancer,
-    //summoner_necromancer,
-    zombie, acolyte, spire,
+    zombie, acolyte,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
-    fog, dark_tower, witch, vampire, mummy, lich, sorcerer, void, hell_hound,
+    fog, ooze, witch, vampire, mummy, lich, sorcerer, void, hell_hound,
     wraith, fiend, banshee, elemental, fallen_angel, shadowlord
   )
 
@@ -578,8 +612,8 @@ object Units {
     immortal_necromancer,
     deadly_necromancer,
     battle_necromancer,
-    mana_necromancer,
     zombie_necromancer,
+    //mana_necromancer,
     //swarm_necromancer,
     //summoner_necromancer,
   )
@@ -588,7 +622,6 @@ object Units {
   val alwaysAcquiredPieces: Array[PieceStats] = Array(
     zombie,
     acolyte,
-    spire
   )
 
   //Pieces that need to be unlocked, in order
@@ -602,7 +635,7 @@ object Units {
     haunt,
     shrieker,
     fog,
-    dark_tower,
+    ooze,
     sorcerer,
     witch,
     vampire,
@@ -627,7 +660,8 @@ object Units {
 
   //Generally, we store and send the PieceName everywhere in the protocol, since unlike a PieceStats it's easily serialized.
   //This is the global map that everything uses to look up the stats again from the name.
-  val pieceMap: Map[PieceName,PieceStats] = pieces.groupBy(piece => piece.name).mapValues { pieces =>
+  val pieceMap: Map[PieceName,PieceStats] =
+  pieces.groupBy(piece => piece.name).mapValues { pieces =>
     assert(pieces.length == 1)
     pieces.head
   }

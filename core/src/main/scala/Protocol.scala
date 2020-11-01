@@ -331,24 +331,6 @@ object Protocol {
     Format(reads,writes)
   }
 
-  implicit val pieceStatsFormat = {
-    new Format[PieceStats] {
-      def reads(json: JsValue): JsResult[PieceStats] = json match {
-        case JsString(s) =>
-          Units.pieceMap.get(s) match {
-            case None => JsError("Unknown piece name: " + s)
-            case Some(stats) => JsSuccess(stats)
-          }
-        case _ =>
-          JsError("JSON string expected when parsing piece stats")
-      }
-      def writes(t: PieceStats): JsValue = {
-        assert(t.isBaseStats)
-        JsString(t.name)
-      }
-    }
-  }
-
   implicit val movingFormat = Json.format[Moving]
   implicit val attackingFormat = Json.format[Attacking]
   implicit val actStateFormat = {
@@ -370,6 +352,53 @@ object Protocol {
   }
 
   implicit val pieceModWithDurationFormat = Json.format[PieceModWithDuration]
+
+  implicit val enchantFormat = Json.format[Enchant]
+  implicit val damageFormat = Json.format[Damage]
+  implicit val transformIntoFormat = Json.format[TransformInto]
+  implicit val targetEffectFormat = {
+    val reads: Reads[TargetEffect] = readsFromPair[TargetEffect]("Terrain",Map(
+      "Kill" -> ((_:JsValue) => JsSuccess(Kill: TargetEffect)),
+      "Unsummon" -> ((_:JsValue) => JsSuccess(Unsummon: TargetEffect)),
+      "Enchant" -> ((json:JsValue) => enchantFormat.reads(json)),
+      "Damage" -> ((json:JsValue) => damageFormat.reads(json)),
+      "TransformInto" -> ((json:JsValue) => transformIntoFormat.reads(json)),
+    ))
+    val writes: Writes[TargetEffect] = new Writes[TargetEffect] {
+      def writes(t: TargetEffect): JsValue = t match {
+        case (Kill) => jsPair("Kill",JsString(""))
+        case (Unsummon) => jsPair("Unsummon",JsString(""))
+        case (t:Enchant) => jsPair("Enchant",enchantFormat.writes(t))
+        case (t:Damage) => jsPair("Damage",damageFormat.writes(t))
+        case (t:TransformInto) => jsPair("TransformInto",transformIntoFormat.writes(t))
+      }
+    }
+    Format(reads,writes)
+  }
+
+  implicit val pieceStatsFragment0Format = Json.format[PieceStatsFragment0]
+  implicit val pieceStatsFragment1Format = Json.format[PieceStatsFragment1]
+
+  implicit val pieceStatsFormat = {
+    val reads: Reads[PieceStats] = readsFromTuple2[PieceStats]("PieceStats",((json0:JsValue,json1:JsValue) => {
+      val fragment0 : JsResult[PieceStatsFragment0] = pieceStatsFragment0Format.reads(json0)
+      val fragment1 : JsResult[PieceStatsFragment1] = pieceStatsFragment1Format.reads(json1)
+        (fragment0,fragment1) match {
+        case (err: JsError,_) => err
+        case (_,err: JsError) => err
+        case (f0: JsSuccess[PieceStatsFragment0],f1: JsSuccess[PieceStatsFragment1]) =>
+          JsSuccess(PieceStatsOfFragments.ofFragments(f0.get,f1.get))
+      }
+    }))
+    val writes: Writes[PieceStats] = new Writes[PieceStats] {
+      def writes(t:PieceStats): JsValue = {
+        val (fragment0,fragment1) = t.toFragments()
+        jsTuple2(pieceStatsFragment0Format.writes(fragment0),pieceStatsFragment1Format.writes(fragment1))
+      }
+    }
+    Format(reads,writes)
+  }
+
   implicit val pieceFormat = Json.format[Piece]
 
   implicit val tileFormat = Json.format[Tile]
