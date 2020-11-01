@@ -600,7 +600,7 @@ object GameState {
         }
       techStates
     }
-    create(secondsPerTurn, startingSoulsPerBoard, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, password, testingSetup, techsAlwaysAcquired, otherTechs)
+    create(secondsPerTurn, startingSoulsPerBoard, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, password, testingSetup, techsAlwaysAcquired, otherTechs, Units.pieceMap)
   }
 
   def create(
@@ -615,6 +615,7 @@ object GameState {
     testingSetup: Boolean,
     techsAlwaysAcquired: Array[Tech],
     otherTechs: Array[TechState],
+    pieceMap: Map[PieceName, PieceStats],
   ): GameState = {
     val config = ConfigFactory.parseFile(new java.io.File(AppPaths.applicationConf))
 
@@ -652,7 +653,6 @@ object GameState {
       }
 
     val numBoards = chosenMaps.length
-    val pieceMap = Units.pieceMap
     val externalInfo = ExternalInfo.create(pieceMap)
     val game = {
       val targetNumWins = targetWins
@@ -731,28 +731,35 @@ object GameState {
     maps_opt: Option[List[String]],
     seed_opt: Option[Long],
     password: Option[String],
-    testingSetup: Boolean,
+    blueUnit: PieceStats,
+    redUnit: PieceStats,
   ): GameState = {
     val techsAlwaysAcquired: Array[Tech] =
       (Units.alwaysAcquiredPieces.map { piece => PieceTech(piece.name) })
     val otherTechs: Array[TechState] = Array(
       TechState(
-        shortDisplayName = Units.ghost.shortDisplayName,
-        displayName = Units.ghost.displayName,
-        tech = PieceTech(Units.ghost.name),
+        shortDisplayName = blueUnit.shortDisplayName,
+        displayName = blueUnit.displayName,
+        tech = PieceTech(blueUnit.name),
         techNumber = Some(1),
-        level = SideArray.createTwo(TechLocked, TechAcquired),
-        startingLevelThisTurn = SideArray.createTwo(TechLocked, TechAcquired),
-        ),
-      TechState(
-        shortDisplayName = Units.skeleton.shortDisplayName,
-        displayName = Units.skeleton.displayName,
-        tech = PieceTech(Units.skeleton.name),
-        techNumber = Some(2),
         level = SideArray.createTwo(TechAcquired, TechLocked),
         startingLevelThisTurn = SideArray.createTwo(TechAcquired, TechLocked),
         ),
+      TechState(
+        shortDisplayName = redUnit.shortDisplayName,
+        displayName = redUnit.displayName,
+        tech = PieceTech(redUnit.name),
+        techNumber = Some(2),
+        level = SideArray.createTwo(TechLocked, TechAcquired),
+        startingLevelThisTurn = SideArray.createTwo(TechLocked, TechAcquired),
+        ),
       )
-    create(secondsPerTurn, startingSoulsPerBoard, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, password, testingSetup, techsAlwaysAcquired, otherTechs)
+    val pieces = Array(Units.necromancer) ++ Units.specialNecromancers ++ Units.alwaysAcquiredPieces ++ Array(blueUnit, redUnit)
+    val pieceMap =
+      pieces.groupBy(piece => piece.name).mapValues { pieces =>
+        assert(pieces.length == 1)
+        pieces.head
+      }
+    create(secondsPerTurn, startingSoulsPerBoard, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, password, false, techsAlwaysAcquired, otherTechs, pieceMap)
   }
 }

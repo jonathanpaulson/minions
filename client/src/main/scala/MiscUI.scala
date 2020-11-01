@@ -342,18 +342,18 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
       }
     }
 
-    def getHexLocsAndContents(side: Side, board: BoardState): Array[(HexLoc,PieceName,Int)] = {
+    def getHexLocsAndContents(side: Side, board: BoardState, pieces: Array[PieceName]): Array[(HexLoc,PieceName,Int)] = {
       val locs = getLocs(side)
       var i = 0
-      Units.pieces.flatMap { stats =>
-        board.reinforcements(side).get(stats.name) match {
+      pieces.flatMap { name =>
+        board.reinforcements(side).get(name) match {
           case None => None
           case Some(count) =>
             //If the user has so many types of reinforcements that it overflows, then we just won't draw them all...
             if(i < locs.length) {
               val loc = locs(i)
               i += 1
-              Some((hexLoc(loc),stats.name,count))
+              Some((hexLoc(loc),name,count))
             }
             else
               None
@@ -362,7 +362,6 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
     }
 
     def getMouseTarget(game: Game, board: BoardState, hexLoc: HexLoc): MouseTarget = {
-      val _ = (game)
       val (loc,_) = getLocAndDelta(hexLoc)
 
       Side.sides.findMap { side =>
@@ -371,12 +370,12 @@ case class UI(val flipDisplay: Boolean, val ourSide: Option[Side], val boardXSiz
         if(selectedIdx == -1) None
         else {
           var i = 0
-          Units.pieces.findMap { stats =>
-            board.reinforcements(side).get(stats.name) match {
+          game.pieceMap.keys.toArray.findMap { name =>
+            board.reinforcements(side).get(name) match {
               case None => None
               case Some(_) =>
                 if(i == selectedIdx)
-                  Some(MouseReinforcement(Some(stats.name), side, loc))
+                  Some(MouseReinforcement(Some(name), side, loc))
                 else {
                   i += 1
                   None

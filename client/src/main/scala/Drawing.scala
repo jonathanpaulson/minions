@@ -821,7 +821,7 @@ object Drawing {
 
     //Reinforcements
     Side.foreach { side =>
-      val locsAndContents = ui.Reinforcements.getHexLocsAndContents(side,board)
+      val locsAndContents = ui.Reinforcements.getHexLocsAndContents(side,board,externalInfo.pieceMap.keys.toArray)
       locsAndContents.foreach { case (hexLoc,pieceName,count) =>
         drawPiece(hexLoc, pieceScale, Some(side), pieceName)
         val label = displayNameOfPieceName(pieceName)
@@ -1320,7 +1320,7 @@ object Drawing {
     def highlightUndoneGeneralAction(action: GeneralBoardAction): Unit = {
       action match {
         case BuyReinforcement(pieceName,_) =>
-          ui.Reinforcements.getHexLocsAndContents(board.side,board).foreach { case (hexLoc,name,_) =>
+          ui.Reinforcements.getHexLocsAndContents(board.side,board,externalInfo.pieceMap.keys.toArray).foreach { case (hexLoc,name,_) =>
             if(name == pieceName)
               strokeHex(hexLoc, "black", tileScale, alpha=0.5)
           }

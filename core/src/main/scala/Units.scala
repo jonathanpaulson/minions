@@ -3,6 +3,28 @@ import scala.collection.immutable.Map
 import scala.util.{Try,Success,Failure}
 
 object Units {
+  def fromForm(
+    name: String,
+    attack: String,
+    health: String,
+    speed: String,
+    range: String,
+    cost: String
+  ): Option[PieceStats] = {
+    if(name=="") {
+      None
+    } else {
+      val attackEffect =
+        attack match {
+          case "*" => Some(Unsummon)
+          case "X" => Some(Kill)
+          case _ => Some(Damage(attack.toInt))
+        }
+      Some(createPieceStats(name=name, shortDisplayName=name, displayName=name, attackEffect=attackEffect,
+        defense=Some(health.toInt), moveRange=speed.toInt, attackRange=range.toInt,
+        cost=cost.toInt, rebate=0))
+    }
+  }
   def createPieceStats(
     name : String,
     shortDisplayName: String = "",

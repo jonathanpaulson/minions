@@ -126,6 +126,18 @@ case object Game {
           case TechSeller => None
         }
       }.toMap
+    val piecesAcquired = SideArray.create(piecesAlwaysAcquired)
+    otherTechs.foreach { techState =>
+      Side.foreach { side =>
+        if(techState.level(side) == TechAcquired) {
+            techState.tech match {
+              case PieceTech(pieceName) =>
+                piecesAcquired(side) = piecesAcquired(side) + (pieceName -> techState)
+              case Copycat | TechSeller | Metamagic => ()
+            }
+        }
+      }
+    }
 
     val game = new Game(
       numBoards = numBoards,
@@ -135,7 +147,7 @@ case object Game {
       souls = startingSouls.copy(),
       wins = SideArray.create(0),
       techLine = techStatesAlwaysAcquired ++ techStatesLocked,
-      piecesAcquired = SideArray.create(piecesAlwaysAcquired),
+      piecesAcquired = piecesAcquired,
       soldTechThisTurn = false,
       extraTechsAndSpellsThisTurn = 0,
       usedTechsThisTurn = 0,

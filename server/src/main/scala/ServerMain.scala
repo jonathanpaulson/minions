@@ -457,6 +457,15 @@ if(!username || username.length == 0) {
       val redSoulsPerTurn = config.getInt("app.s1ExtraSoulsPerTurn")
       val extraTechCost = config.getInt("app.extraTechCostPerBoard")
 
+      val vacuum_html = {
+        val attrs = List("Name", "Attack", "Health", "Speed", "Range", "Cost")
+        attrs.map { attr =>
+          s"""<tr>
+          <th>$attr</th>
+          <td><input type="text" name="blue$attr" value=10></td>
+          <td><input type="text" name="red$attr" value=2></td>
+        </tr>"""}.mkString("\n")
+      }
       val map_html =
         (BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList).map { case (mapName, _) =>
           s"""<p><label>$mapName</label><input type=checkbox name=map value="$mapName"></input><br>"""
@@ -471,31 +480,79 @@ if(!username || username.length == 0) {
             label { display: table-cell; }
             input { display: table-cell; }
           </style>
+          <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+          <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+          <script>
+            $$( function() {
+              $$( ".accordion" ).accordion({
+                collapsible: true,
+                active: false
+              });
+            } );
+        </script>
         </head>
         <body>
           <form method=post>
-            <p><label>Game name </label><input type="text" name="game" value=$game></input>
-            <p><label>Password (optional) </label><input type="text" name="password"></input>
+            <table>
+              <tr>
+                <th>Game Name</th>
+                <td><input type="text" name="game" value=$game></input></td>
+              </tr>
+              <tr>
+                <th>Password (optional)</th>
+                <td><input type="text" name="password"></input></td>
+              </tr>
+              <tr>
+                <th>Seconds Per Turn</th>
+                <td><input type="text" name=blueSeconds value=$blueSecondsPerTurn></input></td>
+                <td><input type="text" name=redSeconds value=$redSecondsPerTurn></td>
+              </tr>
+              <tr>
+                <th>Points to win</th>
+                <td><input type="text" name=targetWins value=$targetNumWins></input></td.
+              </tr>
+          </table>
 
-            <p><label>Blue seconds per turn </label><input type="text" name=blueSeconds value=$blueSecondsPerTurn></input><br>
-            <p><label>Red seconds per turn </label><input type="text" name=redSeconds value=$redSecondsPerTurn></input><br>
 
-            <p><label>Points to win </label><input type="text" name=targetWins value=$targetNumWins></input><br>
+          <div class="accordion">
+          <h3>Maps</h3>
+          <div>
+          $map_html
+          </div>
+          </div>
 
+          <div class="accordion">
+          <h3>Vacuum Test</h3>
+          <div>
+            <table>$vacuum_html</table>
+          </div>
+          </div>
 
-            <p>&nbsp
-            <p><h3>Maps (optional)</h3>
-            $map_html
-
-            <p>&nbsp
-            <p><h3>Advanced Options</h3>
-            <p><label>Vacuum Test</label><input type=checkbox name="vacuum" value="true"></input><br>
-            <p><label>Random seed (optional) </label><input type="text" name="seed"></input><br>
-            <p><label>Blue starting souls per board&nbsp&nbsp </label><input type="text" name=blueSouls value=$blueStartingSouls></input><br>
-            <p><label>Red starting souls per board </label><input type="text" name=redSouls value=$redStartingSouls></input><br>
-            <p><label>Blue extra souls per turn&nbsp&nbsp </label><input type="text" name=blueSoulsPerTurn value=$blueSoulsPerTurn></input><br>
-            <p><label>Red extra souls per turn</label><input type="text" name=redSoulsPerTurn value=$redSoulsPerTurn></input><br>
-            <p><label>Tech cost per board </label><input type="text" name=techSouls value=$extraTechCost></input><br>
+            <div class="accordion">
+            <h3>Advanced Options</h3>
+            <div>
+              <table>
+                <tr>
+                  <th>Random Seed (optional)</th>
+                  <td><input type="text" name="seed"></td>
+                </tr>
+                <tr>
+                  <th>Starting Souls per Board</th>
+                  <td><input type="text" name=blueSouls value=$blueStartingSouls></td>
+                  <td><input type="text" name=redSouls value=$redStartingSouls></td>
+                </tr>
+                <tr>
+                  <th>Extra Souls per Turn</th>
+                  <td><input type=text name=blueSoulsPerTurn value=$blueSoulsPerTurn></td>
+                  <td><input type=text name=redSoulsPerTurn value=$redSoulsPerTurn></td>
+                </tr>
+                <tr>
+                  <th>Tech Cost per Board</th>
+                  <td><input type=text name=techSouls value=$extraTechCost></td>
+                </tr>
+              </table>
+            </div>
+            </div>
 
             <p><input type="submit" value="Start Game"></input>
           </form>
@@ -506,7 +563,8 @@ if(!username || username.length == 0) {
         formFields(('game, 'password, 'seed)) { (gameid, password, seed) =>
           formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
             formFields(('blueSouls.as[Int], 'redSouls.as[Int], 'techSouls.as[Int], 'map.*)) { (blueSouls, redSouls, techSouls, maps) =>
-              formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int], 'vacuum ? false)) { (blueSoulsPerTurn, redSoulsPerTurn, vacuum) =>
+              formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int])) { (blueSoulsPerTurn, redSoulsPerTurn) =>
+                formFields(('blueName, 'redName, 'blueAttack, 'redAttack, 'blueHealth, 'redHealth, 'blueSpeed, 'redSpeed, 'blueRange, 'redRange, 'blueCost, 'redCost)) { (blueName, redName, blueAttack, redAttack, blueHealth, redHealth, blueSpeed, redSpeed, blueRange, redRange, blueCost, redCost) =>
                 games.get(gameid) match {
                   case Some(_) =>
                     complete(s"""A game named "$gameid" already exists; pick a different name""")
@@ -517,11 +575,16 @@ if(!username || username.length == 0) {
                     val startingSouls = SideArray.createTwo(blueSouls, redSouls)
                     val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
                     val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
+
+                    val blueUnit : Option[PieceStats] = Units.fromForm(blueName, blueAttack, blueHealth, blueSpeed, blueRange, blueCost)
+                    val redUnit : Option[PieceStats] = Units.fromForm(redName, redAttack, redHealth, redSpeed, redRange, redCost)
                     val gameState =
-                      if(vacuum)
-                        GameState.createVacuum(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
-                      else
-                        GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
+                      (blueUnit, redUnit) match {
+                        case (Some(u1), Some(u2)) =>
+                          GameState.createVacuum(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, u1, u2)
+                        case (_,_) =>
+                          GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
+                      }
                     val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
                     gameActor ! StartGame()
                     games = games + (gameid -> ((gameActor, gameState)))
@@ -553,6 +616,7 @@ redSoulsPerTurn=$redSoulsPerTurn
 <a href="/">Back</a>
                       """
                       ))
+                }
                 }
               }
             }
