@@ -183,10 +183,10 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
             }
           }
 
-          if(techs(3).level(S1) != TechAcquired) { // Open with initiates
+          if(techs(2).level(S1) != TechAcquired) { // Open with initiates
             out ! Protocol.DoGameAction(BuyExtraTechAndSpell(S1))
-            out ! Protocol.DoGameAction(PerformTech(S1, 3))
-            out ! Protocol.DoGameAction(PerformTech(S1, 3))
+            out ! Protocol.DoGameAction(PerformTech(S1, 2))
+            out ! Protocol.DoGameAction(PerformTech(S1, 2))
           } else {
             val availableTechs = techs.indices.filter { i =>
               techs(i).level(S1) != TechAcquired && (i==0 || techs(i-1).level(S1) != TechLocked) && techs(i).level(S0)!=TechAcquired
