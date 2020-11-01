@@ -3,6 +3,47 @@ import scala.collection.immutable.Map
 import scala.util.{Try,Success,Failure}
 
 object Units {
+  def fromForm(
+    name: String,
+    attack: String,
+    health: String,
+    speed: String,
+    range: String,
+    cost: String,
+    rebate: String,
+    swarm: Option[String],
+    lumbering: Option[String],
+    spawn: Option[String],
+    persistent: Option[String],
+    flying: Option[String],
+    blink: Option[String]
+  ): Option[PieceStats] = {
+    if(name=="") {
+      None
+    } else {
+      val attackEffect =
+        attack match {
+          case "*" => Some(Unsummon)
+          case "Deadly" => Some(Kill)
+          case "deadly" => Some(Kill)
+          case _ => Some(Damage(attack.toInt))
+        }
+      val rebateInt =
+        if(rebate forall Character.isDigit) rebate.toInt else 0
+      val deathSpawn =
+        if(rebate forall Character.isDigit) None else Some(rebate)
+      val swarmMax = if(swarm.isDefined) 3 else 1
+      val isLumbering = if(lumbering.isDefined) true else false
+      val spawnRange = if(spawn.isDefined) Some(1) else None
+      val isPersistent = if(persistent.isDefined) true else false
+      val isFlying = if(flying.isDefined) true else false
+      val canBlink = if(blink.isDefined) true else false
+      Some(createPieceStats(name=name, shortDisplayName=name, displayName=name, attackEffect=attackEffect,
+        defense=Some(health.toInt), moveRange=speed.toInt, attackRange=range.toInt,
+        cost=cost.toInt, rebate=rebateInt, deathSpawn=deathSpawn, swarmMax=swarmMax, isLumbering=isLumbering,
+        spawnRange=spawnRange, isPersistent=isPersistent, isFlying=isFlying, canBlink=canBlink))
+    }
+  }
   def createPieceStats(
     name : String,
     shortDisplayName: String = "",

@@ -422,7 +422,7 @@ if(!username || username.length == 0) {
         val seed_opt = None
 
         val gameid = "ai" + games.size.toString
-        val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
+        val gameState = GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
         val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
         games = games + (gameid -> ((gameActor, gameState)))
         gameActor ! StartGame()
@@ -457,6 +457,25 @@ if(!username || username.length == 0) {
       val redSoulsPerTurn = config.getInt("app.s1ExtraSoulsPerTurn")
       val extraTechCost = config.getInt("app.extraTechCostPerBoard")
 
+      val vacuum_html = {
+        val attrs = List("Name", "Cost", "Rebate", "Attack", "Health", "Speed", "Range")
+        val bools = List("Swarm", "Lumbering", "Spawn", "Persistent", "Flying", "Blink")
+        val text_html =
+          attrs.map { attr =>
+            s"""<tr>
+            <th>$attr</th>
+            <td><input type="text" name="blue$attr" value=10 autocomplete="off"></td>
+            <td><input type="text" name="red$attr" value=2 autocomplete="off"></td>
+          </tr>"""}
+        val bool_html =
+          bools.map { attr =>
+            s"""<tr>
+            <th>$attr</th>
+            <td><input type=checkbox name="blue$attr" value="true"></td>
+            <td><input type=checkbox name="red$attr" value="true"></td>
+          </tr>"""}
+        (text_html ++ bool_html).mkString("\n")
+      }
       val map_html =
         (BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList).map { case (mapName, _) =>
           s"""<p><label>$mapName</label><input type=checkbox name=map value="$mapName"></input><br>"""
@@ -471,30 +490,79 @@ if(!username || username.length == 0) {
             label { display: table-cell; }
             input { display: table-cell; }
           </style>
+          <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+          <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+          <script>
+            $$( function() {
+              $$( ".accordion" ).accordion({
+                collapsible: true,
+                active: false
+              });
+            } );
+        </script>
         </head>
         <body>
           <form method=post>
-            <p><label>Game name </label><input type="text" name="game" value=$game></input>
-            <p><label>Password (optional) </label><input type="text" name="password"></input>
+            <table>
+              <tr>
+                <th>Game Name</th>
+                <td><input type="text" name="game" value=$game></input></td>
+              </tr>
+              <tr>
+                <th>Password (optional)</th>
+                <td><input type="text" name="password"></input></td>
+              </tr>
+              <tr>
+                <th>Seconds Per Turn</th>
+                <td><input type="text" name=blueSeconds value=$blueSecondsPerTurn></input></td>
+                <td><input type="text" name=redSeconds value=$redSecondsPerTurn></td>
+              </tr>
+              <tr>
+                <th>Points to win</th>
+                <td><input type="text" name=targetWins value=$targetNumWins></input></td.
+              </tr>
+          </table>
 
-            <p><label>Blue seconds per turn </label><input type="text" name=blueSeconds value=$blueSecondsPerTurn></input><br>
-            <p><label>Red seconds per turn </label><input type="text" name=redSeconds value=$redSecondsPerTurn></input><br>
 
-            <p><label>Points to win </label><input type="text" name=targetWins value=$targetNumWins></input><br>
+          <div class="accordion">
+          <h3>Maps</h3>
+          <div>
+          $map_html
+          </div>
+          </div>
 
+          <div class="accordion">
+          <h3>Vacuum Test</h3>
+          <div>
+            <table>$vacuum_html</table>
+          </div>
+          </div>
 
-            <p>&nbsp
-            <p><h3>Maps (optional)</h3>
-            $map_html
-
-            <p>&nbsp
-            <p><h3>Advanced Options</h3>
-            <p><label>Random seed (optional) </label><input type="text" name="seed"></input><br>
-            <p><label>Blue starting souls per board&nbsp&nbsp </label><input type="text" name=blueSouls value=$blueStartingSouls></input><br>
-            <p><label>Red starting souls per board </label><input type="text" name=redSouls value=$redStartingSouls></input><br>
-            <p><label>Blue extra souls per turn&nbsp&nbsp </label><input type="text" name=blueSoulsPerTurn value=$blueSoulsPerTurn></input><br>
-            <p><label>Red extra souls per turn</label><input type="text" name=redSoulsPerTurn value=$redSoulsPerTurn></input><br>
-            <p><label>Tech cost per board </label><input type="text" name=techSouls value=$extraTechCost></input><br>
+            <div class="accordion">
+            <h3>Advanced Options</h3>
+            <div>
+              <table>
+                <tr>
+                  <th>Random Seed (optional)</th>
+                  <td><input type="text" name="seed"></td>
+                </tr>
+                <tr>
+                  <th>Starting Souls per Board</th>
+                  <td><input type="text" name=blueSouls value=$blueStartingSouls></td>
+                  <td><input type="text" name=redSouls value=$redStartingSouls></td>
+                </tr>
+                <tr>
+                  <th>Extra Souls per Turn</th>
+                  <td><input type=text name=blueSoulsPerTurn value=$blueSoulsPerTurn></td>
+                  <td><input type=text name=redSoulsPerTurn value=$redSoulsPerTurn></td>
+                </tr>
+                <tr>
+                  <th>Tech Cost per Board</th>
+                  <td><input type=text name=techSouls value=$extraTechCost></td>
+                </tr>
+              </table>
+            </div>
+            </div>
 
             <p><input type="submit" value="Start Game"></input>
           </form>
@@ -503,51 +571,64 @@ if(!username || username.length == 0) {
         ))
       } ~ post {
         formFields(('game, 'password, 'seed)) { (gameid, password, seed) =>
-          formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
-            formFields(('blueSouls.as[Int], 'redSouls.as[Int], 'techSouls.as[Int], 'map.*)) { (blueSouls, redSouls, techSouls, maps) =>
-              formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int])) { (blueSoulsPerTurn, redSoulsPerTurn) =>
-                games.get(gameid) match {
-                  case Some(_) =>
-                    complete(s"""A game named "$gameid" already exists; pick a different name""")
-                  case None =>
-                    val seed_opt = if(seed=="") None else Some(seed.toLong)
-                    val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
-                    val passwordOpt = if(password == "") None else Some(password)
-                    val startingSouls = SideArray.createTwo(blueSouls, redSouls)
-                    val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
-                    val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
-                    val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
-                    val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
-                    gameActor ! StartGame()
-                    games = games + (gameid -> ((gameActor, gameState)))
-                    println("Created game " + gameid)
-                    complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
-                      s"""
-<link rel="icon" href="/img/favicon.png?v=4" />
-<pre>
-Created game $gameid
+        formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
+        formFields(('blueSouls.as[Int], 'redSouls.as[Int], 'techSouls.as[Int], 'map.*)) { (blueSouls, redSouls, techSouls, maps) =>
+        formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int])) { (blueSoulsPerTurn, redSoulsPerTurn) =>
+        formFields(('blueName, 'redName, 'blueAttack, 'redAttack, 'blueHealth, 'redHealth, 'blueSpeed, 'redSpeed, 'blueRange, 'redRange, 'blueCost, 'redCost, 'blueRebate, 'redRebate)) { (blueName, redName, blueAttack, redAttack, blueHealth, redHealth, blueSpeed, redSpeed, blueRange, redRange, blueCost, redCost, blueRebate, redRebate) =>
+        formFields(('blueSwarm.?, 'redSwarm.?, 'blueLumbering.?, 'redLumbering.?, 'blueSpawn.?, 'redSpawn.?, 'bluePersistent.?, 'redPersistent.?, 'blueFlying.?, 'redFlying.?, 'blueBlink.?, 'redBlink.?)) { (blueSwarm, redSwarm, blueLumbering, redLumbering, blueSpawn, redSpawn, bluePersistent, redPersistent, blueFlying, redFlying, blueBlink, redBlink) =>
+          games.get(gameid) match {
+            case Some(_) =>
+              complete(s"""A game named "$gameid" already exists; pick a different name""")
+            case None =>
+              val seed_opt = if(seed=="") None else Some(seed.toLong)
+              val maps_opt = if(maps.isEmpty) None else Some(maps.toList)
+              val passwordOpt = if(password == "") None else Some(password)
+              val startingSouls = SideArray.createTwo(blueSouls, redSouls)
+              val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
+              val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
 
-password=$password
-seed=$seed_opt
-blueSeconds=$blueSeconds
-redSeconds=$redSeconds
-targetWins=$targetWins
-techSouls=$techSouls
-maps=$maps_opt
-seed=$seed_opt
+              val blueUnit : Option[PieceStats] = Units.fromForm(blueName, blueAttack, blueHealth, blueSpeed, blueRange, blueCost, blueRebate, blueSwarm, blueLumbering, blueSpawn, bluePersistent, blueFlying, blueBlink)
+              val redUnit : Option[PieceStats] = Units.fromForm(redName, redAttack, redHealth, redSpeed, redRange, redCost, redRebate, redSwarm, redLumbering, redSpawn, redPersistent, redFlying, redBlink)
+              val gameState =
+                (blueUnit, redUnit) match {
+                  case (Some(u1), Some(u2)) =>
+                    GameState.createVacuum(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, u1, u2)
+                  case (_,_) =>
+                    GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, passwordOpt, false)
+                }
+              val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
+              gameActor ! StartGame()
+              games = games + (gameid -> ((gameActor, gameState)))
+              println("Created game " + gameid)
+              complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
+                s"""
+                <link rel="icon" href="/img/favicon.png?v=4" />
+                <pre>
+                  Created game $gameid
 
-blueSouls=$blueSouls
-redSouls=$redSouls
-blueSoulsPerTurn=$blueSoulsPerTurn
-redSoulsPerTurn=$redSoulsPerTurn
-</pre>
+                  password=$password
+                  seed=$seed_opt
+                  blueSeconds=$blueSeconds
+                  redSeconds=$redSeconds
+                  targetWins=$targetWins
+                  techSouls=$techSouls
+                  maps=$maps_opt
+                  seed=$seed_opt
 
-<a href="/play?game=$gameid&side=0">Join blue</a><br>
-<a href="/play?game=$gameid&side=1">Join red</a><br>
-<a href="/play?game=$gameid">Spectate</a><br>
-<a href="/">Back</a>
-                      """
+                  blueSouls=$blueSouls
+                  redSouls=$redSouls
+                  blueSoulsPerTurn=$blueSoulsPerTurn
+                  redSoulsPerTurn=$redSoulsPerTurn
+                </pre>
+
+                <a href="/play?game=$gameid&side=0">Join blue</a><br>
+                <a href="/play?game=$gameid&side=1">Join red</a><br>
+                <a href="/play?game=$gameid">Spectate</a><br>
+                <a href="/">Back</a>
+                """
                       ))
+                }
+                  }
                 }
               }
             }
@@ -647,7 +728,7 @@ redSoulsPerTurn=$redSoulsPerTurn
   val seed_opt = None
 
   val gameid = "ai_test" + games.size.toString
-  val gameState = GameState.create(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
+  val gameState = GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
   val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
   games = games + (gameid -> ((gameActor, gameState)))
   gameActor ! StartGame()
