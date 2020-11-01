@@ -600,7 +600,7 @@ object Units {
     zombie_necromancer,
     zombie, acolyte,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
-    fog, dark_tower, witch, vampire, mummy, lich, sorcerer, void, hell_hound,
+    fog, ooze, witch, vampire, mummy, lich, sorcerer, void, hell_hound,
     wraith, fiend, banshee, elemental, fallen_angel, shadowlord
   )
 
@@ -635,7 +635,7 @@ object Units {
     haunt,
     shrieker,
     fog,
-    dark_tower,
+    ooze,
     sorcerer,
     witch,
     vampire,

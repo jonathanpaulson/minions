@@ -464,8 +464,8 @@ if(!username || username.length == 0) {
           attrs.map { attr =>
             s"""<tr>
             <th>$attr</th>
-            <td><input type="text" name="blue$attr" value=10 autocomplete="off"></td>
-            <td><input type="text" name="red$attr" value=2 autocomplete="off"></td>
+            <td><input type="text" name="blue$attr" autocomplete="off"></td>
+            <td><input type="text" name="red$attr" autocomplete="off"></td>
           </tr>"""}
         val bool_html =
           bools.map { attr =>
