@@ -338,12 +338,12 @@ class Client() {
       case Protocol.OkGameAction(_) =>
         ()
 
-      case Protocol.Initialize(startGame,summaries,boardNames,boardSequences) =>
+      case Protocol.Initialize(startGame,summaries,boardNames,boardSequences, startExternalInfo) =>
         println("Setting numBoards to " + summaries.length)
         numBoards = summaries.length
         curBoardIdx = 0
         game = Some(startGame)
-        externalInfo = Some(ExternalInfo.create(startGame.pieceMap))
+        externalInfo = Some(startExternalInfo)
         serverBoards = summaries.map { summary => Board.ofSummary(summary,externalInfo.get) }
         serverSequence = boardSequences.clone()
         serverActionSequence = Array.fill(summaries.length)(Vector())
