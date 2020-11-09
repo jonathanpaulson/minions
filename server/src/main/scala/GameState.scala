@@ -497,13 +497,7 @@ case class GameState (
       out ! Protocol.Version(CurrentVersion.version)
       out ! Protocol.ClientHeartbeatRate(periodInSeconds=clientHeartbeatPeriodInSeconds)
 
-      val spellIds = side match {
-        case None => revealedSpellIds(S0).intersect(revealedSpellIds(S1))
-        case Some(side) => revealedSpellIds(side)
-      }
-      val spellIdsAndNames = spellIds.toArray.map { spellId => (spellId,spellMap(spellId)) }
-      out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone())
-      out ! Protocol.ReportRevealSpells(spellIdsAndNames)
+      out ! Protocol.Initialize(game, boards.map { board => board.toSummary()}, boardNames, boardSequences.clone(), externalInfo)
 
       out ! Protocol.ReportPause(isPaused)
       Log.log("UserJoined: " + username + " Side: " + side)

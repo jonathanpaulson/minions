@@ -1595,7 +1595,7 @@ case class BoardState private (
           case false => fail("Spell not in hand or already played or discarded")
           case true =>
             externalInfo.spellsRevealed.get(spellId) match {
-              case None => fail("Spell was not revealed")
+              case None => fail("Spell was not revealed: spellId="+spellId)
               case Some(spellName) =>
                 Spells.spellMap.get(spellName) match {
                   case None => fail("Unknown spell name")

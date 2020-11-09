@@ -14,7 +14,7 @@ object Protocol {
   case class Players(playersAndViewedBoards: SideArray[List[(String,Int)]], spectators: List[String]) extends Response
   case class ClientHeartbeatRate(periodInSeconds: Double) extends Response
   case class OkHeartbeat(i: Int) extends Response
-  case class Initialize(game: Game, summaries: Array[BoardSummary], boardNames: Array[String], boardSequences: Array[Int]) extends Response
+  case class Initialize(game: Game, summaries: Array[BoardSummary], boardNames: Array[String], boardSequences: Array[Int], externalInfo: ExternalInfo) extends Response
   case class UserJoined(username: String, side: Option[Side]) extends Response
   case class UserLeft(username: String, side: Option[Side]) extends Response
   case class OkBoardAction(boardIdx: Int, newBoardSequence: Int) extends Response
