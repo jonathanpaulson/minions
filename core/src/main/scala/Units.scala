@@ -458,6 +458,7 @@ object Units {
     attackEffect = Some(Damage(3)),
     defense = Some(10),
     isPersistent = true,
+    isFlying = true,
   )
 
   val mummy = createPieceStats(
