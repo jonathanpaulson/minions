@@ -447,6 +447,7 @@ case object Spells {
     displace,
     stumble,
     spawn,
+    rising_horde,
     blink,
     raiseZombie,
     doubleCantrip,
