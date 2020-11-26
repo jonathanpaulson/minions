@@ -275,7 +275,7 @@ case object Spells {
     displayName = "Spawn",
     shortDisplayName = "Spawn",
     desc = List("Target friendly minion can spawn", "until end of turn."),
-    spellType = NormalSpell,
+    spellType = Sorcery,
     spawnPhaseOnly = false,
     tryCanTarget = ((side: Side, piece:Piece, board:BoardState) =>
       if(piece.side != side || piece.curStats(board).isNecromancer) Failure(new Exception("Can only target friendly minions"))
@@ -447,7 +447,6 @@ case object Spells {
     displace,
     stumble,
     spawn,
-    rising_horde,
     blink,
     raiseZombie,
     doubleCantrip,
@@ -482,7 +481,6 @@ case object Spells {
       (shackle, 2),
 
       (spawn, 2),
-      (rising_horde, 2),
       (raiseZombie, 2),
       (doubleCantrip, 2),
 
