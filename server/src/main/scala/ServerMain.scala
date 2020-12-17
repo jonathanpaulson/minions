@@ -458,7 +458,7 @@ if(!username || username.length == 0) {
       val extraTechCost = config.getInt("app.extraTechCostPerBoard")
 
       val vacuum_html = {
-        val attrs = List("Name", "Cost", "Rebate", "Attack", "Health", "Speed", "Range")
+        val attrs = List("Name", "Cost", "Rebate", "Attack", "Health", "Speed", "Range", "NumAttacks")
         val bools = List("Swarm", "Lumbering", "Spawn", "Persistent", "Flying", "Blink")
         val text_html =
           attrs.map { attr =>
@@ -474,7 +474,15 @@ if(!username || username.length == 0) {
             <td><input type=checkbox name="blue$attr" value="true"></td>
             <td><input type=checkbox name="red$attr" value="true"></td>
           </tr>"""}
-        (text_html ++ bool_html).mkString("\n")
+          val ability_options = Abilities.abilityMap.keys.map { name =>
+            s"""<option value="$name">$name</option>"""
+          }.mkString("\n")
+        val ability_html = List(s"""<tr>
+          <th>Ability</th>
+          <td><select name="blueAbility"><option value=""></option>$ability_options</select></td>
+          <td><select name="redAbility"><option value=""></option>$ability_options</td>
+        </tr>""")
+        (text_html ++ bool_html ++ ability_html).mkString("\n")
       }
       val map_html =
         (BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList).map { case (mapName, _) =>
@@ -574,7 +582,7 @@ if(!username || username.length == 0) {
         formFields(('blueSeconds.as[Double], 'redSeconds.as[Double], 'targetWins.as[Int])) { (blueSeconds, redSeconds, targetWins) =>
         formFields(('blueSouls.as[Int], 'redSouls.as[Int], 'techSouls.as[Int], 'map.*)) { (blueSouls, redSouls, techSouls, maps) =>
         formFields(('blueSoulsPerTurn.as[Int], 'redSoulsPerTurn.as[Int])) { (blueSoulsPerTurn, redSoulsPerTurn) =>
-        formFields(('blueName, 'redName, 'blueAttack, 'redAttack, 'blueHealth, 'redHealth, 'blueSpeed, 'redSpeed, 'blueRange, 'redRange, 'blueCost, 'redCost, 'blueRebate, 'redRebate)) { (blueName, redName, blueAttack, redAttack, blueHealth, redHealth, blueSpeed, redSpeed, blueRange, redRange, blueCost, redCost, blueRebate, redRebate) =>
+        formFields(('blueName, 'redName, 'blueAttack, 'redAttack, 'blueHealth, 'redHealth, 'blueSpeed, 'redSpeed, 'blueRange, 'redRange, 'blueCost, 'redCost, 'blueRebate, 'redRebate, 'blueNumAttacks, 'redNumAttacks, 'blueAbility, 'redAbility)) { (blueName, redName, blueAttack, redAttack, blueHealth, redHealth, blueSpeed, redSpeed, blueRange, redRange, blueCost, redCost, blueRebate, redRebate, blueNumAttacks, redNumAttacks, blueAbility, redAbility) =>
         formFields(('blueSwarm.?, 'redSwarm.?, 'blueLumbering.?, 'redLumbering.?, 'blueSpawn.?, 'redSpawn.?, 'bluePersistent.?, 'redPersistent.?, 'blueFlying.?, 'redFlying.?, 'blueBlink.?, 'redBlink.?)) { (blueSwarm, redSwarm, blueLumbering, redLumbering, blueSpawn, redSpawn, bluePersistent, redPersistent, blueFlying, redFlying, blueBlink, redBlink) =>
           games.get(gameid) match {
             case Some(_) =>
@@ -587,8 +595,8 @@ if(!username || username.length == 0) {
               val secondsPerTurn = SideArray.createTwo(blueSeconds, redSeconds)
               val extraSoulsPerTurn = SideArray.createTwo(blueSoulsPerTurn, redSoulsPerTurn)
 
-              val blueUnit : Option[PieceStats] = Units.fromForm(blueName, blueAttack, blueHealth, blueSpeed, blueRange, blueCost, blueRebate, blueSwarm, blueLumbering, blueSpawn, bluePersistent, blueFlying, blueBlink)
-              val redUnit : Option[PieceStats] = Units.fromForm(redName, redAttack, redHealth, redSpeed, redRange, redCost, redRebate, redSwarm, redLumbering, redSpawn, redPersistent, redFlying, redBlink)
+              val blueUnit : Option[PieceStats] = Units.fromForm(blueName, blueAttack, blueHealth, blueSpeed, blueRange, blueCost, blueRebate, blueNumAttacks, blueSwarm, blueLumbering, blueSpawn, bluePersistent, blueFlying, blueBlink, blueAbility)
+              val redUnit : Option[PieceStats] = Units.fromForm(redName, redAttack, redHealth, redSpeed, redRange, redCost, redRebate, redNumAttacks, redSwarm, redLumbering, redSpawn, redPersistent, redFlying, redBlink, redAbility)
               val gameState =
                 (blueUnit, redUnit) match {
                   case (Some(u1), Some(u2)) =>

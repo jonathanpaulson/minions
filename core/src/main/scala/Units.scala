@@ -11,12 +11,14 @@ object Units {
     range: String,
     cost: String,
     rebate: String,
+    numAttacks: String,
     swarm: Option[String],
     lumbering: Option[String],
     spawn: Option[String],
     persistent: Option[String],
     flying: Option[String],
-    blink: Option[String]
+    blink: Option[String],
+    ability: String,
   ): Option[PieceStats] = {
     if(name=="") {
       None
@@ -28,6 +30,7 @@ object Units {
           case "deadly" => Some(Kill)
           case _ => Some(Damage(attack.toInt))
         }
+      val numAttacksInt = if(numAttacks.isEmpty) 1 else numAttacks.toInt
       val rebateInt =
         if(rebate forall Character.isDigit) rebate.toInt else 0
       val deathSpawn =
@@ -38,10 +41,12 @@ object Units {
       val isPersistent = if(persistent.isDefined) true else false
       val isFlying = if(flying.isDefined) true else false
       val canBlink = if(blink.isDefined) true else false
+      val abilities =
+        if(!Abilities.abilityMap.contains(ability)) List() else List(Abilities.abilityMap(ability))
       Some(createPieceStats(name=name, shortDisplayName=name, displayName=name, attackEffect=attackEffect,
-        defense=Some(health.toInt), moveRange=speed.toInt, attackRange=range.toInt,
+        defense=Some(health.toInt), moveRange=speed.toInt, attackRange=range.toInt, numAttacks=numAttacksInt,
         cost=cost.toInt, rebate=rebateInt, deathSpawn=deathSpawn, swarmMax=swarmMax, isLumbering=isLumbering,
-        spawnRange=spawnRange, isPersistent=isPersistent, isFlying=isFlying, canBlink=canBlink))
+        spawnRange=spawnRange, isPersistent=isPersistent, isFlying=isFlying, canBlink=canBlink, abilities=abilities))
     }
   }
   def createPieceStats(
