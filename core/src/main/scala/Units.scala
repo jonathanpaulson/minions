@@ -352,6 +352,7 @@ object Units {
     rebate = 2,
     moveRange = 3,
     isFlying = true,
+    isPersistent = true,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(1),
@@ -366,7 +367,6 @@ object Units {
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(4),
-    isPersistent = true
   )
 
   val wight = createPieceStats(
