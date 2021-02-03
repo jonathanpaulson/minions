@@ -66,11 +66,11 @@ object PieceMod {
 object PieceMods {
   case object Shielded extends PieceMod {
     val displayName = "Shielded"
-    val desc = "Doubled defense and persistent"
+    val desc = "Doubled defense and soulbound"
     def apply(pieceStats: PieceStats): PieceStats = {
       pieceStats.copy(
         isBaseStats = false,
-        isPersistent = true,
+        isSoulbound = true,
         defense = pieceStats.defense match {
           case None => None
           case Some(d) => Some(d*2)

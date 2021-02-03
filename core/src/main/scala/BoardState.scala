@@ -1851,9 +1851,13 @@ case class BoardState private (
 
   //Kill a piece, for any reason
   private def killPiece(piece: Piece, externalInfo: ExternalInfo): Unit = {
-    removeFromBoard(piece)
-    killedThisTurn = killedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side, piece.loc))
-    updateAfterPieceKill(piece.side,piece.curStats(this),piece.loc,externalInfo)
+    if(piece.curStats(this).isSoulbound) {
+      unsummonPiece(piece)
+    } else {
+      removeFromBoard(piece)
+      killedThisTurn = killedThisTurn :+ ((piece.spec, piece.baseStats.name, piece.side, piece.loc))
+      updateAfterPieceKill(piece.side,piece.curStats(this),piece.loc,externalInfo)
+    }
   }
 
   private def unsummonPiece(piece: Piece): Unit = {
