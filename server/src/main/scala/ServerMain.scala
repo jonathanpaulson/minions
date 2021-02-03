@@ -188,6 +188,16 @@ object ServerMain extends App {
   var games: Map[String, (ActorRef, GameState)] = Map()
   var globalChat: List[String] = List()
 
+  def chooseGameName(prefix: String): String = {
+    var suffix = 0
+    while(games.contains(prefix + suffix)) {
+      suffix += 1
+    }
+    val ret = prefix + suffix
+    assert(!games.contains(ret))
+    return ret
+  }
+
   //----------------------------------------------------------------------------------
   //WEBSOCKET MESSAGE HANDLING
 
@@ -421,7 +431,7 @@ if(!username || username.length == 0) {
         val maps_opt = None
         val seed_opt = None
 
-        val gameid = "ai" + games.size.toString
+        val gameid = chooseGameName("ai")
         val gameState = GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
         val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
         games = games + (gameid -> ((gameActor, gameState)))
@@ -447,7 +457,7 @@ if(!username || username.length == 0) {
   } ~
   path("newGame") {
     get {
-      val game = "game" + (games.size.toString)
+      val game = chooseGameName("game")
       val blueSecondsPerTurn = config.getDouble("app.s0SecondsPerTurn")
       val redSecondsPerTurn = config.getDouble("app.s1SecondsPerTurn")
       val targetNumWins = config.getInt("app.targetNumWins")
@@ -735,7 +745,7 @@ if(!username || username.length == 0) {
   val maps_opt = Some(List("MegaPuddles"))
   val seed_opt = None
 
-  val gameid = "ai_test" + games.size.toString
+  val gameid = chooseGameName("ai_test")
   val gameState = GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, true)
   val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
   games = games + (gameid -> ((gameActor, gameState)))
