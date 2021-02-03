@@ -509,6 +509,9 @@ object Drawing {
           if(stats.isEldritch) {
             show("Eldritch (can spawn next to any friendly unit)")
           }
+          if(stats.isSoulbound) {
+            show("Soulbound (blink on death)")
+          }
           if(stats.isWailing) {
             show("Dies after the turn it attacks.")
           }
@@ -1062,10 +1065,17 @@ object Drawing {
         case (None, None) => ("", "black")
         case (Some(_), None) | (None, Some(_)) => assertUnreachable()
         case (Some(dcur), Some(dbase)) =>
-          val str = (if(curStats.isPersistent) "P" else "H") + (dcur - damage)
+          val letter = {
+            if(curStats.isPersistent) "P"
+            else if(curStats.isSoulbound) "S"
+            else "H"
+          }
+
+          val str = letter + (dcur - damage)
           val color = {
             if(damage > 0 || dcur < dbase) "magenta"
             else if(curStats.isPersistent && !baseStats.isPersistent) "green"
+            else if(curStats.isSoulbound && !baseStats.isSoulbound) "green"
             else if(dcur > dbase) "green"
             else "black"
           }

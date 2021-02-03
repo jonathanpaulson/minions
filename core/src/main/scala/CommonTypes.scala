@@ -106,6 +106,7 @@ case class PieceStats(
   val isLumbering: Boolean,  //Cannot move and attack on the same turn
   val isPersistent: Boolean, //Cannot be unsummoned (sent back to reinforcements/hand)
   val isEldritch: Boolean,   //Can spawn next to any unit
+  val isSoulbound: Boolean,  // Returns to reinforcements instead of dying
   val isWailing: Boolean,    //At the end of turn if it attacked, piece dies
   val canBlink: Boolean,     //Can move to reinforcements
   val canHurtNecromancer: Boolean, //Piece not allowed to attack necromancer
@@ -136,12 +137,6 @@ case class PieceStats(
         numAttacks = numAttacks,
         cost = cost,
         rebate = rebate,
-        isNecromancer = isNecromancer,
-        isFlying = isFlying,
-        isLumbering = isLumbering,
-        isPersistent = isPersistent,
-        isEldritch = isEldritch,
-        isWailing = isWailing,
         canBlink = canBlink,
         canHurtNecromancer = canHurtNecromancer
       ),
@@ -152,7 +147,14 @@ case class PieceStats(
         extraMana = extraMana,
         deathSpawn = deathSpawn,
         perTurnReinforcement = perTurnReinforcement,
-        abilities = abilities
+        abilities = abilities,
+        isNecromancer = isNecromancer,
+        isFlying = isFlying,
+        isLumbering = isLumbering,
+        isPersistent = isPersistent,
+        isEldritch = isEldritch,
+        isSoulbound = isSoulbound,
+        isWailing = isWailing
       )
     )
   }
@@ -172,12 +174,6 @@ case class PieceStatsFragment0 (
   val numAttacks: Int,
   val cost: Int,
   val rebate: Int,
-  val isNecromancer: Boolean,
-  val isFlying: Boolean,
-  val isLumbering: Boolean,
-  val isPersistent: Boolean,
-  val isEldritch: Boolean,
-  val isWailing: Boolean,
   val canBlink: Boolean,
   val canHurtNecromancer: Boolean
 )
@@ -188,7 +184,14 @@ case class PieceStatsFragment1 (
   val extraMana: Int,
   val deathSpawn: Option[PieceName],
   val perTurnReinforcement: Option[PieceName],
-  val abilities: List[PieceAbility]
+  val abilities: List[PieceAbility],
+  val isNecromancer: Boolean,
+  val isFlying: Boolean,
+  val isLumbering: Boolean,
+  val isPersistent: Boolean,
+  val isEldritch: Boolean,
+  val isSoulbound: Boolean,
+  val isWailing: Boolean
 )
 
 object PieceStatsOfFragments {
@@ -206,12 +209,6 @@ object PieceStatsOfFragments {
       numAttacks = f0.numAttacks,
       cost = f0.cost,
       rebate = f0.rebate,
-      isNecromancer = f0.isNecromancer,
-      isFlying = f0.isFlying,
-      isLumbering = f0.isLumbering,
-      isPersistent = f0.isPersistent,
-      isEldritch = f0.isEldritch,
-      isWailing = f0.isWailing,
       canBlink = f0.canBlink,
       canHurtNecromancer = f0.canHurtNecromancer,
       swarmMax = f1.swarmMax,
@@ -220,7 +217,14 @@ object PieceStatsOfFragments {
       extraMana = f1.extraMana,
       deathSpawn = f1.deathSpawn,
       perTurnReinforcement = f1.perTurnReinforcement,
-      abilities = f1.abilities
+      abilities = f1.abilities,
+      isNecromancer = f1.isNecromancer,
+      isFlying = f1.isFlying,
+      isLumbering = f1.isLumbering,
+      isPersistent = f1.isPersistent,
+      isEldritch = f1.isEldritch,
+      isSoulbound = f1.isSoulbound,
+      isWailing = f1.isWailing
     )
   }
 }
