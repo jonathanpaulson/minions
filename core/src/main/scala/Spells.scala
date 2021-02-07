@@ -122,7 +122,7 @@ case object Spells {
     name = "shield",
     displayName = "Shield",
     shortDisplayName = "Shield",
-    desc = List("Target friendly minion is persistent.", "Double its health until the start", "of your next turn."),
+    desc = List("Target friendly minion gains soulbound", "and double health until the start", "of your next turn."),
     spellType = NormalSpell,
     spawnPhaseOnly = false,
     tryCanTarget = { (side: Side, piece:Piece, board:BoardState) =>
