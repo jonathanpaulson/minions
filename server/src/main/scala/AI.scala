@@ -284,7 +284,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("")
           chat("To defeat my initiates, you'll want to unlock skeletons.")
           chat("Click on the skeleton hex in the tech line")
-        } else if(tutorialStep == 9 && techs(4).level(S0) == TechUnlocked) {
+        } else if(tutorialStep == 9 && techs(3).level(S0) == TechUnlocked) {
           tutorialStep = 10
           chat("")
           chat("The blue rectangle in the skeleton hex means you've put one point into skeletons.")
@@ -301,7 +301,7 @@ private class AIActor(out: ActorRef, game: GameState, doTutorial: Boolean) exten
           chat("So in a fight between an initiate and a skeleton, the skeleton will always get the first attack.")
           chat("You can't build units the turn you tech to them.")
           chat("Now click 'Skeleton' again to unlock them")
-        } else if(tutorialStep == 11 && techs(4).level(S0) == TechAcquired) {
+        } else if(tutorialStep == 11 && techs(3).level(S0) == TechAcquired) {
           tutorialStep = 12
           chat("")
           chat("You've unlocked skeletons, but you can't build them until next turn.")
