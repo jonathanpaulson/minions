@@ -475,7 +475,7 @@ object Units {
     attackRange = 1,
     numAttacks = 6,
     attackEffect = Some(Damage(1)),
-    defense = Some(13),
+    defense = Some(10),
     spawnRange = Some(1),
   )
 
