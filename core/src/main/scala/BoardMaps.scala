@@ -53,16 +53,16 @@ object BoardMaps {
 """)
 
   val apocalypse = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
- . . g . . . . . g .
+ . . g . . . . . g z
   w . . . . . . . . .
-   w . . . g . . . z .
+   w . . . g . . . . .
     w . . . . . . . . .
      . . w w . . g w . g
       g . w g . . w w . .
        . . . . . . . . . w
-        . z . . . g . . . w
+        . . . . . g . . . w
          . . . . . . . . . w
-          . g . . . . . g . .
+          z g . . . . . g . .
 """)
 
   val blackenedShores = make(10,10,SideArray.createTwo(Loc(2, 2), Loc(7, 7)), """
