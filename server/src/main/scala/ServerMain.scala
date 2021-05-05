@@ -424,7 +424,7 @@ if(!username || username.length == 0) {
     parameter("tutorial" ? false) { doTutorial =>
       parameter("difficulty" ? 10) { difficulty =>
         val secondsPerTurn = SideArray.create(120.0)
-        val startingSouls = SideArray.createTwo(0, 5)
+        val startingSouls = SideArray.createTwo(0, 6)
         val extraSoulsPerTurn = SideArray.createTwo(0, difficulty)
         val targetWins = 1
         val techSouls = 4
@@ -738,7 +738,7 @@ if(!username || username.length == 0) {
 
   // Create test game
   val secondsPerTurn = SideArray.create(120.0)
-  val startingSouls = SideArray.createTwo(0, 5)
+  val startingSouls = SideArray.createTwo(0, 6)
   val extraSoulsPerTurn = SideArray.createTwo(0, 10)
   val targetWins = 2
   val techSouls = 4
