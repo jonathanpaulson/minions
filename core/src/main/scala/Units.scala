@@ -507,7 +507,7 @@ object Units {
     name = "hell_hound",
     shortDisplayName = "Hound",
     displayName = "Hell Hound",
-    cost = 1,
+    cost = 3,
     rebate = 1,
     moveRange = 3,
     attackRange = 1,
