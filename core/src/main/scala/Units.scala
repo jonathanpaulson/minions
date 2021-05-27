@@ -345,6 +345,7 @@ object Units {
     attackRange = 1,
     attackEffect = Some(Damage(3)),
     defense = Some(1),
+    isPersistent = true,
     abilities = List(MoveFlood),
   )
 
@@ -372,8 +373,8 @@ object Units {
 
   val wight = createPieceStats(
     name = "wight",
-    cost = 5,
-    rebate = 2,
+    cost = 4,
+    rebate = 1,
     moveRange = 0,
     attackRange = 2,
     attackEffect = Some(Damage(1)),
