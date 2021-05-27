@@ -447,7 +447,7 @@ object Units {
   val witch = createPieceStats(
     name = "witch",
     cost = 4,
-    rebate = 2,
+    rebate = 1,
     moveRange = 1,
     attackRange = 3,
     attackEffect = Some(Damage(1)),
