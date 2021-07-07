@@ -364,7 +364,7 @@ object ServerMain extends App {
   rel="preload"
   href="https://rsms.me/inter/inter.css"
   as="style"
-  onLoad="this.onload=null;this.rel='stylesheet'"
+  onload="this.onload=null;this.rel='stylesheet'"
 />
       
 <div class="container">
@@ -531,118 +531,247 @@ if(!username || username.length == 0) {
         val bools = List("Swarm", "Lumbering", "Spawn", "Persistent", "Flying", "Blink")
         val text_html =
           attrs.map { attr =>
-            s"""<tr>
-            <th>$attr</th>
-            <td><input type="text" name="blue$attr" autocomplete="off"></td>
-            <td><input type="text" name="red$attr" autocomplete="off"></td>
-          </tr>"""}
+            s"""<div class="field">
+            <label>$attr</label>
+            <input type="text" name="blue$attr" autocomplete="off">
+            <input type="text" name="red$attr" autocomplete="off">
+          </div>"""}
         val bool_html =
           bools.map { attr =>
-            s"""<tr>
-            <th>$attr</th>
-            <td><input type=checkbox name="blue$attr" value="true"></td>
-            <td><input type=checkbox name="red$attr" value="true"></td>
-          </tr>"""}
+            s"""<div class="field">
+            <label>$attr</label>
+            <label class="checkbox"><input type=checkbox name="blue$attr" value="true"><span>Blue</span></label>
+            <label class="checkbox"><input type=checkbox name="red$attr" value="true"><span>Red</span></label>
+          </div>"""}
           val ability_options = Abilities.abilityMap.keys.map { name =>
             s"""<option value="$name">$name</option>"""
           }.mkString("\n")
-        val ability_html = List(s"""<tr>
-          <th>Ability</th>
-          <td><select name="blueAbility"><option value=""></option>$ability_options</select></td>
-          <td><select name="redAbility"><option value=""></option>$ability_options</td>
-        </tr>""")
+        val ability_html = List(s"""<div class="field">
+          <label>Ability</label>
+          <select name="blueAbility"><option value=""></option>$ability_options</select>
+          <select name="redAbility" style="margin-left: 0.25rem"><option value=""></option>$ability_options</select>
+        </div>""")
         (text_html ++ bool_html ++ ability_html).mkString("\n")
       }
       val map_html =
         (BoardMaps.basicMaps.toList ++ BoardMaps.advancedMaps.toList).map { case (mapName, _) =>
-          s"""<p><label>$mapName</label><input type=checkbox name=map value="$mapName"></input><br>"""
+          s"""<label class="checkbox"><input type=checkbox name=map value="$mapName"></input><span>$mapName</span></label>"""
         }.mkString("\n")
       complete(HttpEntity(ContentTypes.`text/html(UTF-8)`,
         s"""
         <head>
           <link rel="icon" href="/img/favicon.png?v=4" />
           <style type="text/css">
-            form  { display: table;      }
             p     { display: table-row;  }
             label { display: table-cell; }
             input { display: table-cell; }
+
+            
+            body {
+              font-family: "Inter var", sans-serif;
+              margin: 0;
+            }
+
+            .container {
+              padding: 3rem 1rem;
+            }
+            .title {
+              text-align: center;
+              font-weight: 800;
+              margin-bottom: 0;
+              padding-bottom: 1.5rem;
+            }
+            form {
+              display: table;
+              margin: 0 auto;
+            }
+            th {
+              text-align: left;
+            }
+            .field:not(:first-of-type) {
+              margin-top: 1rem;
+            }
+            .field > label {
+              color: rgb(55,65,81);
+              font-size: 0.875rem;
+            }
+            .field > input, .field > select {
+              background-color: #fff;
+              border: 1px solid rgb(209,213,219);
+              border-radius: .375rem;
+              padding-top: .25rem;
+              padding-right: .5rem;
+              padding-bottom: .25rem;
+              padding-left: .5rem;
+              font-size: 0.875rem;
+              color: inherit;
+              font-family: inherit;
+              margin: 0;
+              line-height: 1.25rem;
+              box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
+              margin-top: 6px;
+            }
+            .field > input+input, .field > input+select {
+              margin-left: 0.5rem;
+            }
+
+            .accordion {
+              margin: 1.5rem 0;
+            }
+            .accordion h3 {
+              display: flex;
+              margin: 0;
+              margin-bottom: 0.75rem;
+            }
+            .accordion h3::before {
+              /* Thanks Bootstrap! */
+              flex-shrink: 0;
+              width: 1.25rem;
+              height: 1.25rem;
+              margin-right: 0.75rem;
+              content: "";
+              background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23212529'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+              background-repeat: no-repeat;
+              background-size: 1.25rem;
+              transition: transform .2s ease-in-out;
+            }
+            .accordion h3.ui-accordion-header-active::before {
+              background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%230c63e4'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+              transform: rotate(-180deg);
+            }
+            
+            .checkbox {
+              display: flex;
+              padding: 0.25rem 0;
+              align-items: center;
+            }
+            input[type="checkbox"] {
+              -webkit-appearance: none;
+              -moz-appearance: none;
+              appearance: none;
+              padding: 0;
+              -webkit-print-color-adjust: exact;
+              color-adjust: exact;
+              display: inline-block;
+              vertical-align: middle;
+              background-origin: border-box;
+              -webkit-user-select: none;
+              -moz-user-select: none;
+              -ms-user-select: none;
+              user-select: none;
+              flex-shrink: 0;
+              height: 1rem;
+              width: 1rem;
+              color: #2563eb;
+              background-color: #fff;
+              border: 1px solid rgb(209,213,219);
+              border-radius: .25rem;
+              box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            }
+            input[type="checkbox"]:checked {
+              border-color: transparent;
+              background-color: currentColor;
+              background-size: 100% 100%;
+              background-position: center;
+              background-repeat: no-repeat;
+              background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+            }
+            .checkbox > span {
+              margin-left: 0.5rem;
+            }
+
+            .button {
+              background-color: #4caf50; /* Green */
+              border: none;
+              color: white;
+              padding: 15px 32px;
+              text-align: center;
+              text-decoration: none;
+              display: inline-block;
+              font-size: 16px;
+            }
           </style>
+          <link
+            rel="preload"
+            href="https://rsms.me/inter/inter.css"
+            as="style"
+            onload="this.onload=null;this.rel='stylesheet'"
+          />
           <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
           <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
           <script>
-            $$( function() {
-              $$( ".accordion" ).accordion({
+            $$(document).ready(function() {
+              $$(".accordion").accordion({
                 collapsible: true,
                 active: false
               });
-            } );
-        </script>
+            });
+          </script>
         </head>
         <body>
-          <form method=post>
-            <table>
-              <tr>
-                <th>Game Name</th>
-                <td><input type="text" name="game" value=$game></input></td>
-              </tr>
-              <tr>
-                <th>Password (optional)</th>
-                <td><input type="text" name="password"></input></td>
-              </tr>
-              <tr>
-                <th>Seconds Per Turn</th>
-                <td><input type="text" name=blueSeconds value=$blueSecondsPerTurn></input></td>
-                <td><input type="text" name=redSeconds value=$redSecondsPerTurn></td>
-              </tr>
-              <tr>
-                <th>Points to win</th>
-                <td><input type="text" name=targetWins value=$targetNumWins></input></td.
-              </tr>
-          </table>
+          <div class="container">
+            <h1 class="title">Create a Game</h1>
+            <form method=post>
+              <div class="field">
+                <label>Game Name</label>
+                <input type="text" name="game" value="$game"></input>
+              </div>
+              <div class="field">
+                <label>Password (optional)</label>
+                <input type="text" name="password"></input>
+              </div>
+              <div class="field">
+                <label>Seconds Per Turn (Blue / Red)</label>
+                <input type="text" name=blueSeconds value="$blueSecondsPerTurn"></input>
+                <input type="text" name=redSeconds value="$redSecondsPerTurn">
+              </div>
+              <div class="field">
+                <label>Points to win</label>
+                <input type="text" name=targetWins value="$targetNumWins"></input>
+              </div>
 
 
-          <div class="accordion">
-          <h3>Maps</h3>
-          <div>
-          $map_html
+              <div class="accordion">
+                <h3>Maps</h3>
+                <div>
+                  $map_html
+                </div>
+              </div>
+
+              <div class="accordion">
+                <h3>Vacuum Test</h3>
+                <div>
+                  <table>$vacuum_html</table>
+                </div>
+              </div>
+
+              <div class="accordion">
+              <h3>Advanced Options</h3>
+                <div>
+                  <div class="field">
+                    <label>Random Seed (optional)</label>
+                    <input type="text" name="seed">
+                  </div>
+                  <div class="field">
+                    <label>Starting Souls per Board</label>
+                    <input type="text" name=blueSouls value=$blueStartingSouls>
+                    <input type="text" name=redSouls value=$redStartingSouls>
+                  </div>
+                  <div class="field">
+                    <label>Extra Souls per Turn</label>
+                    <input type=text name=blueSoulsPerTurn value=$blueSoulsPerTurn>
+                    <input type=text name=redSoulsPerTurn value=$redSoulsPerTurn>
+                  </div>
+                  <div class="field">
+                    <label>Tech Cost per Board</label>
+                    <input type=text name=techSouls value=$extraTechCost>
+                  </div>
+                </div>
+              </div>
+
+              <button class="button" type="submit">Start Game</button>
+            </form>
           </div>
-          </div>
-
-          <div class="accordion">
-          <h3>Vacuum Test</h3>
-          <div>
-            <table>$vacuum_html</table>
-          </div>
-          </div>
-
-            <div class="accordion">
-            <h3>Advanced Options</h3>
-            <div>
-              <table>
-                <tr>
-                  <th>Random Seed (optional)</th>
-                  <td><input type="text" name="seed"></td>
-                </tr>
-                <tr>
-                  <th>Starting Souls per Board</th>
-                  <td><input type="text" name=blueSouls value=$blueStartingSouls></td>
-                  <td><input type="text" name=redSouls value=$redStartingSouls></td>
-                </tr>
-                <tr>
-                  <th>Extra Souls per Turn</th>
-                  <td><input type=text name=blueSoulsPerTurn value=$blueSoulsPerTurn></td>
-                  <td><input type=text name=redSoulsPerTurn value=$redSoulsPerTurn></td>
-                </tr>
-                <tr>
-                  <th>Tech Cost per Board</th>
-                  <td><input type=text name=techSouls value=$extraTechCost></td>
-                </tr>
-              </table>
-            </div>
-            </div>
-
-            <p><input type="submit" value="Start Game"></input>
-          </form>
         </body>
         """
         ))
