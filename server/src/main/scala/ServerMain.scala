@@ -284,8 +284,12 @@ object ServerMain extends App {
       html ++= s"""
 <link rel="icon" href="/img/favicon.png?v=4" />
 <style>
-.button {
-    background-color: #4CAF50; /* Green */
+  body {
+    font-family: "Inter var", sans-serif;
+    margin: 0;
+  }
+  .button {
+    background-color: #4caf50; /* Green */
     border: none;
     color: white;
     padding: 15px 32px;
@@ -293,39 +297,93 @@ object ServerMain extends App {
     text-decoration: none;
     display: inline-block;
     font-size: 16px;
-}
+  }
 
-table {
+  table {
     font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
     border-collapse: collapse;
     width: 100%;
-}
+  }
 
-td, th {
+  td,
+  th {
     border: 1px solid #ddd;
     padding: 8px;
-}
+  }
 
-tr:nth-child(even){background-color: #f2f2f2;}
+  tr:nth-child(even) {
+    background-color: #f2f2f2;
+  }
 
-tr:hover {background-color: #ddd;}
+  tr:hover {
+    background-color: #ddd;
+  }
 
-th {
+  th {
     padding-top: 12px;
     padding-bottom: 12px;
     text-align: left;
-    background-color: #4CAF50;
+    background-color: #4caf50;
     color: white;
-}
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 16px;
+  }
+  .title {
+    text-align: center;
+    font-weight: 800;
+    margin-bottom: 0;
+    padding-top: 3rem;
+  }
+  .subtitle {
+    text-align: center;
+    margin: 0;
+    padding-top: 0.75rem;
+  }
+  .links {
+    text-align: center;
+    margin: 0;
+    padding-top: 0.25rem;
+  }
+  .buttons {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+    display: flex;
+    justify-content: center;
+    margin: -8px;
+    flex-wrap: wrap;
+  }
+  .buttons > a {
+    margin: 8px;
+  }
 </style>
+<link
+  rel="preload"
+  href="https://rsms.me/inter/inter.css"
+  as="style"
+  onLoad="this.onload=null;this.rel='stylesheet'"
+/>
+      
+<div class="container">
+  <h1 class="title">Minions Game</h1>
+  <p class="subtitle">
+    Minions is a multiplayer team tactics hex grid open source game.
+  </p>
+  <p class="links">
+    <a href="https://discord.gg/BsQVky">Discord</a> &middot;
+    <a href="https://github.com/jonathanpaulson/minions/">Github</a>
+  </p>
+
+  <div class="buttons">
+    <a href="/newGame" class="button">New Game</a>
+    <a href="/ai?difficulty=10" class="button">Vs AI (1v1)</a>
+    <a href="/ai?difficulty=0&tutorial=true" class="button">Tutorial</a>
+  </div>
       """
-      html ++= "Minions is a multiplayer team tactics hex grid open source game<p>"
-      html ++= "<a href=\"https://discord.gg/BsQVky\">Discord</a><p>"
-      html ++= "<a href=\"https://github.com/jonathanpaulson/minions/\">Github</a><p>"
-      html ++= "<p><p>"
-      html ++= "<a href=\"/newGame\" class=\"button\">New Game</a><p>"
-      html ++= "<a href=\"/ai?difficulty=10\" class=\"button\">Vs AI (1v1)</a><p>"
-      html ++= "<a href=\"/ai?difficulty=0&tutorial=true\" class=\"button\">Tutorial</a><p>"
+      
       if(!games.isEmpty) {
         html ++= "<table border=1><tr><th>Game</th><th>Access</th><th>Boards</th><th>Blue Team</th><th>Red Team</th><th>Spectators</th></tr>"
         for((game, (_,state)) <- games) {
@@ -355,6 +413,7 @@ th {
         }
         html ++= "</table>"
       }
+      html ++= "</div>"
       complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, html.toString))
     } ~
     path("show") {
