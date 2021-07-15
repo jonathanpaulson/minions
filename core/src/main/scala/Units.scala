@@ -333,14 +333,14 @@ object Units {
     rebate = 2,
     moveRange = 1,
     attackRange = 1,
-    attackEffect = Some(Damage(5)),
+    attackEffect = Some(Damage(6)),
     defense = Some(2),
   )
 
   val serpent = createPieceStats(
     name = "serpent",
-    cost = 5,
-    rebate = 3,
+    cost = 6,
+    rebate = 4,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(3)),
@@ -408,11 +408,11 @@ object Units {
   val fog = createPieceStats(
     name = "fog",
     cost = 5,
-    rebate = 1,
+    rebate = 3,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    defense = Some(7),
+    defense = Some(5),
     spawnRange = Some(1),
     isFlying = true,
   )
@@ -426,7 +426,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Kill),
-    defense = Some(1),
+    defense = Some(2),
     spawnRange = Some(1),
     swarmMax = 3,
     isLumbering = true,
@@ -458,12 +458,12 @@ object Units {
 
   val vampire = createPieceStats(
     name = "vampire",
-    cost = 5,
+    cost = 4,
     rebate = 2,
     moveRange = 1,
     attackRange = 1,
-    attackEffect = Some(Damage(3)),
-    defense = Some(9),
+    attackEffect = Some(Damage(2)),
+    defense = Some(6),
     isPersistent = true,
     isFlying = true,
   )
@@ -471,12 +471,12 @@ object Units {
   val mummy = createPieceStats(
     name = "mummy",
     cost = 5,
-    rebate = 1,
+    rebate = 2,
     moveRange = 1,
     attackRange = 1,
     numAttacks = 6,
     attackEffect = Some(Damage(1)),
-    defense = Some(10),
+    defense = Some(6),
     spawnRange = Some(1),
   )
 
@@ -588,7 +588,7 @@ object Units {
     moveRange = 2,
     isFlying = true,
     attackRange = 1,
-    attackEffect = Some(Damage(7)),
+    attackEffect = Some(Damage(8)),
     defense = Some(10),
     isPersistent = true,
   )
