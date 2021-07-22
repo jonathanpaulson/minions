@@ -436,7 +436,7 @@ object Units {
   val sorcerer = createPieceStats(
     name = "sorcerer",
     cost = 4,
-    rebate = 0,
+    rebate = 1,
     moveRange = 1,
     attackRange = 2,
     attackEffect = Some(Unsummon),
