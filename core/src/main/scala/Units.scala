@@ -333,18 +333,19 @@ object Units {
     rebate = 2,
     moveRange = 1,
     attackRange = 1,
-    attackEffect = Some(Damage(5)),
+    attackEffect = Some(Damage(6)),
     defense = Some(2),
   )
 
   val serpent = createPieceStats(
     name = "serpent",
-    cost = 5,
-    rebate = 3,
+    cost = 6,
+    rebate = 4,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(3)),
     defense = Some(1),
+    isPersistent = true,
     abilities = List(MoveFlood),
   )
 
@@ -372,8 +373,8 @@ object Units {
 
   val wight = createPieceStats(
     name = "wight",
-    cost = 5,
-    rebate = 2,
+    cost = 4,
+    rebate = 1,
     moveRange = 0,
     attackRange = 2,
     attackEffect = Some(Damage(1)),
@@ -407,11 +408,11 @@ object Units {
   val fog = createPieceStats(
     name = "fog",
     cost = 5,
-    rebate = 1,
+    rebate = 3,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    defense = Some(7),
+    defense = Some(5),
     spawnRange = Some(1),
     isFlying = true,
   )
@@ -425,7 +426,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Kill),
-    defense = Some(1),
+    defense = Some(2),
     spawnRange = Some(1),
     swarmMax = 3,
     isLumbering = true,
@@ -435,7 +436,7 @@ object Units {
   val sorcerer = createPieceStats(
     name = "sorcerer",
     cost = 4,
-    rebate = 0,
+    rebate = 1,
     moveRange = 1,
     attackRange = 2,
     attackEffect = Some(Unsummon),
@@ -447,7 +448,7 @@ object Units {
   val witch = createPieceStats(
     name = "witch",
     cost = 4,
-    rebate = 2,
+    rebate = 1,
     moveRange = 1,
     attackRange = 3,
     attackEffect = Some(Damage(1)),
@@ -457,12 +458,12 @@ object Units {
 
   val vampire = createPieceStats(
     name = "vampire",
-    cost = 5,
+    cost = 4,
     rebate = 2,
     moveRange = 1,
     attackRange = 1,
-    attackEffect = Some(Damage(3)),
-    defense = Some(9),
+    attackEffect = Some(Damage(2)),
+    defense = Some(6),
     isPersistent = true,
     isFlying = true,
   )
@@ -470,12 +471,12 @@ object Units {
   val mummy = createPieceStats(
     name = "mummy",
     cost = 5,
-    rebate = 1,
+    rebate = 2,
     moveRange = 1,
     attackRange = 1,
     numAttacks = 6,
     attackEffect = Some(Damage(1)),
-    defense = Some(10),
+    defense = Some(6),
     spawnRange = Some(1),
   )
 
@@ -507,9 +508,9 @@ object Units {
     name = "hell_hound",
     shortDisplayName = "Hound",
     displayName = "Hell Hound",
-    cost = 4,
-    rebate = 2,
-    moveRange = 4,
+    cost = 3,
+    rebate = 1,
+    moveRange = 3,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(2),
@@ -526,44 +527,42 @@ object Units {
     isLumbering = true,
     attackRange = 2,
     attackEffect = Some(Damage(4)),
-    defense = Some(9),
+    defense = Some(8),
     isPersistent = true,
   )
 
   val fiend = createPieceStats(
     name = "fiend",
-    cost = 9,
-    rebate = 3,
+    cost = 3,
+    rebate = 0,
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    numAttacks = 9,
-    defense = Some(9),
-    abilities = List(Abilities.airstrike)
+    numAttacks = 8,
+    defense = Some(6)
   )
 
   val banshee = createPieceStats(
     name = "banshee",
-    cost = 6,
-    rebate = 3,
+    cost = 4,
+    rebate = 1,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Kill),
     defense = Some(2),
     isPersistent = true,
-    canHurtNecromancer = false,
-    abilities = List(Abilities.double_attack),
+    canHurtNecromancer = false
   )
 
   val elemental = createPieceStats(
     name = "elemental",
     shortDisplayName = "Element",
     cost = 8,
-    rebate = 4,
+    rebate = 5,
     moveRange = 1,
     attackRange = 3,
     attackEffect = Some(Damage(3)),
-    defense = Some(3),
+    defense = Some(2),
     abilities = List(MoveTerrain)
   )
 
@@ -571,27 +570,26 @@ object Units {
     name = "fallen_angel",
     shortDisplayName = "FAngel",
     displayName = "Fallen Angel",
-    cost = 13,
-    rebate = 6,
+    cost = 7,
+    rebate = 4,
     moveRange = 2,
     isFlying = true,
     attackRange = 2,
-    attackEffect = Some(Damage(1)),
-    numAttacks = 4,
-    defense = Some(7),
+    attackEffect = Some(Damage(2)),
+    defense = Some(4),
     spawnRange = Some(1),
   )
 
   val shadowlord = createPieceStats(
     name = "shadowlord",
     shortDisplayName = "SLord",
-    cost = 13,
-    rebate = 9,
+    cost = 10,
+    rebate = 5,
     moveRange = 2,
     isFlying = true,
     attackRange = 1,
-    attackEffect = Some(Damage(7)),
-    defense = Some(13),
+    attackEffect = Some(Damage(8)),
+    defense = Some(10),
     isPersistent = true,
   )
 
