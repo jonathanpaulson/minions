@@ -549,7 +549,7 @@ if(!username || username.length == 0) {
         val ability_html = List(s"""<div class="field">
           <label>Ability</label>
           <select name="blueAbility"><option value=""></option>$ability_options</select>
-          <select name="redAbility" style="margin-left: 0.25rem"><option value=""></option>$ability_options</select>
+          <select name="redAbility"><option value=""></option>$ability_options</select>
         </div>""")
         (text_html ++ bool_html ++ ability_html).mkString("\n")
       }
@@ -562,9 +562,9 @@ if(!username || username.length == 0) {
         <head>
           <link rel="icon" href="/img/favicon.png?v=4" />
           <style type="text/css">
-            p     { display: table-row;  }
-            label { display: table-cell; }
-            input { display: table-cell; }
+            * {
+              box-sizing: border-box;
+            }
 
             
             body {
@@ -582,14 +582,24 @@ if(!username || username.length == 0) {
               padding-bottom: 1.5rem;
             }
             form {
-              display: table;
               margin: 0 auto;
+              width: 636px; /* 220px + 8px + 200px + 8px + 200px */
             }
-            th {
-              text-align: left;
+            .field {
+              display: flex;
+              align-items: center;
+            }
+            .field > label, .field > input, .field > select {
+              width: 200px;
+            }
+            .field > label:first-child {
+              flex-shrink: 0;
+              text-align: right;
+              padding-right: 8px;
+              width: 220px;
             }
             .field:not(:first-of-type) {
-              margin-top: 1rem;
+              margin-top: 0.5rem;
             }
             .field > label {
               color: rgb(55,65,81);
@@ -606,12 +616,10 @@ if(!username || username.length == 0) {
               font-size: 0.875rem;
               color: inherit;
               font-family: inherit;
-              margin: 0;
               line-height: 1.25rem;
               box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
-              margin-top: 6px;
             }
-            .field > input+input, .field > input+select {
+            .field > *+* {
               margin-left: 0.5rem;
             }
 
