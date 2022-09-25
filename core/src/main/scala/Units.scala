@@ -194,10 +194,12 @@ object Units {
     cost = 0,
     rebate = 0,
     moveRange = 2,
+    isFlying = true,
     attackRange = 0,
-    attackEffect = None,
+    attackEffect = Some(Unsummon),
     defense = Some(10),
     spawnRange = Some(1),
+    isLumbering = true,
     isPersistent = true,
     isNecromancer = true,
     extraSouls = 3,
@@ -240,7 +242,6 @@ object Units {
     cost = 0,
     rebate = 0,
     moveRange = 1,
-    isFlying = true,
     attackRange = 1,
     attackEffect = Some(Unsummon),
     defense = None,
@@ -405,8 +406,8 @@ object Units {
     defense = Some(1),
   )
 
-  val fog = createPieceStats(
-    name = "fog",
+  val specter = createPieceStats(
+    name = "specter",
     cost = 5,
     rebate = 3,
     moveRange = 2,
@@ -417,12 +418,12 @@ object Units {
     isFlying = true,
   )
 
-  val ooze = createPieceStats(
-    name = "ooze",
-    shortDisplayName = "Ooze",
-    displayName = "Ooze",
-    cost = 3,
-    rebate = 3,
+  val cultist = createPieceStats(
+    name = "cultist",
+    shortDisplayName = "Cultist",
+    displayName = "Cultist",
+    cost = 4,
+    rebate = 4,
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Kill),
@@ -504,10 +505,10 @@ object Units {
     abilities = List(MoveWhirlwind)
   )
 
-  val hell_hound = createPieceStats(
-    name = "hell_hound",
-    shortDisplayName = "Hound",
-    displayName = "Hell Hound",
+  val cerberus = createPieceStats(
+    name = "cerberus",
+    shortDisplayName = "Cerberus",
+    displayName = "Cerberus",
     cost = 3,
     rebate = 1,
     moveRange = 3,
@@ -531,8 +532,8 @@ object Units {
     isPersistent = true,
   )
 
-  val fiend = createPieceStats(
-    name = "fiend",
+  val horror = createPieceStats(
+    name = "horror",
     cost = 3,
     rebate = 0,
     moveRange = 1,
@@ -566,10 +567,10 @@ object Units {
     abilities = List(MoveTerrain)
   )
 
-  val fallen_angel = createPieceStats(
-    name = "fallen_angel",
-    shortDisplayName = "FAngel",
-    displayName = "Fallen Angel",
+  val harpy = createPieceStats(
+    name = "harpy",
+    shortDisplayName = "Harpy",
+    displayName = "Harpy",
     cost = 7,
     rebate = 4,
     moveRange = 2,
@@ -605,8 +606,8 @@ object Units {
     zombie_necromancer,
     zombie, acolyte,
     initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
-    fog, ooze, witch, vampire, mummy, lich, sorcerer, void, hell_hound,
-    wraith, fiend, banshee, elemental, fallen_angel, shadowlord
+    specter, cultist, witch, vampire, mummy, lich, sorcerer, void, cerberus,
+    wraith, horror, banshee, elemental, harpy, shadowlord
   )
 
   //Necromancers awarded after a board resets
@@ -639,20 +640,20 @@ object Units {
     wight,
     haunt,
     shrieker,
-    fog,
-    ooze,
+    specter,
+    cultist,
     sorcerer,
     witch,
     vampire,
     mummy,
     lich,
     void,
-    hell_hound,
+    cerberus,
     wraith,
-    fiend,
+    horror,
     banshee,
     elemental,
-    fallen_angel,
+    harpy,
     shadowlord
   )
 

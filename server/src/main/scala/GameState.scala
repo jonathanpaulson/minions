@@ -689,7 +689,7 @@ object GameState {
         if(testingSetup) {
           state.tiles.foreachi { (loc, tile) =>
             if (tile.terrain == Graveyard) {
-              val _ = state.spawnPieceInitial(S0, Units.fiend, loc)
+              val _ = state.spawnPieceInitial(S0, Units.horror, loc)
             }
           }
         }
