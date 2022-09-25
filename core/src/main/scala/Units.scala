@@ -333,6 +333,7 @@ object Units {
     cost = 4,
     rebate = 2,
     moveRange = 1,
+    isFlying = true,
     attackRange = 1,
     attackEffect = Some(Damage(6)),
     defense = Some(2),
@@ -340,22 +341,19 @@ object Units {
 
   val serpent = createPieceStats(
     name = "serpent",
-    cost = 6,
-    rebate = 4,
+    cost = 4,
+    rebate = 2,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(3)),
     defense = Some(1),
-    isPersistent = true,
-    abilities = List(MoveFlood),
   )
 
-  val bat = createPieceStats(
-    name = "bat",
-    cost = 4,
+  val warg = createPieceStats(
+    name = "warg",
+    cost = 3,
     rebate = 2,
     moveRange = 3,
-    isFlying = true,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(1),
@@ -366,10 +364,11 @@ object Units {
     cost = 3,
     rebate = 1,
     moveRange = 1,
-    isFlying = true,
+    isPersistent = true,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(4),
+    abilities = List(MoveFlood)
   )
 
   val wight = createPieceStats(
@@ -391,6 +390,7 @@ object Units {
     moveRange = 0,
     attackRange = 3,
     attackEffect = Some(Damage(2)),
+    isPersistent = true,
     defense = Some(2),
     canBlink = true,
     abilities = List(MoveEarthquake)
@@ -406,8 +406,8 @@ object Units {
     defense = Some(1),
   )
 
-  val specter = createPieceStats(
-    name = "specter",
+  val spectre = createPieceStats(
+    name = "spectre",
     cost = 5,
     rebate = 3,
     moveRange = 2,
@@ -418,43 +418,38 @@ object Units {
     isFlying = true,
   )
 
-  val cultist = createPieceStats(
-    name = "cultist",
-    shortDisplayName = "Cultist",
-    displayName = "Cultist",
-    cost = 4,
-    rebate = 4,
+  val rat = createPieceStats(
+    name = "bone rat",
+    cost = 2,
+    rebate = 1,
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Kill),
-    defense = Some(2),
+    defense = Some(1),
     spawnRange = Some(1),
-    swarmMax = 3,
-    isLumbering = true,
     canHurtNecromancer = false,
   )
 
   val sorcerer = createPieceStats(
     name = "sorcerer",
     cost = 4,
-    rebate = 1,
+    rebate = 0,
     moveRange = 1,
     attackRange = 2,
     attackEffect = Some(Unsummon),
     defense = Some(3),
     isPersistent = true,
-    swarmMax = 3,
+    canBlink = true,
   )
 
   val witch = createPieceStats(
     name = "witch",
-    cost = 4,
-    rebate = 1,
+    cost = 3,
+    rebate = 0,
     moveRange = 1,
     attackRange = 3,
     attackEffect = Some(Damage(1)),
     defense = Some(1),
-    swarmMax = 3,
   )
 
   val vampire = createPieceStats(
@@ -483,13 +478,12 @@ object Units {
 
   val lich = createPieceStats(
     name = "lich",
-    cost = 7,
-    rebate = 3,
+    cost = 6,
+    rebate = 4,
     moveRange = 1,
-    isLumbering = true,
-    attackRange = 3,
+    attackRange = 2,
     attackEffect = Some(Kill),
-    defense = Some(3),
+    defense = Some(2),
     canHurtNecromancer = false,
   )
 
@@ -509,27 +503,29 @@ object Units {
     name = "cerberus",
     shortDisplayName = "Cerberus",
     displayName = "Cerberus",
-    cost = 3,
-    rebate = 1,
+    cost = 6,
+    rebate = 4,
     moveRange = 3,
     attackRange = 1,
-    attackEffect = Some(Damage(1)),
-    defense = Some(2),
+    attackEffect = Some(Damage(2)),
+    defense = Some(3),
     swarmMax = 3,
-    abilities = List(MoveFirestorm)
+    abilities = List(MoveFirestorm),
+    isPersistent = true,
   )
 
   val wraith = createPieceStats(
     name = "wraith",
     cost = 6,
     rebate = 2,
-    moveRange = 3,
+    moveRange = 2,
     isFlying = true,
     isLumbering = true,
     attackRange = 2,
     attackEffect = Some(Damage(4)),
     defense = Some(8),
     isPersistent = true,
+    spawnRange = Some(1),
   )
 
   val horror = createPieceStats(
@@ -584,7 +580,7 @@ object Units {
   val shadowlord = createPieceStats(
     name = "shadowlord",
     shortDisplayName = "SLord",
-    cost = 10,
+    cost = 9,
     rebate = 5,
     moveRange = 2,
     isFlying = true,
@@ -605,8 +601,8 @@ object Units {
     battle_necromancer,
     zombie_necromancer,
     zombie, acolyte,
-    initiate, skeleton, serpent, bat, ghost, wight, haunt, shrieker,
-    specter, cultist, witch, vampire, mummy, lich, sorcerer, void, cerberus,
+    initiate, skeleton, serpent, warg, ghost, wight, haunt, shrieker,
+    spectre, rat, witch, vampire, mummy, lich, sorcerer, void, cerberus,
     wraith, horror, banshee, elemental, harpy, shadowlord
   )
 
@@ -635,13 +631,13 @@ object Units {
     initiate,
     skeleton,
     serpent,
-    bat,
+    warg,
     ghost,
     wight,
     haunt,
     shrieker,
-    specter,
-    cultist,
+    spectre,
+    rat,
     sorcerer,
     witch,
     vampire,
