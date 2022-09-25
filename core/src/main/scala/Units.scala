@@ -509,7 +509,6 @@ object Units {
     attackRange = 1,
     attackEffect = Some(Damage(2)),
     defense = Some(3),
-    swarmMax = 3,
     abilities = List(MoveFirestorm),
     isPersistent = true,
   )
