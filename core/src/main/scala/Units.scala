@@ -138,7 +138,7 @@ object Units {
     isPersistent = true,
     isNecromancer = true,
     extraSouls = 3,
-    extraMana = 1
+    extraMana = 10
   )
   val battle_necromancer = createPieceStats(
     name = "battle_necromancer",
@@ -149,7 +149,7 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    numAttacks = 4,
+    numAttacks = 3,
     defense = Some(10),
     spawnRange = Some(1),
     isPersistent = true,
@@ -211,7 +211,7 @@ object Units {
     cost = 0,
     rebate = 0,
     moveRange = 1,
-    attackRange = 3,
+    attackRange = 2,
     attackEffect = Some(Unsummon),
     defense = Some(10),
     spawnRange = Some(1),
@@ -274,7 +274,7 @@ object Units {
     isLumbering = true,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    defense = Some(2),
+    defense = Some(1),
   )
 
   val zombie_necromancer = createPieceStats(
@@ -352,7 +352,7 @@ object Units {
   val warg = createPieceStats(
     name = "warg",
     cost = 3,
-    rebate = 2,
+    rebate = 1,
     moveRange = 3,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
@@ -408,13 +408,12 @@ object Units {
 
   val spectre = createPieceStats(
     name = "spectre",
-    cost = 5,
-    rebate = 3,
+    cost = 4,
+    rebate = 2,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(5),
-    spawnRange = Some(1),
     isFlying = true,
   )
 
@@ -434,12 +433,13 @@ object Units {
     name = "sorcerer",
     cost = 4,
     rebate = 0,
-    moveRange = 1,
-    attackRange = 2,
+    moveRange = 2,
+    attackRange = 1,
     attackEffect = Some(Unsummon),
     defense = Some(3),
-    isPersistent = true,
+    numAttacks = 6,
     canBlink = true,
+    isFlying = true
   )
 
   val witch = createPieceStats(
@@ -466,8 +466,8 @@ object Units {
 
   val mummy = createPieceStats(
     name = "mummy",
-    cost = 5,
-    rebate = 2,
+    cost = 6,
+    rebate = 4,
     moveRange = 1,
     attackRange = 1,
     numAttacks = 6,
@@ -507,7 +507,8 @@ object Units {
     rebate = 4,
     moveRange = 3,
     attackRange = 1,
-    attackEffect = Some(Damage(2)),
+    attackEffect = Some(Damage(1)),
+    numAttacks = 2,
     defense = Some(3),
     abilities = List(MoveFirestorm),
     isPersistent = true,
@@ -516,12 +517,13 @@ object Units {
   val wraith = createPieceStats(
     name = "wraith",
     cost = 6,
-    rebate = 2,
+    rebate = 3,
     moveRange = 2,
     isFlying = true,
     isLumbering = true,
     attackRange = 2,
-    attackEffect = Some(Damage(4)),
+    attackEffect = Some(Damage(1)),
+    numAttacks = 3,
     defense = Some(8),
     isPersistent = true,
     spawnRange = Some(1),
@@ -534,19 +536,20 @@ object Units {
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    numAttacks = 8,
+    numAttacks = 10,
     defense = Some(6)
   )
 
   val banshee = createPieceStats(
     name = "banshee",
-    cost = 4,
-    rebate = 1,
+    cost = 5,
+    rebate = 2,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Kill),
     defense = Some(2),
     isPersistent = true,
+    canBlink = true,
     canHurtNecromancer = false
   )
 
@@ -579,8 +582,8 @@ object Units {
   val shadowlord = createPieceStats(
     name = "shadowlord",
     shortDisplayName = "SLord",
-    cost = 9,
-    rebate = 5,
+    cost = 8,
+    rebate = 3,
     moveRange = 2,
     isFlying = true,
     attackRange = 1,
@@ -595,7 +598,7 @@ object Units {
     arcane_necromancer,
     ranged_necromancer,
     mounted_necromancer,
-    immortal_necromancer,
+    mana_necromancer,
     deadly_necromancer,
     battle_necromancer,
     zombie_necromancer,
@@ -610,11 +613,11 @@ object Units {
     arcane_necromancer,
     ranged_necromancer,
     mounted_necromancer,
-    immortal_necromancer,
+    //immortal_necromancer,
     deadly_necromancer,
     battle_necromancer,
     zombie_necromancer,
-    //mana_necromancer,
+    mana_necromancer,
     //swarm_necromancer,
     //summoner_necromancer,
   )
