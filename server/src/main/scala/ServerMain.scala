@@ -178,7 +178,6 @@ object ServerMain extends App {
       case StartGame() =>
         state.refillUpcomingSpells()
         state.game.startGame()
-        state.broadcastAll(Protocol.ReportNewTurn(S0))
 
       case ResetTime() =>
         scheduleEndOfTurn(NewLimits)
@@ -246,14 +245,10 @@ object ServerMain extends App {
     Flow.fromSinkAndSource(in, out)
   }
 
-  def addAI(gameState: GameState, gameid: String, doTutorial: Boolean, aiNum: Int, sideNum: Int) = {
+  def addAI(gameState: GameState, gameid: String, doTutorial: Boolean) = {
     val (actorRef, pub) = Source.actorRef[Protocol.Query](128, OverflowStrategy.fail).toMat(Sink.asPublisher(false))(Keep.both).run()
     val source = Source.fromPublisher(pub)
-    var ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState, doTutorial, sideNum))
-    if (aiNum == 1) {
-      ai = actorSystem.actorOf(Props(classOf[AIActor2], actorRef, gameState, doTutorial, sideNum))
-    }
-    var side = Side.ofString(sideNum.toString)
+    val ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState, doTutorial))
 
     val sink: Sink[Message,_] = {
       Flow[Message].collect { message: Message =>
@@ -271,13 +266,12 @@ object ServerMain extends App {
             case (e: JsError) => Protocol.QueryError("Could not parse as query: " + JsError.toJson(e).toString())
           }
         }
-          .to(Sink.actorRef[Protocol.Response](ai, onCompleteMessage = Protocol.UserLeft("igor", Some(side))))
+          .to(Sink.actorRef[Protocol.Response](ai, onCompleteMessage = Protocol.UserLeft("igor", Some(S1))))
     }
 
 
-    val flow = websocketMessageFlow(gameid,"igor",Some(sideNum.toString))
+    val flow = websocketMessageFlow(gameid,"igor",Some("1"))
     source.map { query => TextMessage(Json.stringify(Json.toJson(query))) }.via(flow).to(sink).run()
-    gameState.broadcastAll(Protocol.ReportNewTurn(S0))
   }
 
 
@@ -385,10 +379,7 @@ object ServerMain extends App {
 
   <div class="buttons">
     <a href="/newGame" class="button">New Game</a>
-    <a href="/ai?aiNum=0&difficulty=10" class="button">Vs Igor (1v1)</a>
-    <a href="/ai?aiNum=1&difficulty=10" class="button">Vs Leslie (1v1)</a>
-    <a href="/ai?aiNum=0&difficulty=10&side=0" class="button">Igor Vs You (1v1)</a>
-    <a href="/ai?aiNum=0&difficulty=10&side=2" class="button">Leslie Vs Igor (1v1)</a>
+    <a href="/ai?difficulty=10" class="button">Vs AI (1v1)</a>
     <a href="/ai?difficulty=0&tutorial=true" class="button">Tutorial</a>
   </div>
       """
@@ -491,34 +482,23 @@ if(!username || username.length == 0) {
   path("ai") {
     parameter("tutorial" ? false) { doTutorial =>
       parameter("difficulty" ? 10) { difficulty =>
-        parameter("aiNum" ? 0) { aiNum =>
-          parameter("side" ? 1) {side =>
-            val secondsPerTurn = SideArray.create(10.0)
-            val startingSouls = SideArray.createTwo(0, 6)
-            var extraSoulsPerTurn = SideArray.createTwo(difficulty, difficulty) 
-            if (side == 1) extraSoulsPerTurn = SideArray.createTwo(0, difficulty)
-            else if (side == 0) extraSoulsPerTurn = SideArray.createTwo(difficulty, 0)
-            val targetWins = 1
-            val techSouls = 4
-            val maps_opt = None
-            val seed_opt = None
+        val secondsPerTurn = SideArray.create(120.0)
+        val startingSouls = SideArray.createTwo(0, 6)
+        val extraSoulsPerTurn = SideArray.createTwo(0, difficulty)
+        val targetWins = 1
+        val techSouls = 4
+        val maps_opt = None
+        val seed_opt = None
 
-            val gameid = chooseGameName("ai")
-            val gameState = GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
-            val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
-            games = games + (gameid -> ((gameActor, gameState)))
-            gameActor ! StartGame()
+        val gameid = chooseGameName("ai")
+        val gameState = GameState.createNormal(secondsPerTurn, startingSouls, extraSoulsPerTurn, targetWins, techSouls, maps_opt, seed_opt, None, false)
+        val gameActor = actorSystem.actorOf(Props(classOf[GameActor], gameState, gameid))
+        games = games + (gameid -> ((gameActor, gameState)))
+        gameActor ! StartGame()
 
-            if (side < 2) {
-              addAI(gameState, gameid, doTutorial, aiNum, side)
-              redirect(s"/play?game=$gameid&side=" + (1-side).toString, StatusCodes.SeeOther)
-            } else {
-              addAI(gameState, gameid, doTutorial, 0, 0)
-              addAI(gameState, gameid, doTutorial, 1, 1)
-              redirect(s"/play?game=$gameid&side=" + (0).toString, StatusCodes.SeeOther)
-            }
-          }
-        }
+        addAI(gameState, gameid, doTutorial)
+
+        redirect(s"/play?game=$gameid&side=0", StatusCodes.SeeOther)
       }
     }
   } ~
@@ -948,7 +928,7 @@ if(!username || username.length == 0) {
     val oldActor = actorSystem.actorOf(Props(classOf[GameActor], oldGameState, oldGameid))
     games = games + (oldGameid -> ((oldActor, oldGameState)))
     if(oldGameid.contains("ai")) {
-      addAI(oldGameState, oldGameid, false, 0, 1)
+      addAI(oldGameState, oldGameid, false)
     }
   }
 
@@ -969,7 +949,7 @@ if(!username || username.length == 0) {
 
   val (actorRef, pub) = Source.actorRef[Protocol.Query](128, OverflowStrategy.fail).toMat(Sink.asPublisher(false))(Keep.both).run()
   val source = Source.fromPublisher(pub)
-  val ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState, false, 1))
+  val ai = actorSystem.actorOf(Props(classOf[AIActor], actorRef, gameState, false))
 
   val sink: Sink[Message,_] = {
     Flow[Message].collect { message: Message =>
