@@ -5,6 +5,9 @@ import scala.util.{Try, Success, Failure}
 import minionsgame.core._
 import RichImplicits._
 
+import java.util.concurrent.TimeUnit
+import java.lang.Thread
+
 //A thing on the board that could possibly mouse-overed, clicked, on, selected, etc.
 sealed trait MouseTarget {
   def findPiece(board: BoardState): Option[Piece] = {
@@ -162,6 +165,8 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
   //Second mouseup -> double click effect happens
   var doubleClickState: Option[(MouseTarget,Double,Boolean)] = None
 
+  val keyboardShortcuts: Array[String] = Array("skeleton", "", "", "wight", "ghost", "shrieker", "bone rat", "witch", "lich", "mummy", "void", "wraith", "", "", "cerberus", "horror", "initiate", "haunt", "warg", "spectre", "vampire", "", "serpent", "", "sorcerer", "", "banshee", "elemental", "harpy", "shadowlord")
+
   private def clearPath() = {
     path = Nil
     pathMovements = Nil
@@ -187,6 +192,18 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
       case Some((prevTarget,prevTime,_)) =>
         if(curTarget == prevTarget && doubleClickTimeOkay(prevTime)) Some((curTarget,prevTime,true))
         else Some((curTarget,getNow(),false))
+    }
+    val side = game.curSide
+    var spawnName = ""
+    for (i <- 0 to 29) {
+      if (mouseState.client.letterHeld(i))
+        spawnName = keyboardShortcuts(i)
+    }
+    if (spawnName != "") {
+      mouseState.client.syncLocalAndServerBoards(mouseState.client.curBoardIdx)
+      if (!board.reinforcements(side).contains(spawnName))
+          mouseState.client.doActionOnCurBoard(DoGeneralBoardAction(BuyReinforcement(spawnName,free=false),makeActionId()))
+      mouseState.client.syncLocalAndServerBoards(mouseState.client.curBoardIdx)
     }
 
     clearPath()
@@ -602,6 +619,18 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
               case Spawner(_) =>
                 mouseState.client.doActionOnCurBoard(PlayerActions(List(ActivateTile(loc)),makeActionId()))
             }
+            var spawnName = ""
+            for (i <- 0 to 29) {
+              if (mouseState.client.letterHeld(i))
+                spawnName = keyboardShortcuts(i)
+            }
+            if (spawnName != "") {
+              mouseState.client.syncLocalAndServerBoards(mouseState.client.curBoardIdx)
+              curTarget.getLoc().foreach { curLoc =>
+                mouseState.client.doActionOnCurBoard(PlayerActions(List(Spawn(curLoc,spawnName)),makeActionId()))
+              }
+              mouseState.client.syncLocalAndServerBoards(mouseState.client.curBoardIdx)
+            }
           }
         }
 
@@ -618,6 +647,18 @@ case class NormalMouseMode(val mouseState: MouseState) extends MouseMode {
               case None => ()
               case Some(piece) =>
                 if(piece.side == game.curSide) {
+                  if (mouseState.client.shiftHeld) {
+                    val blink = {
+                      if(piece.curStats(board).canBlink) {
+                        Some(Blink(piece.spec, piece.loc))
+                      } else {
+                        None
+                      }
+                    }
+                    blink.toList.foreach { temp =>
+                      mouseState.client.doActionOnCurBoard(PlayerActions(List(temp),makeActionId()))
+                    }
+                  }
                   //Double-clicking on a piece activates its ability
                   if(didDoubleClick) {
                     val pieceStats = piece.curStats(board)
