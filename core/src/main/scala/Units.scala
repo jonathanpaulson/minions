@@ -296,8 +296,8 @@ object Units {
 
   val acolyte = createPieceStats(
     name = "acolyte",
-    cost = 5,
-    rebate = 3,
+    cost = 4,
+    rebate = 2,
     moveRange = 2,
     attackRange = 0,
     attackEffect = None,
@@ -326,6 +326,7 @@ object Units {
     attackEffect = Some(Damage(2)),
     defense = Some(3),
     spawnRange = Some(1),
+    abilities = List(MoveFlood)
   )
 
   val skeleton = createPieceStats(
@@ -335,7 +336,7 @@ object Units {
     moveRange = 1,
     isFlying = true,
     attackRange = 1,
-    attackEffect = Some(Damage(6)),
+    attackEffect = Some(Damage(5)),
     defense = Some(2),
   )
 
@@ -368,7 +369,6 @@ object Units {
     attackRange = 1,
     attackEffect = Some(Damage(1)),
     defense = Some(4),
-    abilities = List(MoveFlood)
   )
 
   val wight = createPieceStats(
