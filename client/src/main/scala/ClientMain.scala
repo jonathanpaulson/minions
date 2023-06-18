@@ -25,36 +25,6 @@ object ClientMain extends JSApp {
   }
 }
 
-/*object MainPageMain extends JSApp {
-  def main(): Unit = {
-    jQuery { () => new MainPageClient().init() }
-    ()
-  }
-}
-
-class MainPageClient() {
-  val username = {
-    val params = (new java.net.URI(window.location.href)).getQuery()
-    val fields = params.split("&").flatMap { piece =>
-      piece.split("=").toList match {
-        case Nil => None
-        case _ :: Nil => None
-        case k :: v :: Nil => Some((k,v))
-        case _ :: _ :: _ :: _ => None
-      }
-    }.toMap
-    fields("username")
-  }
-
-  def init(): Unit = {
-    ()
-  }
-
-  var messages: List[String] = Nil
-  var numMessagesSeen: Int = 0
-  var unread = false
-}*/
-
 class Client() {
   val (gameid: String, username: String, password: Option[String], ourSide: Option[Side], beeps: Array[Int]) = {
     val params = (new java.net.URI(window.location.href)).getQuery()
@@ -213,6 +183,10 @@ class Client() {
   //TODO Shift-click should allow performing swaps and triangle rotations of pieces?
   //Keyboard controls
   var showCoords: Boolean = true
+
+  var shiftHeld: Boolean = false
+
+  var letterHeld: Array[Boolean] = Array.fill(30)(false)
 
   val flipDisplay: Boolean = ourSide == Some(S1) //Flip so that 0,0 is in the lower right
 
@@ -571,7 +545,7 @@ class Client() {
   }
 
   def keydown(e : KeyboardEvent) : Unit = {
-    val _ = jQuery("#chat-input").focus()
+    //val _ = jQuery("#chat-input").focus()
 
     // Enter
     if(e.keyCode == 13) {
@@ -610,10 +584,57 @@ class Client() {
       setAllChat(!allChat)
       draw()
     }
+    // letters A-Z
+    else if (65 <= e.keyCode && e.keyCode <= 90) {
+      letterHeld(e.keyCode - 65) = true
+    }
+    // semicolon
+    else if (e.keyCode == 59) {
+      letterHeld(26) = true
+    }
+    // left bracket
+    else if (e.keyCode == 91) {
+      letterHeld(27) = true
+    }
+    // single quote
+    else if (e.keyCode == 222) {
+      letterHeld(28) = true
+    }
+    // right bracket
+    else if (e.keyCode == 93) {
+      letterHeld(29) = true
+    }
+    // shift
+    else if (e.keyCode == 16) {
+      shiftHeld = true
+    }
   }
 
   def keyup(e : KeyboardEvent) : Unit = {
-    val _ = e
+    //val _ = jQuery("#chat-input").focus()
+    // shift
+    if (e.keyCode == 16) {
+      shiftHeld = false
+    }
+    else if (65 <= e.keyCode && e.keyCode <= 90) {
+      letterHeld(e.keyCode - 65) = false
+    }
+    // semicolon
+    else if (e.keyCode == 59) {
+      letterHeld(26) = false
+    }
+    // left bracket
+    else if (e.keyCode == 91) {
+      letterHeld(27) = false
+    }
+    // single quote
+    else if (e.keyCode == 222) {
+      letterHeld(28) = false
+    }
+    // right bracket
+    else if (e.keyCode == 93) {
+      letterHeld(29) = false
+    }
   }
 
   def onBlur(e : Any) : Unit = {
