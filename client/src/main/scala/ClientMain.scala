@@ -589,11 +589,11 @@ class Client() {
       letterHeld(e.keyCode - 65) = true
     }
     // semicolon
-    else if (e.keyCode == 59) {
+    else if (e.keyCode == 186) {
       letterHeld(26) = true
     }
     // left bracket
-    else if (e.keyCode == 91) {
+    else if (e.keyCode == 219) {
       letterHeld(27) = true
     }
     // single quote
@@ -601,7 +601,7 @@ class Client() {
       letterHeld(28) = true
     }
     // right bracket
-    else if (e.keyCode == 93) {
+    else if (e.keyCode == 221) {
       letterHeld(29) = true
     }
     // shift
@@ -620,11 +620,11 @@ class Client() {
       letterHeld(e.keyCode - 65) = false
     }
     // semicolon
-    else if (e.keyCode == 59) {
+    else if (e.keyCode == 186) {
       letterHeld(26) = false
     }
     // left bracket
-    else if (e.keyCode == 91) {
+    else if (e.keyCode == 219) {
       letterHeld(27) = false
     }
     // single quote
@@ -632,7 +632,7 @@ class Client() {
       letterHeld(28) = false
     }
     // right bracket
-    else if (e.keyCode == 93) {
+    else if (e.keyCode == 221) {
       letterHeld(29) = false
     }
   }
