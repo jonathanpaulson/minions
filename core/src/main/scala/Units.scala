@@ -345,6 +345,7 @@ object Units {
     cost = 5,
     rebate = 3,
     moveRange = 2,
+    isFlying = true,
     attackRange = 1,
     attackEffect = Some(Damage(3)),
     defense = Some(1),
