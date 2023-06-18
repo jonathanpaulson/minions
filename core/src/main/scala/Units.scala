@@ -342,8 +342,8 @@ object Units {
 
   val serpent = createPieceStats(
     name = "serpent",
-    cost = 4,
-    rebate = 2,
+    cost = 5,
+    rebate = 3,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(3)),
@@ -408,8 +408,8 @@ object Units {
 
   val spectre = createPieceStats(
     name = "spectre",
-    cost = 4,
-    rebate = 2,
+    cost = 5,
+    rebate = 3,
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
