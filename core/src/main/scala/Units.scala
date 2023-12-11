@@ -195,7 +195,7 @@ object Units {
     rebate = 0,
     moveRange = 2,
     isFlying = true,
-    attackRange = 0,
+    attackRange = 1,
     attackEffect = Some(Unsummon),
     defense = Some(10),
     spawnRange = Some(1),
@@ -354,7 +354,7 @@ object Units {
   val warg = createPieceStats(
     name = "warg",
     cost = 3,
-    rebate = 1,
+    rebate = 2,
     moveRange = 3,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
@@ -379,7 +379,7 @@ object Units {
     moveRange = 0,
     attackRange = 2,
     attackEffect = Some(Damage(1)),
-    numAttacks = 5,
+    numAttacks = 8,
     defense = Some(3),
     canBlink = true,
   )
@@ -387,10 +387,11 @@ object Units {
   val haunt = createPieceStats(
     name = "haunt",
     cost = 5,
-    rebate = 1,
+    rebate = 2,
     moveRange = 0,
     attackRange = 3,
-    attackEffect = Some(Damage(2)),
+    attackEffect = Some(Damage(1)),
+    numAttacks = 2,
     isPersistent = true,
     defense = Some(2),
     canBlink = true,
@@ -414,14 +415,14 @@ object Units {
     moveRange = 2,
     attackRange = 1,
     attackEffect = Some(Damage(1)),
-    defense = Some(5),
+    defense = Some(8),
     isFlying = true,
   )
 
   val rat = createPieceStats(
     name = "bone rat",
-    cost = 2,
-    rebate = 1,
+    cost = 3,
+    rebate = 2,
     moveRange = 1,
     attackRange = 1,
     attackEffect = Some(Kill),
@@ -432,25 +433,49 @@ object Units {
 
   val sorcerer = createPieceStats(
     name = "sorcerer",
-    cost = 4,
-    rebate = 0,
-    moveRange = 2,
-    attackRange = 1,
+    cost = 6,
+    rebate = 4,
+    moveRange = 1,
+    attackRange = 2,
     attackEffect = Some(Unsummon),
     defense = Some(3),
-    numAttacks = 6,
+    numAttacks = 2,
     canBlink = true,
     isFlying = true
   )
 
-  val witch = createPieceStats(
-    name = "witch",
+  val monowitch = createPieceStats(
+    name = "monowitch",
     cost = 3,
-    rebate = 0,
+    rebate = 1,
     moveRange = 1,
     attackRange = 3,
     attackEffect = Some(Damage(1)),
     defense = Some(1),
+  )
+
+  val diwitch = createPieceStats(
+    name = "diwitch",
+    cost = 6,
+    rebate = 1,
+    moveRange = 1,
+    attackRange = 3,
+    attackEffect = Some(Damage(1)),
+    numAttacks = 2,
+    defense = Some(1),
+    deathSpawn = Some(monowitch.name)
+  )
+
+  val witch = createPieceStats(
+    name = "witch",
+    cost = 9,
+    rebate = 1,
+    moveRange = 1,
+    attackRange = 3,
+    attackEffect = Some(Damage(1)),
+    numAttacks = 3,
+    defense = Some(1),
+    deathSpawn = Some(diwitch.name)
   )
 
   val vampire = createPieceStats(
@@ -468,7 +493,7 @@ object Units {
   val mummy = createPieceStats(
     name = "mummy",
     cost = 6,
-    rebate = 4,
+    rebate = 3,
     moveRange = 1,
     attackRange = 1,
     numAttacks = 6,
@@ -550,7 +575,7 @@ object Units {
     attackEffect = Some(Kill),
     defense = Some(2),
     isPersistent = true,
-    canBlink = true,
+    numAttacks = 2,
     canHurtNecromancer = false
   )
 
@@ -606,7 +631,8 @@ object Units {
     zombie, acolyte,
     initiate, skeleton, serpent, warg, ghost, wight, haunt, shrieker,
     spectre, rat, witch, vampire, mummy, lich, sorcerer, void, cerberus,
-    wraith, horror, banshee, elemental, harpy, shadowlord
+    wraith, horror, banshee, elemental, harpy, shadowlord,
+    diwitch, monowitch
   )
 
   //Necromancers awarded after a board resets
