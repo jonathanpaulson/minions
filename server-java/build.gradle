@@ -1,0 +1,70 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+repositories {
+    mavenCentral()
+}
+
+def ivyCache = "${System.getProperty('user.home')}/.ivy2/cache"
+
+// Scala core classes compiled by sbt
+def scalaClassesDir = file("${rootProject.projectDir}/../server/target/scala-2.12/classes")
+
+dependencies {
+    // Scala standard library + reflect
+    implementation files("${ivyCache}/org.scala-lang/scala-library/jars/scala-library-2.12.2.jar")
+    implementation files("${ivyCache}/org.scala-lang/scala-reflect/jars/scala-reflect-2.12.2.jar")
+
+    // Compiled Scala core + server classes (for core types)
+    implementation files(scalaClassesDir)
+
+    // Play JSON + transitive deps (needed for Protocol serialization format used by core)
+    implementation files("${ivyCache}/com.typesafe.play/play-json_2.12/jars/play-json_2.12-2.6.3.jar")
+    implementation files("${ivyCache}/com.typesafe.play/play-functional_2.12/jars/play-functional_2.12-2.6.3.jar")
+
+    // Joda-Time (required by Play JSON)
+    implementation files("${ivyCache}/joda-time/joda-time/jars/joda-time-2.9.9.jar")
+
+    // Jackson (required by Play JSON 2.6 - uses 2.8.x internally)
+    implementation files("${ivyCache}/com.fasterxml.jackson.core/jackson-core/bundles/jackson-core-2.8.9.jar")
+    implementation files("${ivyCache}/com.fasterxml.jackson.core/jackson-databind/bundles/jackson-databind-2.8.9.jar")
+    implementation files("${ivyCache}/com.fasterxml.jackson.core/jackson-annotations/bundles/jackson-annotations-2.8.9.jar")
+    implementation files("${ivyCache}/com.fasterxml.jackson.datatype/jackson-datatype-jdk8/bundles/jackson-datatype-jdk8-2.8.9.jar")
+    implementation files("${ivyCache}/com.fasterxml.jackson.datatype/jackson-datatype-jsr310/bundles/jackson-datatype-jsr310-2.8.9.jar")
+
+    // Scala modules (required by akka-actor and play-json)
+    implementation files("${ivyCache}/org.scala-lang.modules/scala-java8-compat_2.12/bundles/scala-java8-compat_2.12-0.8.0.jar")
+    implementation files("${ivyCache}/org.scala-lang.modules/scala-parser-combinators_2.12/bundles/scala-parser-combinators_2.12-1.0.4.jar")
+
+    // Typesafe Config
+    implementation files("${ivyCache}/com.typesafe/config/bundles/config-1.3.0.jar")
+
+    // Akka Actor (needed for some core type references)
+    implementation files("${ivyCache}/com.typesafe.akka/akka-actor_2.12/jars/akka-actor_2.12-2.4.19.jar")
+
+    // Javalin for HTTP server (4.x for Java 8 compatibility)
+    implementation 'io.javalin:javalin:4.6.8'
+
+    // SLF4J (required by Javalin)
+    implementation 'org.slf4j:slf4j-simple:2.0.9'
+}
+
+application {
+    mainClass = 'minionsgame.server.ServerMain'
+}
+
+// Run from the parent directory where application.conf and web/ live
+tasks.named('run') {
+    workingDir = rootProject.projectDir.parentFile
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'minionsgame.server.ServerMain'
+    }
+}
