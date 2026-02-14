@@ -137,7 +137,15 @@ public class ServerMain {
         }
 
         void submit(Runnable event) {
-            executor.submit(event);
+            executor.submit(() -> {
+                try {
+                    event.run();
+                } catch (Throwable e) {
+                    System.err.println("Exception in GameManager executor:");
+                    e.printStackTrace();
+                    System.err.flush();
+                }
+            });
         }
 
         private void updateTime() {

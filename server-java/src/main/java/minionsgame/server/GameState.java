@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import com.typesafe.config.Config;
@@ -99,7 +100,8 @@ public class GameState {
   private final SideArray<Object> spellsRemaining; // SideArray[List[String]] (Scala List)
   private int nextSpellId;
   private scala.collection.immutable.Map<Object, String> spellMap; // Map[Int, SpellName]
-  private final SideArray<Object> revealedSpellIds; // SideArray[Set[Int]] (Scala Set)
+  @SuppressWarnings("unchecked")
+  private final Set<Integer>[] revealedSpellIds = new HashSet[]{new HashSet<Integer>(), new HashSet<Integer>()}; // per side
   private final ExternalInfo externalInfo;
   private final Board[] boards;
   private final String[] boardNames;
@@ -152,7 +154,6 @@ public class GameState {
       SideArray<Object> spellsRemaining,
       int nextSpellId,
       scala.collection.immutable.Map<Object, String> spellMap,
-      SideArray<Object> revealedSpellIds,
       ExternalInfo externalInfo,
       Board[] boards,
       String[] boardNames,
@@ -171,7 +172,6 @@ public class GameState {
     this.spellsRemaining = spellsRemaining;
     this.nextSpellId = nextSpellId;
     this.spellMap = spellMap;
-    this.revealedSpellIds = revealedSpellIds;
     this.externalInfo = externalInfo;
     this.boards = boards;
     this.boardNames = boardNames;
@@ -196,6 +196,7 @@ public class GameState {
   // ---------- Side helpers ----------
   private static Side S0() { return S0$.MODULE$; }
   private static Side S1() { return S1$.MODULE$; }
+  private static int sideIdx(Side side) { return side.equals(S0()) ? 0 : 1; }
 
   // ---------- Scala List helpers ----------
   @SuppressWarnings("unchecked")
@@ -384,8 +385,7 @@ public class GameState {
 
   @SuppressWarnings("unchecked")
   private void revealSpellsToSide(Side side, int[] spellIds, boolean revealToSpectators) {
-    scala.collection.immutable.Set<Object> revealed =
-        (scala.collection.immutable.Set<Object>) revealedSpellIds.apply(side);
+    Set<Integer> revealed = revealedSpellIds[sideIdx(side)];
 
     List<Tuple2<Object, String>> spellIdsAndNamesList = new ArrayList<>();
     for (int spellId : spellIds) {
@@ -400,9 +400,8 @@ public class GameState {
     Tuple2<Object, String>[] spellIdsAndNames = spellIdsAndNamesList.toArray(new Tuple2[0]);
 
     for (Tuple2<Object, String> pair : spellIdsAndNames) {
-      revealed = (scala.collection.immutable.Set<Object>) revealed.$plus(pair._1());
+      revealed.add((Integer) pair._1());
     }
-    revealedSpellIds.update(side, (Object) revealed);
 
     externalInfo.revealSpells(spellIdsAndNames);
     broadcastToSide(new Protocol.ReportRevealSpells(spellIdsAndNames), side);
@@ -425,6 +424,7 @@ public class GameState {
       scala.collection.immutable.Vector<Object> upcomingForSide =
           (scala.collection.immutable.Vector<Object>) game.upcomingSpells().apply(side);
       int numSpellsToAdd = numBoards + 1 + extraSpellsRevealed - upcomingForSide.length();
+      //Log.log("refillUpcomingSpells side=" + side + " upcomingLen=" + upcomingForSide.length() + " numSpellsToAdd=" + numSpellsToAdd);
 
       for (int i = 0; i < numSpellsToAdd; i++) {
         scala.collection.immutable.List<String> remaining =
@@ -453,9 +453,7 @@ public class GameState {
         newSpellIdsArray[i] = newUpcomingSpells.get(i);
       }
       revealSpellsToSide(side, newSpellIdsArray);
-
-      GameAction gameAction = new AddUpcomingSpells(side, newSpellIdsArray);
-      performAndBroadcastGameActionIfLegal(gameAction);
+      performAndBroadcastGameActionIfLegal(new AddUpcomingSpells(side, newSpellIdsArray));
     }
   }
 
@@ -864,7 +862,6 @@ public class GameState {
       // No special handling needed
     } else if (gameAction instanceof BuyExtraTechAndSpell) {
       refillUpcomingSpells();
-      // Success
     } else if (gameAction instanceof UnbuyExtraTechAndSpell) {
       // No special handling needed
     } else if (gameAction instanceof ResignBoard) {
@@ -930,29 +927,26 @@ public class GameState {
     out.accept(new Protocol.ClientHeartbeatRate(clientHeartbeatPeriodInSeconds));
 
     // Determine which spells to reveal based on side
-    scala.collection.immutable.Set<Object> spellIds;
+    Set<Integer> spellIds;
     if (side.isEmpty()) {
-      scala.collection.immutable.Set<Object> s0Revealed =
-          (scala.collection.immutable.Set<Object>) revealedSpellIds.apply(S0());
-      scala.collection.immutable.Set<Object> s1Revealed =
-          (scala.collection.immutable.Set<Object>) revealedSpellIds.apply(S1());
-      spellIds = (scala.collection.immutable.Set<Object>) s0Revealed.intersect(s1Revealed);
+      // Spectator: reveal intersection of both sides
+      Set<Integer> intersection = new HashSet<>(revealedSpellIds[0]);
+      intersection.retainAll(revealedSpellIds[1]);
+      spellIds = intersection;
     } else {
-      spellIds = (scala.collection.immutable.Set<Object>) revealedSpellIds.apply(side.get());
+      spellIds = revealedSpellIds[sideIdx(side.get())];
     }
 
     // Convert spellIds to array of (SpellId, SpellName)
     List<Tuple2<Object, String>> spellIdsAndNamesList = new ArrayList<>();
-    scala.collection.Iterator<Object> idIter = spellIds.iterator();
-    while (idIter.hasNext()) {
-      Object spellIdObj = idIter.next();
-      int spellId = (Integer) spellIdObj;
+    for (Integer spellId : spellIds) {
       Option<String> nameOpt = spellMap.get(spellId);
       if (nameOpt.isDefined()) {
-        spellIdsAndNamesList.add(new Tuple2<>(spellIdObj, nameOpt.get()));
+        spellIdsAndNamesList.add(new Tuple2<>((Object) spellId, nameOpt.get()));
       }
     }
     Tuple2<Object, String>[] spellIdsAndNames = spellIdsAndNamesList.toArray(new Tuple2[0]);
+    //Log.log("handleUserJoined spellIdsAndNames.length=" + spellIdsAndNames.length + " spellMapSize=" + spellMap.size() + " revealedSize=" + revealedSpellIds[0].size());
 
     // Build board summaries
     BoardSummary[] summaries = new BoardSummary[boards.length];
@@ -1284,10 +1278,6 @@ public class GameState {
     SideArray<Object> spellsRemainingArr = SideArray$.MODULE$.create(
         (Object) scalaListNil(), objectTag);
 
-    ClassTag<Object> setTag = (ClassTag<Object>) (Object) ClassTag$.MODULE$.apply(scala.collection.immutable.Set.class);
-    SideArray<Object> revealedSpellIdsArr = SideArray$.MODULE$.create(
-        (Object) scala.collection.immutable.Set$.MODULE$.empty(), objectTag);
-
     return new GameState(
         password,
         secondsPerTurn,
@@ -1302,7 +1292,6 @@ public class GameState {
         spellsRemainingArr,
         0,                    // nextSpellId
         (scala.collection.immutable.Map<Object, String>) (Object) scala.collection.immutable.Map$.MODULE$.empty(),
-        revealedSpellIdsArr,
         externalInfo,
         boards,
         boardNames,

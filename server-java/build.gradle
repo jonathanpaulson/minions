@@ -12,16 +12,25 @@ repositories {
 
 def ivyCache = "${System.getProperty('user.home')}/.ivy2/cache"
 
-// Scala core classes compiled by sbt
+// Scala core classes compiled by sbt - exclude minionsgame/server/ to avoid conflicts with our Java sources
 def scalaClassesDir = file("${rootProject.projectDir}/../server/target/scala-2.12/classes")
+
+// Create a filtered copy of only the core classes (exclude Scala server classes)
+def filteredScalaClasses = file("${buildDir}/filtered-scala-classes")
+tasks.register('filterScalaClasses', Copy) {
+    from scalaClassesDir
+    into filteredScalaClasses
+    exclude 'minionsgame/server/**'
+}
+tasks.named('compileJava') { dependsOn 'filterScalaClasses' }
 
 dependencies {
     // Scala standard library + reflect
     implementation files("${ivyCache}/org.scala-lang/scala-library/jars/scala-library-2.12.2.jar")
     implementation files("${ivyCache}/org.scala-lang/scala-reflect/jars/scala-reflect-2.12.2.jar")
 
-    // Compiled Scala core + server classes (for core types)
-    implementation files(scalaClassesDir)
+    // Compiled Scala core classes only (server classes excluded to avoid conflicts)
+    implementation files(filteredScalaClasses)
 
     // Play JSON + transitive deps (needed for Protocol serialization format used by core)
     implementation files("${ivyCache}/com.typesafe.play/play-json_2.12/jars/play-json_2.12-2.6.3.jar")
